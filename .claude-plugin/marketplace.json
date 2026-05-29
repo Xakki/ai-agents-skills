@@ -1,0 +1,15 @@
+{
+  "name": "ai-agents-skills",
+  "description": "Kanban workflow skills for Claude Code: a board manager and an autonomous timed task runner.",
+  "owner": {
+    "name": "Xakki",
+    "url": "https://github.com/Xakki"
+  },
+  "plugins": [
+    {
+      "name": "ai-agents-skills",
+      "source": "./",
+      "description": "Kanban task management + autonomous timed runs of kanban cards for Claude Code."
+    }
+  ]
+}

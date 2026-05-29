@@ -1,0 +1,17 @@
+{
+  "name": "ai-agents-skills",
+  "description": "Kanban task management + autonomous timed runs of kanban cards for Claude Code. Two skills: kanban (manage a .claude/kanban board) and schedule-tasks (auto-pilot todo cards via `at`/tmux).",
+  "author": {
+    "name": "Xakki"
+  },
+  "license": "MIT",
+  "keywords": [
+    "kanban",
+    "tasks",
+    "automation",
+    "scheduler",
+    "claude-code",
+    "skills"
+  ],
+  "repository": "https://github.com/Xakki/ai-agents-skills"
+}
