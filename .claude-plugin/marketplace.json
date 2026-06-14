@@ -1,6 +1,6 @@
 {
   "name": "ai-agents-skills",
-  "description": "Skills + hooks for Claude Code: kanban board, autonomous timed task runner, and Telegram notifications.",
+  "description": "Skills + hooks for Claude Code: kanban board, autonomous timed task runner, Telegram notifications, and utilities (git-move, setup-claude, fluent-logging).",
   "owner": {
     "name": "Xakki",
     "url": "https://github.com/Xakki"
@@ -9,7 +9,7 @@
     {
       "name": "ai-agents-skills",
       "source": "./",
-      "description": "Kanban task management, autonomous timed runs of kanban cards, and Telegram notifications (tg-notify skill + hooks) for Claude Code."
+      "description": "Kanban task management, autonomous timed runs of kanban cards, Telegram notifications (tg-notify skill + hooks), and utility skills (git-move, setup-claude, fluent-logging) for Claude Code."
     }
   ]
 }

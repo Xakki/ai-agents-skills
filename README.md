@@ -1,14 +1,19 @@
 # ai-agents-skills
 
-A [Claude Code](https://code.claude.com/docs/en/plugins) plugin that bundles
-skills for a lightweight kanban workflow — driving it autonomously on a timer —
-and Telegram notifications.
+A [Claude Code](https://code.claude.com/docs/en/plugins) plugin that bundles a
+set of skills (and hooks) for running Claude Code productively: a kanban
+workflow, an autonomous timed task runner, Telegram notifications, and a few
+utilities.
 
 | Skill | What it does |
 |-------|--------------|
 | **kanban** | Manage a `.claude/kanban/` board in your project: create, start, review, and complete task cards across `grooming → todo → progress → test → ready → done`. |
 | **schedule-tasks** | Schedule autonomous `claude` runs of `todo/` cards via `at`/tmux. Each card opens in its own byobu window and self-chains the next card on success. |
 | **tg-notify** | Send a Telegram notification with a short report to a **DM, group, or channel** (configurable). Ships hooks that also auto-notify on long task completion and on permission/idle prompts. |
+| **tg-notify-timers** | View/tune the tg-notify hook timers (thresholds, delays, debounce) via `TG_NOTIFY_*` env vars in `settings.json`. |
+| **git-move** | Move/rename/delete files while preserving git tracking (`git mv`/`git rm` when tracked, else plain `mv`/`rm`). |
+| **setup-claude** | Stack-agnostic template to set up Claude Code in any repo: `CLAUDE.md`, sub-agents, skills, `.mcp.json`, `settings.json`, `Makefile`. Token-economy focused. |
+| **fluent-logging** | Cross-project structured-logging standard: containers emit JSON to stdout → fluent-bit → Graylog (GELF), via [`xakki/fluent-log`](https://github.com/Xakki/FluentLog). |
 
 ## Install
 
@@ -45,7 +50,11 @@ claude plugin validate /home/xakki/ai-agents-skills
 ├── skills/
 │   ├── kanban/
 │   ├── schedule-tasks/
-│   └── tg-notify/         # SKILL.md + tg-notify.sh + runtime/context helpers + .env.example
+│   ├── tg-notify/         # SKILL.md + tg-notify.sh + runtime/context helpers + .env.example
+│   ├── tg-notify-timers/
+│   ├── git-move/
+│   ├── setup-claude/
+│   └── fluent-logging/
 └── scripts/               # runners used by schedule-tasks (run from the plugin cache)
 ```
 
