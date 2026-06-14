@@ -1,6 +1,6 @@
 {
   "name": "ai-agents-skills",
-  "description": "Kanban task management + autonomous timed runs of kanban cards for Claude Code. Two skills: kanban (manage a .claude/kanban board) and schedule-tasks (auto-pilot todo cards via `at`/tmux).",
+  "description": "Skills + hooks for Claude Code: kanban (manage a .claude/kanban board), schedule-tasks (auto-pilot todo cards via `at`/tmux), and tg-notify (Telegram notifications to a DM/group/channel, plus auto task-finished & needs-attention hooks).",
   "author": {
     "name": "Xakki"
   },
@@ -10,6 +10,9 @@
     "tasks",
     "automation",
     "scheduler",
+    "telegram",
+    "notifications",
+    "hooks",
     "claude-code",
     "skills"
   ],
