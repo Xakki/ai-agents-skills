@@ -15,6 +15,8 @@ utilities.
 | **git-move** | Move/rename/delete files while preserving git tracking (`git mv`/`git rm` when tracked, else plain `mv`/`rm`). |
 | **setup-claude** | Stack-agnostic template to set up Claude Code in any repo: `CLAUDE.md`, sub-agents, skills, `.mcp.json`, `settings.json`, `Makefile`. Token-economy focused. |
 | **new-project-docker** | Scaffold any new project Dockerized from day one: `Dockerfile` + `docker-compose.yml` + `Makefile` + fluent-logging wiring. Templates in `templates.md`. |
+| **qa-check** | Quality gate before marking a task done: scopes by `git diff`, runs the project's lint/type/test targets via `make`, reports Pass/Fail. Bans the usual "make it pass" anti-patterns; asks for the target mapping on first use. |
+| **prepare-pr** | Get a branch ready for review: sanity-check the diff, delegate the gate to `qa-check`, draft a PR description from commits. Draft-only by default (no auto-push/PR), secret-leak guard, no commit trailers. |
 | **fluent-logging** | Cross-project structured-logging standard: containers emit JSON to stdout → fluent-bit → Graylog (GELF), via [`xakki/fluent-log`](https://github.com/Xakki/FluentLog). |
 
 ## Agents
@@ -22,9 +24,10 @@ utilities.
 | Agent | What it does |
 |-------|--------------|
 | **log-investigator** | Read-only incident triage. Pulls container logs (Portainer), app logs (Graylog), and metrics (Grafana/Prometheus) and returns a focused UTC timeline + likely root cause — not a raw log dump. `model: sonnet`, mutations denied. On first use in a project it **asks** for the service/tag/endpoint context and offers to save it to your `.claude/`. |
+| **db-schema** | Read-only DB schema introspection. Returns concise `table → columns → PK → indexes → FKs` summaries from the live DB, migrations, or config — always naming the source. `model: sonnet`, mutations/migrations denied. Asks for ORM/stack/paths on first use. |
 
 Agents are auto-discovered from `agents/` (no manifest entry needed) and addressable
-as `ai-agents-skills:log-investigator`.
+as `ai-agents-skills:<name>` (e.g. `ai-agents-skills:log-investigator`).
 
 ## Install
 
