@@ -68,7 +68,7 @@ set it so they go to the right place.
 ## Report structure
 
 Title (≤70 chars, action-oriented): `<server/repo/project>: <что сделано>`
-- completion e.g. `saFin: byobu+ttyd для coder/oleg`
+- completion e.g. `<service>: <короткое что сделано>`
 - task e.g. `dev.sa: pagespeed CWV — fix CLS=0.39, fonts preload`
 
 Body (concise mode):
