@@ -114,21 +114,30 @@ breaks it).
 
 ## How to invoke
 
-Resolve the destination from env, then call the sender. The snippet sources the
-`tg-notify` creds file (for the bot token); the `TELEGRAM_NOTIFY_*` values may
-come from there or from `settings.json` env.
+Resolve the destination from env, then call the sender. **Process env wins**:
+capture `TELEGRAM_NOTIFY_*` *before* sourcing the creds file, so values from
+`~/.claude/settings.json` (`env` block) are not clobbered by empty keys in the
+`.env`. The creds file is sourced only for the bot token and as a fallback.
 
 ```bash
 TG="${CLAUDE_PLUGIN_ROOT}/skills/tg-notify/tg-notify.sh"
 ENV_FILE="${TG_NOTIFY_ENV:-${XDG_CONFIG_HOME:-$HOME/.config}/tg-notify/.env}"
-[ -f "$ENV_FILE" ] && { set -a; . "$ENV_FILE"; set +a; }
 
+# 1) capture from process env (settings.json) FIRST
 CHAT="${TELEGRAM_NOTIFY_CHAT_ID:-}"                       # report group (NOT TELEGRAM_CHAT_ID)
 THREAD="${TELEGRAM_NOTIFY_COMPLETION_THREAD:-}"           # completion report
 # THREAD="${TELEGRAM_NOTIFY_TASK_THREAD:-}"               # task report
 
-# If CHAT (or, for a topic group, THREAD) is empty → ASK the user, don't send blind.
+# 2) source the creds file (bot token + any unset values) — does NOT override captured vars
+[ -f "$ENV_FILE" ] && { set -a; . "$ENV_FILE"; set +a; }
+CHAT="${CHAT:-${TELEGRAM_NOTIFY_CHAT_ID:-}}"
+THREAD="${THREAD:-${TELEGRAM_NOTIFY_COMPLETION_THREAD:-}}"          # completion
+# THREAD="${THREAD:-${TELEGRAM_NOTIFY_TASK_THREAD:-}}"             # task
+
+# If CHAT is empty → ASK the user, don't send blind.
 [ -z "$CHAT" ] && { echo "TELEGRAM_NOTIFY_CHAT_ID unset — ask the user"; exit 1; }
+# If the destination is a TOPIC group and THREAD is empty → also ask (else it lands
+# in General). For a plain (non-topic) group, an empty THREAD is fine — skip the -T.
 
 ARGS=(-s ok -p plain -c "$CHAT")
 [ -n "$THREAD" ] && ARGS+=(-T "$THREAD")
