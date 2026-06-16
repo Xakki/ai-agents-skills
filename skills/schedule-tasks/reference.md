@@ -29,9 +29,9 @@ project-specific constants to edit.**
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # plugin cache scripts/
 TASK_FILE="$1"                                               # <repo>/.claude/kanban/<stage>/x.md
 PROJECT_DIR="$(cd "$(dirname "$TASK_FILE")/../../.." && pwd)" # absolute repo root
-PROJECT_NAME="$(basename "$PROJECT_DIR")"                     # e.g. unidoski
+PROJECT_NAME="$(basename "$PROJECT_DIR")"                     # e.g. myproject
 CLAUDE_PROJECT_PATH="$(printf '%s' "$PROJECT_DIR" | tr '/' '-')"
-                                                             # e.g. -home-xakki-unidoski
+                                                             # e.g. -home-user-myproject
 ```
 
 `CLAUDE_PROJECT_PATH` is Claude Code's on-disk encoding of an absolute project
