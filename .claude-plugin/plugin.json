@@ -1,6 +1,6 @@
 {
   "name": "ai-agents-skills",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Skills + hooks for Claude Code: kanban (manage a .claude/kanban board), schedule-tasks (auto-pilot todo cards via `at`/tmux), tg-notify (Telegram notifications to a DM/group/channel, plus auto task-finished & needs-attention hooks) and tg-notify-timers, tg-report (completion/task reports to configurable topics), git-move (git-aware file ops), setup-claude (repo bootstrap template), new-project-docker (Dockerized project scaffold), fluent-logging (structured-logging standard).",
   "author": {
     "name": "Xakki"

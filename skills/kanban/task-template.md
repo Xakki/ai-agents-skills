@@ -19,8 +19,7 @@ Proposed solution approach.
 
 **Acceptance Criteria:**
 - Measurable conditions for completion
-- Backend: `make test-unit`, `make test-functional`, `make test-console`, `make qa-psalm`
-- Frontend: `make e2e`
+- Tests/QA green: <тест- и QA-команды проекта — см. project CLAUDE.md>
 
 **Open questions:** *(only for `grooming/` cards — fold each resolution into **Decisions:** below, then remove this section before moving to `todo/`)*
 - e.g. which library to use for X

@@ -103,6 +103,37 @@ never to silently pick an answer.
 - Update task file with progress, decisions, roadblocks.
 - Grooming a card → see **1a** (consult the user, don't decide silently).
 
+## Git commits per transition
+
+For **manual / orchestrated** work, every stage transition is its own git commit,
+made by the **orchestrator** (the main thread) — never by a sub-agent. A sub-agent
+does the *work* of its stage but **does not move the card**; the orchestrator
+performs the move and the commit.
+
+- **Move with `git mv`** when the card is tracked (else plain `mv`) — the
+  [`git-move`](../git-move/SKILL.md) convention.
+- **Atomicity — two commits, not one:** first commit the *move* (`git mv` only),
+  then commit any *content* edits to the card separately. Move first, content
+  after.
+
+Commit subjects (`<ID>` = card name/slug):
+
+| Transition | Subject |
+|---|---|
+| grooming → todo | `task: groom <ID> (grooming→todo)` |
+| todo → progress | `task: start <ID> (todo→progress)` |
+| progress → test | `task: review <ID> (progress→test)` |
+| test → ready | `task: ready <ID> (test→ready)` |
+| ready → done | `task: done <ID> (ready→done)` *(user-approved)* |
+| test → progress (rework) | `task: rework <ID> (test→progress)` |
+| done → progress (reopen) | `task: reopen <ID> (done→progress)` |
+
+> **Autonomous runs keep their own collapse contract.** This per-transition rule
+> is for manual/orchestrated work. The `schedule-tasks` autonomous run still
+> collapses `progress → test → ready` into a single review commit (see the note
+> under **Stages** and `schedule-tasks/lifecycle.md`) — do not impose
+> per-transition commits on it.
+
 ## Stop Conditions
 
 - Do NOT skip planning phase.
@@ -111,3 +142,5 @@ never to silently pick an answer.
 - Do NOT silently resolve a `grooming/` card's open questions — ask the user,
   record the answer in `**Decisions:**`, then move to `todo/`.
 - Do NOT move to `ready/` while review/tests are red.
+- A sub-agent does NOT move its own card between stages — it does the work and
+  reports; the orchestrator performs the `git mv` and the transition commit.
