@@ -11,7 +11,7 @@ utilities.
 | **schedule-tasks** | Schedule autonomous `claude` runs of `todo/` cards via `at`/tmux. Each card opens in its own byobu window and self-chains the next card on success. |
 | **tg-notify** | Send a Telegram notification with a short report to a **DM, group, or channel** (configurable). Ships hooks that also auto-notify on long task completion and on permission/idle prompts. |
 | **tg-notify-timers** | View/tune the tg-notify hook timers (thresholds, delays, debounce) via `TG_NOTIFY_*` env vars in `settings.json`. |
-| **tg-report** | Send a structured **completion** or **task** report to a configurable Telegram topic (concise/full modes). Routes by keyword; topics come from env (`TG_REPORT_*`), nothing hardcoded. |
+| **tg-report** | Send a structured **completion** or **task** report to a Telegram **notify group** topic (concise/full modes). Routes by keyword; destination/topics from `TELEGRAM_NOTIFY_*` env (separate from the DM hooks); asks if a value is unset — nothing hardcoded. |
 | **git-move** | Move/rename/delete files while preserving git tracking (`git mv`/`git rm` when tracked, else plain `mv`/`rm`). |
 | **setup-claude** | Stack-agnostic template to set up Claude Code in any repo: `CLAUDE.md`, sub-agents, skills, `.mcp.json`, `settings.json`, `Makefile`. Token-economy focused. |
 | **new-project-docker** | Scaffold any new project Dockerized from day one: `Dockerfile` + `docker-compose.yml` + `Makefile` + fluent-logging wiring. Templates in `templates.md`. |
@@ -111,6 +111,25 @@ committed. Configure once, then both the manual sender and the hooks use it.
    | Private chat (DM) | numeric user id, e.g. `123456789` | start a chat with the bot first |
    | Group / supergroup | negative id, e.g. `-1001234567890` | add the bot to the group; set `TELEGRAM_THREAD_ID` for a forum topic |
    | Channel | `-100…` id or `@username` | add the bot as an **admin** |
+
+#### Two destinations: DM hooks vs. report group
+
+`tg-notify` (and its hooks) use **`TELEGRAM_CHAT_ID`** — typically your **DM**, so
+"task finished / needs attention" pings reach you privately. The **`tg-report`**
+skill sends explicit, on-request reports to a separate **`TELEGRAM_NOTIFY_*`**
+destination — a **group with topics**:
+
+| Var | Purpose |
+|---|---|
+| `TELEGRAM_NOTIFY_CHAT_ID` | Report group/supergroup id (e.g. `-100…`). |
+| `TELEGRAM_NOTIFY_COMPLETION_THREAD` | Forum topic for completion reports. |
+| `TELEGRAM_NOTIFY_TASK_THREAD` | Forum topic for task reports. |
+
+Keep these out of `TELEGRAM_CHAT_ID` — topics need a group, and the DM is for the
+hooks. For a single user, the `TELEGRAM_NOTIFY_*` vars sit nicely in
+`~/.claude/settings.json` (`env` block); the bot token stays in the chmod-600
+creds file. If `tg-report` finds a required value unset, it **asks** rather than
+sending blind.
 
 The hooks fire on these events (auto-registered from `hooks/hooks.json`):
 

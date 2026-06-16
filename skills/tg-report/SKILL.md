@@ -51,19 +51,36 @@ URLs, and any warnings/follow-ups. Do not silently truncate; rewrite for density
 
 ## Configuration
 
-Destination and topics come from the **environment** — never committed. The skill
-reads the same creds file as `tg-notify` (`~/.config/tg-notify/.env`, chmod 600;
-override path with `$TG_NOTIFY_ENV`). Exported env vars win over the file.
+Reports go to a **separate destination from the auto-notify hooks**. The hooks
+(`tg-notify` Stop/Notification) ping you privately via `TELEGRAM_CHAT_ID` (a DM).
+Reports are an explicit, on-request send to a *group with topics* — so they use
+their own `TELEGRAM_NOTIFY_*` family and never inherit the DM chat.
 
-| Var | Purpose | Default |
-|---|---|---|
-| `TG_REPORT_CHAT_ID` | Override destination chat for reports. | `TELEGRAM_CHAT_ID` (tg-notify) |
-| `TG_REPORT_COMPLETION_THREAD` | Forum topic for **completion** reports. | `TELEGRAM_THREAD_ID` (tg-notify) |
-| `TG_REPORT_TASK_THREAD` | Forum topic for **task** reports. | falls back to completion thread |
+| Var | Purpose |
+|---|---|
+| `TELEGRAM_NOTIFY_CHAT_ID` | Report destination — the group/supergroup id (e.g. `-100…`). Passed via `-c`. |
+| `TELEGRAM_NOTIFY_COMPLETION_THREAD` | Forum topic id for **completion** reports. Passed via `-T`. |
+| `TELEGRAM_NOTIFY_TASK_THREAD` | Forum topic id for **task** reports. Passed via `-T`. |
 
-`TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` come from the `tg-notify` config as usual.
-If `TG_REPORT_TASK_THREAD` is unset, task reports land in the completion topic —
-set it so they go to the right place.
+`TELEGRAM_BOT_TOKEN` comes from the `tg-notify` config (`~/.config/tg-notify/.env`,
+chmod 600). The `TELEGRAM_NOTIFY_*` values may be exported, set in
+`~/.claude/settings.json` (`env` block), or placed in the creds file. Exported env
+vars win.
+
+- **`TELEGRAM_CHAT_ID` is the DM** for hooks — do **not** fall back to it for
+  reports. Topics live only in the notify group; sending a thread id to a DM
+  silently lands in the wrong place.
+
+### Ask if a needed value is unset — do not send blind
+
+Before sending, check the destination for the chosen report kind:
+- completion → needs `TELEGRAM_NOTIFY_CHAT_ID` + `TELEGRAM_NOTIFY_COMPLETION_THREAD`
+- task → needs `TELEGRAM_NOTIFY_CHAT_ID` + `TELEGRAM_NOTIFY_TASK_THREAD`
+
+If any required value is empty/unset, **ask the user for it** (use
+`AskUserQuestion`) instead of guessing or sending to the DM. Offer to persist the
+answer in `~/.claude/settings.json` under the `env` block so it sticks for next
+time. Only proceed once the chat id (and thread, for a topic group) is known.
 
 ## Report structure
 
@@ -97,22 +114,23 @@ breaks it).
 
 ## How to invoke
 
-Resolve the topic from env, then call the sender. The snippet mirrors how
-`tg-notify` resolves its creds file, so the report reads the same config.
+Resolve the destination from env, then call the sender. The snippet sources the
+`tg-notify` creds file (for the bot token); the `TELEGRAM_NOTIFY_*` values may
+come from there or from `settings.json` env.
 
 ```bash
 TG="${CLAUDE_PLUGIN_ROOT}/skills/tg-notify/tg-notify.sh"
 ENV_FILE="${TG_NOTIFY_ENV:-${XDG_CONFIG_HOME:-$HOME/.config}/tg-notify/.env}"
 [ -f "$ENV_FILE" ] && { set -a; . "$ENV_FILE"; set +a; }
 
-# Pick the topic by report kind:
-#   completion → TG_REPORT_COMPLETION_THREAD (default: TELEGRAM_THREAD_ID)
-#   task       → TG_REPORT_TASK_THREAD       (default: completion thread)
-THREAD="${TG_REPORT_COMPLETION_THREAD:-${TELEGRAM_THREAD_ID:-}}"                       # completion
-# THREAD="${TG_REPORT_TASK_THREAD:-${TG_REPORT_COMPLETION_THREAD:-${TELEGRAM_THREAD_ID:-}}}"  # task
+CHAT="${TELEGRAM_NOTIFY_CHAT_ID:-}"                       # report group (NOT TELEGRAM_CHAT_ID)
+THREAD="${TELEGRAM_NOTIFY_COMPLETION_THREAD:-}"           # completion report
+# THREAD="${TELEGRAM_NOTIFY_TASK_THREAD:-}"               # task report
 
-ARGS=(-s ok -p plain)
-[ -n "${TG_REPORT_CHAT_ID:-}" ] && ARGS+=(-c "$TG_REPORT_CHAT_ID")
+# If CHAT (or, for a topic group, THREAD) is empty → ASK the user, don't send blind.
+[ -z "$CHAT" ] && { echo "TELEGRAM_NOTIFY_CHAT_ID unset — ask the user"; exit 1; }
+
+ARGS=(-s ok -p plain -c "$CHAT")
 [ -n "$THREAD" ] && ARGS+=(-T "$THREAD")
 
 # Concise (default): title + body inline
@@ -130,10 +148,11 @@ ARGS=(-s ok -p plain)
 ## Self-check before sending
 
 1. Routing: does the chosen topic match the keyword rule (задача/task → task topic)?
-2. Title ≤70 chars, names the server/repo + outcome.
-3. Concise mode: `len(title) + len(body) ≤ 3500`? If not, tighten.
-4. Body includes commit / PR URL / paths / ports actually relevant to the reader.
-5. Follow-ups / risks marked with ⚠️ at the bottom.
-6. Right `-s` flag (ok/warn/fail/info).
+2. Destination: `TELEGRAM_NOTIFY_CHAT_ID` (+ the right thread) is set? If not — ask the user, don't send to the DM.
+3. Title ≤70 chars, names the server/repo + outcome.
+4. Concise mode: `len(title) + len(body) ≤ 3500`? If not, tighten.
+5. Body includes commit / PR URL / paths / ports actually relevant to the reader.
+6. Follow-ups / risks marked with ⚠️ at the bottom.
+7. Right `-s` flag (ok/warn/fail/info).
 
 If any answer is no, fix before invoking the script.
