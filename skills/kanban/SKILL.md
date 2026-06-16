@@ -1,6 +1,6 @@
 ---
 name: kanban
-description: Use when managing tasks — creating, starting, completing, or reviewing task status.
+description: Use when managing tasks — creating, grooming/refining draft tasks, starting, completing, or reviewing task status.
 ---
 
 ## Stages
@@ -41,6 +41,31 @@ moves `ready/ → done/`.
 solve it yet". Do **not** start autonomously from `grooming/` — those cards
 are by definition not ready to execute.
 
+### 1a. Grooming a card — consult, don't decide
+
+Working a `grooming/` card is a **consultation with the user**, not autonomous
+execution. Your job is to surface choices and resolve ambiguity *together* —
+never to silently pick an answer.
+
+- Read the card and its `**Open questions:**`.
+- For every open question, doubtful point, or place where **more than one
+  approach is viable** → ask the user. Do not guess. *Consulting* means "here
+  are the options, here's the trade-off, here's what I'd pick and why" — not
+  dumping a bare question. Use `AskUserQuestion` for discrete choices
+  (recommended option first).
+- If new ambiguities or doubts surface while grooming → append them to
+  `**Open questions:**` and raise them too. Better to over-ask than to bake in a
+  wrong assumption.
+- **Record every resolution on the card before it leaves `grooming/`.** Fold
+  each answer into the `**Decisions:**` section (and Acceptance Criteria /
+  Recommendation as relevant). `**Open questions:**` is removed on the
+  `grooming → todo` move, so the rationale must survive in `**Decisions:**` or
+  it's lost.
+- When a parked `grooming/` topic comes up in conversation, proactively surface
+  that card's open questions instead of letting it sit silent.
+- Only when **nothing ambiguous remains** — scope, acceptance, and approach all
+  settled — finalize the card and move `grooming → todo/`.
+
 ### 2. Start (todo → progress)
 
 - **From file**: Move `.claude/kanban/todo/<task>.md` → `progress/`
@@ -76,12 +101,13 @@ are by definition not ready to execute.
 
 - Break complex tasks into atomic subtasks (1-5 iterations each).
 - Update task file with progress, decisions, roadblocks.
-- Cards in `grooming/` need clarification, not execution — surface their open
-  questions to the user when the topic comes up.
+- Grooming a card → see **1a** (consult the user, don't decide silently).
 
 ## Stop Conditions
 
 - Do NOT skip planning phase.
 - Do NOT move to `done/` without explicit user approval.
 - Do NOT start a card directly from `grooming/` — clarify and move to `todo/` first.
+- Do NOT silently resolve a `grooming/` card's open questions — ask the user,
+  record the answer in `**Decisions:**`, then move to `todo/`.
 - Do NOT move to `ready/` while review/tests are red.

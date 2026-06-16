@@ -22,6 +22,9 @@ Proposed solution approach.
 - Backend: `make test-unit`, `make test-functional`, `make test-console`, `make qa-psalm`
 - Frontend: `make e2e`
 
-**Open questions:** *(only for `grooming/` cards — remove this section before moving to `todo/`)*
+**Open questions:** *(only for `grooming/` cards — fold each resolution into **Decisions:** below, then remove this section before moving to `todo/`)*
 - e.g. which library to use for X
 - e.g. confirm scope with @user before starting
+
+**Decisions:** *(resolved grooming questions — keep on the card after `todo/` so the rationale survives)*
+- e.g. chose lib X over Y because Z — confirmed with @user
