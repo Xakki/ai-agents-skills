@@ -11,8 +11,10 @@ utilities.
 | **schedule-tasks** | Schedule autonomous `claude` runs of `todo/` cards via `at`/tmux. Each card opens in its own byobu window and self-chains the next card on success. |
 | **tg-notify** | Send a Telegram notification with a short report to a **DM, group, or channel** (configurable). Ships hooks that also auto-notify on long task completion and on permission/idle prompts. |
 | **tg-notify-timers** | View/tune the tg-notify hook timers (thresholds, delays, debounce) via `TG_NOTIFY_*` env vars in `settings.json`. |
+| **tg-report** | Send a structured **completion** or **task** report to a configurable Telegram topic (concise/full modes). Routes by keyword; topics come from env (`TG_REPORT_*`), nothing hardcoded. |
 | **git-move** | Move/rename/delete files while preserving git tracking (`git mv`/`git rm` when tracked, else plain `mv`/`rm`). |
 | **setup-claude** | Stack-agnostic template to set up Claude Code in any repo: `CLAUDE.md`, sub-agents, skills, `.mcp.json`, `settings.json`, `Makefile`. Token-economy focused. |
+| **new-project-docker** | Scaffold any new project Dockerized from day one: `Dockerfile` + `docker-compose.yml` + `Makefile` + fluent-logging wiring. Templates in `templates.md`. |
 | **fluent-logging** | Cross-project structured-logging standard: containers emit JSON to stdout → fluent-bit → Graylog (GELF), via [`xakki/fluent-log`](https://github.com/Xakki/FluentLog). |
 
 ## Install
@@ -52,8 +54,10 @@ claude plugin validate /home/xakki/ai-agents-skills
 │   ├── schedule-tasks/
 │   ├── tg-notify/         # SKILL.md + tg-notify.sh + runtime/context helpers + .env.example
 │   ├── tg-notify-timers/
+│   ├── tg-report/         # completion/task reports → tg-notify, topics from env
 │   ├── git-move/
 │   ├── setup-claude/
+│   ├── new-project-docker/
 │   └── fluent-logging/
 └── scripts/               # runners used by schedule-tasks (run from the plugin cache)
 ```
@@ -129,6 +133,22 @@ State, logs, and undelivered payloads live under `$TG_NOTIFY_HOME`
   a tmux/byobu session, and `claude` on `PATH`.
 - `tg-notify`: `curl`, `jq`, `python3`, and (for the context header in hooks) a
   tmux/byobu session. A `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` as above.
+
+## Contributing — when to migrate a skill here
+
+A debugged, **universal** skill / agent / rule belongs in this plugin. Criteria:
+it works correctly **and** carries no personal data. Parameterize it via env/config
+following the `tg-notify` pattern:
+
+- secrets in `~/.config/<tool>/.env` (chmod 600) + a placeholder `.env.example` in git;
+- the skill body references env vars only — no hardcoded chat ids, threads, tokens,
+  host paths, or other users' paths;
+- in-repo paths use `${CLAUDE_PLUGIN_ROOT}`, never `~/.claude/...`.
+
+After moving a skill: commit + push → force a plugin update → verify the new
+`gitCommitSha` (auto-update keys off the SHA, not the manifest `version`) → only
+then delete the local duplicate from `~/.claude/skills/`. Host-/secret-/project-
+specific material stays local.
 
 ## License
 
