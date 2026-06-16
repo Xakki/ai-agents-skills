@@ -17,6 +17,15 @@ utilities.
 | **new-project-docker** | Scaffold any new project Dockerized from day one: `Dockerfile` + `docker-compose.yml` + `Makefile` + fluent-logging wiring. Templates in `templates.md`. |
 | **fluent-logging** | Cross-project structured-logging standard: containers emit JSON to stdout → fluent-bit → Graylog (GELF), via [`xakki/fluent-log`](https://github.com/Xakki/FluentLog). |
 
+## Agents
+
+| Agent | What it does |
+|-------|--------------|
+| **log-investigator** | Read-only incident triage. Pulls container logs (Portainer), app logs (Graylog), and metrics (Grafana/Prometheus) and returns a focused UTC timeline + likely root cause — not a raw log dump. `model: sonnet`, mutations denied. On first use in a project it **asks** for the service/tag/endpoint context and offers to save it to your `.claude/`. |
+
+Agents are auto-discovered from `agents/` (no manifest entry needed) and addressable
+as `ai-agents-skills:log-investigator`.
+
 ## Install
 
 As a marketplace from this repo:
