@@ -18,6 +18,13 @@ PROJECT_NAME="$(basename "$PROJECT_DIR")"
 # where <encoded-path> = absolute project dir with every '/' replaced by '-'.
 CLAUDE_PROJECT_PATH="$(printf '%s' "$PROJECT_DIR" | tr '/' '-')"
 REPO="$PROJECT_DIR"
+BASE_BRANCH="$(git -C "$REPO" rev-parse --abbrev-ref HEAD)"
+case "$BASE_BRANCH" in
+    task/*)
+        echo "ERROR: auto-run started on a task/* branch ($BASE_BRANCH) — refusing; check out the base branch first" >&2
+        exit 1
+        ;;
+esac
 TS="$(date +%Y%m%d_%H%M%S)"
 # Logs MUST live OUTSIDE the repo. The autonomous prompt previously ran
 # `git stash push -u`, which stashed the open --debug-file mid-write and
@@ -25,103 +32,88 @@ TS="$(date +%Y%m%d_%H%M%S)"
 LOG_DIR="${HOME:-/home/coder}/.local/state/claude-auto-runs/${PROJECT_NAME}"
 DEBUG_LOG="$LOG_DIR/${TS}_${TASK_NAME}.debug.log"
 META_LOG="$LOG_DIR/${TS}_${TASK_NAME}.meta.log"
+# Baseline dirty-set captured before claude runs; read by chain step 9 + end-of-run
+# auto-commit to distinguish pre-existing dirt from uncommitted task work.
+BASELINE_FILE="$LOG_DIR/.baseline-dirty-${TS}"
 # Predetermined session ID so user can `claude --resume <id>` to inspect history.
 SESSION_ID="$(cat /proc/sys/kernel/random/uuid)"
 
 mkdir -p "$LOG_DIR"
 cd "$REPO"
+git status --porcelain > "$BASELINE_FILE" 2>/dev/null || true
 
 PROMPT=$(cat <<PROMPT_EOF
-Выполни задачу из файла \`${TASK_FILE}\`. Это запуск по таймеру: по умолчанию работай автономно и НЕ задавай вопросов по мелочам — сам принимай решения и иди дальше. Единственное исключение — блок «Эскалация к пользователю» ниже.
+Выполни задачу из файла \`${TASK_FILE}\`. Автономный запуск — мелкие вопросы решай сам; останавливайся только через парковку (триггеры ниже).
 
-Семантика kanban-стадий и переходов задана в \`.claude/skills/kanban/SKILL.md\`. Маршрутизация сабагентов — в разделе \`Сабагенты и делегирование\` корневого CLAUDE.md.
+Сабагенты и kanban-правила → CLAUDE.md + \`.claude/skills/kanban/SKILL.md\`.
 
-**Эскалация к пользователю (ровно два триггера).** По умолчанию решай сам. Остановись и спроси пользователя ТОЛЬКО если:
-  (а) возникла **проблема-блокер**, которую нельзя корректно обойти автономно (нет доступа/credentials, неразрешимый конфликт, потенциально разрушительная операция, либо неоднозначность, где любой выбор может оказаться неверным и дорогим в откате); ЛИБО
-  (б) нужно **решение, меняющее архитектуру или логику** (смена контракта API / схемы БД / публичного поведения; выбор между несколькими существенно разными подходами).
-  Всё прочее — мелкие неоднозначности, стиль, локальные детали реализации — решай сам и продолжай, НЕ спрашивай.
+**Парковка (вместо любой остановки).** Триггеры: (а) проблема-блокер (нет credentials, неразрешимый конфликт, потенциально разрушительная операция, дорогая неоднозначность); (б) решение, меняющее архитектуру/контракт/публичное поведение; (в) qa-check красный (reason=\`qa-fail\`), ревью нашло проблемы (reason=\`review-fail\`), конфликт при мерже (reason=\`merge-conflict\`).
 
-  Порядок при эскалации (строго в этом порядке):
-  1. **Сначала** отправь уведомление навыком **tg-notify** (через Skill-инструмент: \`tg-notify\`) и убедись, что оно ушло. Пользователь НЕ смотрит в терминал — сообщение должно быть самодостаточным:
-     заголовок \`auto-run ${TASK_NAME}: нужен ответ\`; тело — суть проблемы/решения, варианты, что выберешь по умолчанию, И как добраться до сессии: \`byobu attach\` (сессия \`1\`) либо \`claude --resume ${SESSION_ID}\`.
-  2. **Только после** отправки задай вопрос через \`AskUserQuestion\` и дождись ответа (окно блокируется — это ожидаемо).
-  3. Получив ответ — зафиксируй решение в секции **Execution Log** карточки (решение по архитектуре/логике — дополнительно в **Decisions**), затем продолжай.
+Процедура парковки (reason ∈ qa-fail|review-fail|blocker|question|merge-conflict):
+  1. Если на базовой ветке (только merge-conflict): \`git switch "task/${TASK_NAME}"\`.
+  2. Аннотируй карточку (в текущей стадии — progress/|test/|ready/): добавь \`## ⏸ Parked — <reason>\` с веткой \`task/${TASK_NAME}\`, описанием проблемы и вариантами.
+  3. Один Bash-вызов: \`"${SCRIPT_DIR}/park-task.sh" ".claude/kanban/<stage>/${TASK_NAME}.md" "${BASE_BRANCH}" "${BASELINE_FILE}" "${SESSION_ID}" "${LOG_DIR}" <reason>\` (подставь реальную стадию: \`progress\`, \`test\` или \`ready\` для merge-conflict).
+  4. tg-notify (только главный поток, навык tg-notify): заголовок \`auto-run ${TASK_NAME}: parked (<reason>)\`, тело — проблема + варианты + \`claude --resume ${SESSION_ID}\`.
+  5. → **шаг 9**, затем **шаг 10** с \`AUTO-RUN-RESULT: park: ${TASK_NAME}: parked (<reason>)\`.
 
-**Уведомления в Telegram (tg-notify).** Слать ТОЛЬКО из этого главного потока запуска (сабагенты — python-backend и пр. — tg-notify НЕ вызывают, они возвращают вопрос/находку тебе). Слать в трёх случаях:
-  - при эскалации (см. выше) — перед вопросом;
-  - при терминальном **fail** (qa-check или ревью упали, шаги 5/8) — перед финальным маркером шага 10;
-  - при терминальном **skip** из-за грязного дерева (шаг 1) — перед выходом.
-  Безобидный skip «not in todo» (шаг 2) и успешный \`ok\` — НЕ слать (для ok цепочка идёт дальше сама, длинные задачи и так покрыты авто-хуками).
+**tg-notify:** только главный поток; только при park (шаг 4 выше). ok и skip — не слать.
 
 Алгоритм:
 
-1. **Refuse on dirty.** \`git status --porcelain\`. Если есть ЛЮБЫЕ модификации (M/A/D/R/??) — НЕ стэшь, не очищай. Отправь tg-notify (s=warn, заголовок \`auto-run ${TASK_NAME}: skip (dirty tree)\`, тело — короткая причина), затем распечатай ровно:
-   \`AUTO-RUN-RESULT: skip: ${TASK_NAME}: working tree dirty, manual intervention required\`
-   и заверши работу немедленно.
+1. **Dirty tree — не повод останавливаться.** НЕ стэшь, не сбрасывай. Стейдж ТОЛЬКО явными путями: \`git add <пути>\` → \`git commit\`. НИКОГДА \`git add -A\`, \`git add .\`, \`git add -u\`, \`git commit -a\`.
 
-2. **Sanity.** Убедись, что \`${TASK_FILE}\` существует И находится в \`.claude/kanban/todo/\`. Если нет (уже двигалась, удалена, в другом стейдже) — распечатай:
-   \`AUTO-RUN-RESULT: skip: ${TASK_NAME}: not in todo/\`
-   и заверши работу.
+2. **Sanity.** Если \`${TASK_FILE}\` не существует или не в \`todo/\` → сразу **шаг 9**, затем **шаг 10** с \`AUTO-RUN-RESULT: skip: ${TASK_NAME}: not in todo/\`.
 
-3. **todo → progress** (старт имплементации). Отдельным коммитом:
+3. **Start** (на базовой ветке):
    \`git mv ${TASK_FILE} .claude/kanban/progress/\$(basename ${TASK_FILE})\`
    \`git commit -m "task: start ${TASK_NAME} (todo→progress)"\`
-   Дальше работай с новым путём \`.claude/kanban/progress/\$(basename ${TASK_FILE})\`.
+   \`git switch -c "task/${TASK_NAME}"\`
+   Далее вся работа — на ветке \`task/${TASK_NAME}\`.
 
-4. **Имплементация.** Прочитай карточку. Делегируй имплементационному сабагенту по правилам CLAUDE.md (\`python-backend\`, \`go-client\`, \`browser-extension\`, \`frontend-spa\`, \`infra-devops\`). Если задача требует анализа безопасности — также \`security-auditor\` (read-only).
-   Каждое значимое подзадание — обновление секции **Execution Log** в файле карточки + git-коммит по соглашениям проекта (scope: \`api|goclient|ext|infra|db|docs\`). Сообщения — короткие, в стиле последних коммитов.
+4. **Имплементация.** Делегируй сабагенту по CLAUDE.md (\`python-backend\`, \`go-client\`, \`browser-extension\`, \`frontend-spa\`, \`infra-devops\`; безопасность — \`security-auditor\` read-only). Каждое подзадание → Execution Log + path-scoped коммит: \`git add <явные пути>\` → \`git commit -m "<scope>: …"\` (scope: \`api|goclient|ext|infra|db|docs\`).
 
-5. **qa-check.** Запусти skill **qa-check** (lint + test по затронутым модулям).
-   - Если красный — НЕ переноси карточку. Оставь её в \`progress/\`. Зафиксируй проблему в Execution Log + коммит \`task: ${TASK_NAME} qa-check failed\`. Отправь tg-notify (s=fail, заголовок \`auto-run ${TASK_NAME}: qa-check failed\`, тело — что упало), затем перейди к шагу 10 с \`AUTO-RUN-RESULT: fail\` (шаг 9 цепочки пропускается на fail/skip).
+5. **qa-check** (skill qa-check). Красный → Execution Log + коммит \`task: ${TASK_NAME} qa-check failed\` → **парковка (qa-fail)**.
 
-6. **progress → test** (передача тестеру). Отдельным коммитом:
+6. **progress → test:**
    \`git mv .claude/kanban/progress/\$(basename ${TASK_FILE}) .claude/kanban/test/\$(basename ${TASK_FILE})\`
    \`git commit -m "task: review ${TASK_NAME} (progress→test)"\`
 
-7. **Проверка тестером.** Делегируй \`test-engineer\`:
-   - сверить реализацию с разделом **Acceptance Criteria** карточки;
-   - запустить релевантные тесты (юнит / интеграционные / e2e — что применимо);
-   - если есть e2e-сценарии — прогнать только те, что покрывают эту карточку (не весь suite, если он тяжёлый).
-   В Execution Log — что именно проверял + результат.
+7. **Test** (делегируй \`test-engineer\`: AC + релевантные тесты). Execution Log — что проверял + результат. Нашёл проблемы → **парковка (review-fail)**.
 
-8. **Финализация (test → ready).**
-   - **Если test-engineer всё подтвердил:** отдельным коммитом
-     \`git mv .claude/kanban/test/\$(basename ${TASK_FILE}) .claude/kanban/ready/\$(basename ${TASK_FILE})\`
-     \`git commit -m "task: ready ${TASK_NAME} (test→ready)"\`
-     Перейди к шагу 9 (цепочка), затем к шагу 10 с \`AUTO-RUN-RESULT: ok\`.
-   - **Если test-engineer нашёл проблемы:** карточка остаётся в \`test/\`. В Execution Log — конкретные находки. Сделай коммит \`task: ${TASK_NAME} review found issues\`. Отправь tg-notify (s=fail, заголовок \`auto-run ${TASK_NAME}: review found issues\`, тело — находки кратко), затем перейди к шагу 10 с \`AUTO-RUN-RESULT: fail\` (шаг 9 цепочки пропускается на fail/skip).
+8. **Финализация (test → ready + merge):**
+   \`git mv .claude/kanban/test/\$(basename ${TASK_FILE}) .claude/kanban/ready/\$(basename ${TASK_FILE})\`
+   \`git commit -m "task: ready ${TASK_NAME} (test→ready)"\`
+   \`git switch ${BASE_BRANCH}\`
+   \`git merge --no-ff --no-edit "task/${TASK_NAME}"\` — при неудаче: если \`MERGE_HEAD\` существует (конфликт, мерж начался) → \`git merge --abort\` → **парковка (merge-conflict)**; если \`MERGE_HEAD\` отсутствует (мерж отклонён до старта) → **парковка (merge-conflict)** напрямую без \`--abort\`.
+   \`git branch -d "task/${TASK_NAME}"\`
+   → **шаг 9**, затем **шаг 10** с \`AUTO-RUN-RESULT: ok: ${TASK_NAME}: completed\`.
 
-9. **Цепочка (только при результате \`ok\`).** ОБЯЗАТЕЛЬНО до шага 10. На fail/skip — пропусти шаг 9 целиком и сразу к шагу 10 (НЕ печатай \`AUTO-RUN-NEXT\` — он только для \`ok\`).
-
-   Запусти ВЕСЬ блок ниже как **один** \`Bash\`-tool-вызов (чтобы переменная \`NEXT\` не потерялась между вызовами). Абсолютные пути уже подставлены:
+9. **Цепочка (при ЛЮБОМ результате: ok/park/skip).** ОБЯЗАТЕЛЬНО до шага 10. Один Bash-вызов:
 
    \`\`\`bash
-   # NB: НЕ ставь \`set -u\`. Bash-snapshot Claude Code переопределяет grep()
-   # и обращается внутри к \$ZSH_VERSION (не задано под bash); с set -u функция
-   # роняется и весь пайплайн ls|grep|sort|head даёт пусто → ложное
-   # "AUTO-RUN-NEXT: none". Поэтому используем чистый bash-glob (он сам
-   # лекс-сортирует) и не зависим от утилит, которые snapshot мог подменить.
+   # НЕ ставь set -u (snapshot-caveat: Claude Code патчит grep(), обращаясь к $ZSH_VERSION).
    if ! systemctl is-active --quiet atd; then
        echo "[chain] WARN: atd inactive — chain stops"
        echo "AUTO-RUN-NEXT: none"
        exit 0
    fi
-   if [ -n "\$(git status --porcelain)" ]; then
-       echo "[chain] WARN: dirty tree, chain stops"
-       git status --short
+   _cur_paths=\$(git status --porcelain 2>/dev/null | cut -c4- | sort -u)
+   _base_paths=\$(cut -c4- "${BASELINE_FILE}" 2>/dev/null | sort -u)
+   if [ -n "\$_cur_paths" ]; then
+       _new_dirt=\$(comm -23 <(printf '%s\n' "\$_cur_paths") <([ -n "\$_base_paths" ] && printf '%s\n' "\$_base_paths" || true))
+       if [ -n "\$_new_dirt" ]; then
+           echo "[chain] WARN: uncommitted task changes beyond baseline — chain stops"
+           printf '%s\n' "\$_new_dirt"
+           echo "AUTO-RUN-NEXT: none"
+           exit 0
+       fi
+   fi
+   NEXT=\$("${SCRIPT_DIR}/select-next-task.sh" "${REPO}" "${LOG_DIR}/.parked" "${TASK_NAME}")
+   if [ "\$NEXT" = "none" ]; then
+       echo "[chain] no eligible next card — chain ends"
        echo "AUTO-RUN-NEXT: none"
        exit 0
    fi
-   shopt -s nullglob
-   LC_COLLATE=C
-   _todo=( ${REPO}/.claude/kanban/todo/*.md )
-   shopt -u nullglob
-   if [ \${#_todo[@]} -eq 0 ]; then
-       echo "[chain] todo/ empty — chain ends"
-       echo "AUTO-RUN-NEXT: none"
-       exit 0
-   fi
-   NEXT="\${_todo[0]##*/}"
    AT_OUT=\$(echo "${SCRIPT_DIR}/run-claude-task.sh ${REPO}/.claude/kanban/todo/\$NEXT" \\
        | at -t \$(date -d '+20 minutes' +%Y%m%d%H%M) 2>&1)
    AT_RC=\$?
@@ -134,21 +126,21 @@ PROMPT=$(cat <<PROMPT_EOF
        echo "AUTO-RUN-NEXT: \$NEXT"
    fi
    \`\`\`
+   Сразу к шагу 10. НЕ запускай \`at\` повторно.
 
-   После этого блока — сразу шаг 10 (финальный маркер). НЕ запускай \`at\` повторно.
-
-10. **Завершение.**
-    - НЕ пушить, НЕ создавать PR, НЕ мержить — все изменения остаются локально на текущей ветке.
-    - Распечатай ровно одну итоговую строку (последняя строка ответа):
-      \`AUTO-RUN-RESULT: <ok|fail|skip>: ${TASK_NAME}: <короткая причина>\`
+10. **Завершение.** НЕ пушить, НЕ PR, НЕ мержить вне шага 8. Последняя строка ответа:
+    \`AUTO-RUN-RESULT: <ok|park|skip>: ${TASK_NAME}: <причина>\`
 
 Жёсткие запреты:
-- Никакого \`git stash\`, \`git checkout -- .\`, \`git reset --hard\`, \`git clean\`.
-- Никаких пропусков стадий (todo→test, progress→ready и т. п.).
-- Один \`git mv\` = один отдельный коммит. Контент-правки и переезды карточки не смешивать.
-- \`--no-verify\` не использовать.
-- НИКОГДА не двигать карточку в \`.claude/kanban/done/\`. Финальная стадия автономного запуска — \`ready/\`; перенос \`ready→done\` делает пользователь вручную.
-- НЕ ставить второй \`at\` для той же или другой карточки — ровно один \`at\` за один запуск, только на шаге 9 при \`ok\`.
+- \`git add -A\`, \`git add .\`, \`git add -u\`, \`git commit -a\` — только явные пути.
+- \`git stash\`, \`git checkout -- .\`, \`git reset --hard\`, \`git clean\`.
+- Пропуски стадий (todo→test и т. п.).
+- Один \`git mv\` = один коммит (не смешивать с контент-правками, кроме fail-коммитов).
+- \`--no-verify\`.
+- Карточку в \`done/\` — только пользователь.
+- Второй \`at\` за один запуск.
+- \`wip(park)\` коммит на базовой ветке — только через park-task.sh на \`task/*\`.
+- \`AskUserQuestion\` в автономном потоке.
 PROMPT_EOF
 )
 
@@ -179,7 +171,7 @@ WALL_SEC=$(( $(date +%s) - START_EPOCH ))
 RESULT="unknown"
 JSONL="${HOME:-/home/coder}/.claude/projects/${CLAUDE_PROJECT_PATH}/${SESSION_ID}.jsonl"
 if [ -f "$JSONL" ]; then
-    LAST_RESULT=$(grep -hoE 'AUTO-RUN-RESULT: (ok|fail|skip):' "$JSONL" | tail -1 | sed -E 's/.*: ([a-z]+):/\1/')
+    LAST_RESULT=$(grep -hoE 'AUTO-RUN-RESULT: (ok|skip|park):' "$JSONL" | tail -1 | sed -E 's/.*: ([a-z]+):/\1/')
     [ -n "$LAST_RESULT" ] && RESULT="$LAST_RESULT"
 fi
 
@@ -197,30 +189,41 @@ echo "=== USAGE SUMMARY"
 echo "================================================================"
 "$SCRIPT_DIR/summarize-task-usage.sh" "$SESSION_ID" "$TASK_FILE" "$WALL_SEC" "$EXIT" "$RESULT" 2>&1 | tee -a "$META_LOG"
 
-# If the appended task file is the only dirty change, commit it so the
-# refuse-on-dirty contract holds for the next at-job.
+# Commit only the usage-stats append (new kanban .md changes not in baseline).
+# Never bulk-stage: only paths that (a) weren't dirty before this run and
+# (b) are kanban .md files get staged and committed.
 cd "$REPO"
-DIRTY=$(git status --porcelain)
-if [ -n "$DIRTY" ]; then
-    # commit only if EVERY dirty path is a kanban task .md (auto-stats append)
-    SAFE=true
-    while IFS= read -r line; do
-        path="${line:3}"
-        case "$path" in
-            .claude/kanban/*/*.md) ;;
-            *) SAFE=false; break ;;
-        esac
-    done <<< "$DIRTY"
-    if [ "$SAFE" = true ]; then
-        git add -A .claude/kanban/
-        git commit -m "chore(auto-run): append usage stats for $TASK_NAME" \
-                   -m "session: $SESSION_ID, result: $RESULT, wall: ${WALL_SEC}s, exit: $EXIT" \
-            >> "$META_LOG" 2>&1 \
-            && echo "[inner] committed usage-stats append" \
-            || echo "[inner] WARN: could not commit usage-stats append (see meta.log)"
+DIRTY_PATHS=$(git status --porcelain 2>/dev/null | cut -c4- | sort -u)
+if [ -n "$DIRTY_PATHS" ]; then
+    BASE_PATHS=$(cut -c4- "$BASELINE_FILE" 2>/dev/null | sort -u)
+    EXTRA_PATHS=$(comm -23 \
+        <(printf '%s\n' "$DIRTY_PATHS") \
+        <([ -n "$BASE_PATHS" ] && printf '%s\n' "$BASE_PATHS" || true))
+    if [ -z "$EXTRA_PATHS" ]; then
+        echo "[inner] all dirty paths pre-existed at task start — no auto-commit needed"
     else
-        echo "[inner] WARN: working tree has non-kanban dirt — leaving as-is for manual review"
-        git status --short
+        SAFE=true
+        KANBAN_PATHS=()
+        while IFS= read -r path; do
+            [ -z "$path" ] && continue
+            case "$path" in
+                .claude/kanban/*/*.md) KANBAN_PATHS+=("$path") ;;
+                *) SAFE=false; break ;;
+            esac
+        done <<< "$EXTRA_PATHS"
+        if [ "$SAFE" = true ]; then
+            for path in "${KANBAN_PATHS[@]}"; do
+                git add -- "$path"
+            done
+            git commit -m "chore(auto-run): append usage stats for $TASK_NAME" \
+                       -m "session: $SESSION_ID, result: $RESULT, wall: ${WALL_SEC}s, exit: $EXIT" \
+                >> "$META_LOG" 2>&1 \
+                && echo "[inner] committed usage-stats append" \
+                || echo "[inner] WARN: could not commit usage-stats append (see meta.log)"
+        else
+            echo "[inner] WARN: working tree has non-kanban task changes — leaving as-is for manual review"
+            git status --short
+        fi
     fi
 fi
 
@@ -248,7 +251,23 @@ fi
                 echo "[chain] WARN: result=ok but no AUTO-RUN-NEXT marker — agent skipped step 9 of the prompt"
             fi
             ;;
-        ok:*)
+        park:none|park:)
+            if [ "$NEXT_MARK" = "none" ]; then
+                echo "[chain] result=park, AUTO-RUN-NEXT=none — parked last card; no eligible next (clean end)"
+            else
+                echo "[chain] ERROR: result=park but no AUTO-RUN-NEXT marker — agent skipped step 9; chain was NOT advanced"
+                echo "[chain]   re-arm manually:"
+                echo "[chain]     /schedule-tasks  (or: echo \"$SCRIPT_DIR/run-claude-task.sh $REPO/.claude/kanban/todo/<NEXT>.md\" | at -t \$(date -d '+20 minutes' +%Y%m%d%H%M))"
+            fi
+            ;;
+        skip:none|skip:)
+            if [ "$NEXT_MARK" = "none" ]; then
+                echo "[chain] result=skip, AUTO-RUN-NEXT=none — chain ended cleanly (no next card or atd off)"
+            else
+                echo "[chain] WARN: result=skip but no AUTO-RUN-NEXT marker — agent skipped step 9 of the prompt"
+            fi
+            ;;
+        ok:*|park:*|skip:*)
             # Agent claims it enqueued <NEXT_MARK>. Verify against atq.
             FOUND=""
             for j in $(atq 2>/dev/null | awk '{print $1}'); do
@@ -272,6 +291,8 @@ fi
             ;;
     esac
 } | tee -a "$META_LOG"
+
+rm -f "$BASELINE_FILE"
 
 echo
 echo ">>> Window kept open. Press Enter to close."

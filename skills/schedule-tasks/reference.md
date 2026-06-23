@@ -17,16 +17,18 @@ Script source: `run-claude-task.sh` lines 35-37 (`CARD_ID` / `WIN_NAME`).
 | Script                          | Role                                                       |
 |---------------------------------|------------------------------------------------------------|
 | `run-claude-task.sh`            | Outer: opens new tmux window in byobu session `1`, restarts a detached session if it died, `exec`s the inner script. Invoked by `at`. |
-| `run-claude-task-inner.sh`      | Inner: runs INSIDE the spawned window. cd to repo, generate session-id (UUID), build the autonomous 4-commit prompt (start + impl(s) + review + ready), `claude --dangerously-skip-permissions --session-id … --debug-file …`, derive outcome from kanban stage (`ready/`=ok, `test/`/`progress/`=fail, `todo/`=skip), log usage stats, keep window open after exit. |
+| `run-claude-task-inner.sh`      | Inner: runs INSIDE the spawned window. Captures baseline dirty-set, builds autonomous prompt, runs `claude --dangerously-skip-permissions`, derives outcome, logs usage stats, verifies chain at-job. |
+| `park-task.sh`                  | Deterministic park: ensure on `task/<NAME>` branch, stage extra paths (baseline-aware, no bulk-stage), commit `wip(park): <NAME> (<REASON>)`, switch back to base, write `.parked/<NAME>` index. Args: `<TASK_FILE> <BASE_BRANCH> <BASELINE_FILE> <SESSION_ID> <LOG_DIR> <REASON>`. REASON ∈ qa-fail\|review-fail\|blocker\|question\|merge-conflict. |
+| `select-next-task.sh`           | Dependency-aware next-card selection: skip blocked cards (depend on a parked task), prefer related-first, else lex-smallest. Prints basename or `none`. Args: `<REPO> <PARKED_DIR> [<JUST_FINISHED_NAME>]`. |
 | `view-task-history.sh`          | Pretty-print any past run by session-id, task-name, or `--list`. |
 | `summarize-task-usage.sh`       | Aggregate per-model token usage + approximate cost from the session JSONL; appends an "Auto-run usage" block to the task file. Called once at end of the inner run. |
 
 **Scripts live in the immutable plugin cache** (`${CLAUDE_PLUGIN_ROOT}/scripts/`)
 — they are not copied into, or tracked by, the target repo. Historical lesson
 that shaped the design: an earlier autonomous prompt did `git stash -u` and
-*vanished* in-repo untracked scripts mid-run. The current prompt refuses on
-any dirty tree (step 1) and never stashes; with scripts out of the repo
-entirely the failure mode is gone.
+*vanished* in-repo untracked scripts mid-run. The current prompt forbids
+`git stash` and any bulk-staging; with scripts out of the repo entirely
+the failure mode is gone.
 
 ## Derived variables (in every script)
 
@@ -61,6 +63,7 @@ The inner script generates a UUID `SESSION_ID` and passes it to claude as
 - `$LOG_DIR/<TS>_<task>.meta.log` — start/end markers, session id, resume hint, usage summary
 - `$LOG_DIR/<TS>_<task>.debug.log` — claude's `--debug-file` output
 - `~/.claude/projects/$CLAUDE_PROJECT_PATH/<SESSION_ID>.jsonl` — every prompt, tool call, and tool result (Claude Code writes this regardless)
+- `$LOG_DIR/.baseline-dirty-<TS>` — `git status --porcelain` snapshot taken **before** claude runs. Read by (a) the chain bash block (step 9) via `comm -23` to detect only new uncommitted task changes, and (b) the end-of-run auto-commit block to identify new kanban `.md` paths to stage. Deleted at the very end of the inner script run. If the file is missing at chain step time, `sort` fails silently and the baseline is treated as empty (worst case: chain stops on pre-existing dirt — safe).
 
 Where:
 ```
@@ -71,7 +74,7 @@ LOG_DIR=$HOME/.local/state/claude-auto-runs/$PROJECT_NAME/
 `.claude/kanban/_auto-runs/` and an early prompt that did `git stash -u`
 stashed the open file mid-write → `appendFileSync` to a vanished file →
 claude crashed with `ENOENT`. Mitigated by (a) log dir outside repo and
-(b) refuse-on-dirty contract that never stashes.
+(b) the prompt never stashing (`git stash` is forbidden).
 
 ## Inspecting past runs
 
@@ -102,35 +105,36 @@ grep -h '^AUTO-RUN-RESULT' "$HOME/.local/state/claude-auto-runs/$(basename "$(gi
 
 ## How the chain actually works
 
-1. **Refuse on dirty (prompt step 1).** `git status --porcelain`; if ANY
-   modification (M/A/D/R/??) is present — sends tg-notify (s=warn, title
-   `auto-run <NAME>: skip (dirty tree)`) then prints exactly
-   `AUTO-RUN-RESULT: skip: <NAME>: working tree dirty, manual intervention required`
-   and exits immediately. There is no auto-commit of WIP; the tree must be clean.
-2. **Chain step (in the prompt, on `ok` only)** — the agent itself picks the
-   next card per `lifecycle.md` rules and runs:
-   ```bash
-   echo "<SCRIPT_DIR>/run-claude-task.sh <REPO>/.claude/kanban/todo/<NEXT>.md" \
-     | at -t $(date -d '+20 min' +%Y%m%d%H%M)
-   ```
-   Absolute paths are pre-interpolated into the prompt from `${SCRIPT_DIR}` /
-   `${REPO}`; the agent must not substitute `$(pwd)`. "`ok`" is defined as
-   "card landed in `ready/`".
-3. **Final marker (last step of the prompt)** is non-negotiable: the very
-   last output line is exactly
-   `AUTO-RUN-RESULT: <ok|fail|skip>: <ID>: <reason>` (no markdown / quotes /
-   trailing text). Emitted *after* the chain step by user requirement.
-4. **The inner script never enqueues.** It only:
+1. **Dirty tree is fine (prompt step 1).** The tree may be dirty at run start —
+   the agent proceeds normally. Pre-existing uncommitted files are never stashed,
+   reset, or absorbed into the task's commits. Staging is always explicit-path
+   (`git add <paths>`; never `git add -A`/`.`/`-u`/`-a`). The chain dirty-check
+   (step 9) uses a baseline snapshot taken before the run (see "Session id, JSONL,
+   debug log" for `BASELINE_FILE`) and stops the chain only when there are **new**
+   uncommitted paths on base — pre-existing dirt is ignored.
+2. **Per-task branch.** Step 3 commits `task: start` on base (removing the card from
+   `todo/` so the chain won't re-pick it), then creates `task/<NAME>`. All impl,
+   qa, and review commits land on the branch. On success (step 8), the agent merges
+   `--no-ff` to base and deletes the branch. On any failure the agent calls
+   `park-task.sh` which commits WIP on the branch and returns to base; the branch
+   stays unmerged.
+3. **Chain step (step 9, on ok/park/skip).** Step 9 runs on **every** outcome.
+   The agent calls `select-next-task.sh` (pre-interpolated path) to find the next
+   unblocked card, then enqueues it via `at -t +20min`. Blocked cards (depending on
+   a parked task) are automatically skipped. `ok|park|skip` all advance the chain.
+4. **Final marker (last step of the prompt)** is non-negotiable:
+   `AUTO-RUN-RESULT: <ok|park|skip>: <ID>: <reason>` (no markdown / quotes / trailing text).
+   Emitted *after* the chain step.
+5. **The inner script never enqueues.** It only:
    - parses `AUTO-RUN-RESULT` from the JSONL (or falls back to the kanban stage when the marker is missing — see `lifecycle.md`);
    - looks for an `AUTO-RUN-NEXT: <basename>.md|none` marker in the JSONL and matches it against `atq` to verify the agent's `at` job actually landed;
-   - emits loud `[inner] WARN:` lines in `meta.log` and the window when `result=ok` AND next card declared but no at-job queued. It does NOT auto-reschedule (would risk double-runs);
+   - emits loud `[inner] WARN:` / `[inner] ERROR:` lines in `meta.log` and the window when `result=ok|park|skip` AND next card declared but no at-job queued. It does NOT auto-reschedule (would risk double-runs);
    - cleans up `.chain-conditions` as safety net when `AUTO-RUN-NEXT: none`.
-5. **+20 min gap.** Scheduling buffer between consecutive runs — gives the previous interactive claude window time to be closed/idle and any post-exit housekeeping to settle before the next run fires. The window itself is NOT auto-closed — the agent enqueues the next `at` BEFORE the final `AUTO-RUN-RESULT` marker (step 9 of the prompt), so the chain advances even if the user never closes the previous window.
+6. **+20 min gap.** Scheduling buffer between consecutive runs. The window is NOT auto-closed — the agent enqueues the next `at` BEFORE the final `AUTO-RUN-RESULT` marker (step 9), so the chain advances even if the user never closes the previous window.
 
-## Escalation & tg-notify
+## Escalation = park & advance (non-blocking)
 
-The autonomous run is **not** fully silent. It decides on its own by default, but stops and asks
-the user in exactly **two** cases:
+The autonomous run decides on its own by default. In exactly **two** cases it cannot continue:
 
 - **Blocker** it cannot safely resolve autonomously: missing access/creds, unresolvable conflict,
   destructive operation, or an ambiguity where a wrong pick is costly to undo.
@@ -138,24 +142,51 @@ the user in exactly **two** cases:
   between materially different approaches.
 
 Everything else (minor ambiguity, style, local impl detail) the agent resolves itself and proceeds.
+`AskUserQuestion` is **never** used — the run is always non-blocking.
 
-**Escalation sequence (prompt-enforced order):**
-1. Send **tg-notify** first (`tg-notify` skill, main thread only — subagents never notify). Message
-   must be self-contained: task name, the question/decision, what the agent will pick by default,
-   AND how to reach the session (`byobu attach` → session `1`, or `claude --resume <SESSION_ID>`).
-2. Block on `AskUserQuestion` — window blocks, next `at` job is NOT armed until answered.
-3. On answer: log decision in card's Execution Log (arch decisions also go in **Decisions** section)
-   then continue.
+**Park sequence (prompt-enforced order):**
+1. If on base (merge-conflict only): `git switch "task/<NAME>"` to get to the branch.
+2. Annotate the card at its current stage (progress/|test/|ready/) with
+   `## ⏸ Parked — <REASON>`: branch name, description of problem, proposed options/default.
+3. Call `park-task.sh "<card-path>" "<BASE_BRANCH>" "<BASELINE_FILE>" "<SESSION_ID>" "<LOG_DIR>" <REASON>` —
+   the script stages extra paths (baseline-aware, no bulk-stage), commits
+   `wip(park): <NAME> (<REASON>)`, switches back to base, writes the `.parked/<NAME>` index.
+4. Send **tg-notify** (main thread only): task name, branch `task/<NAME>`, problem summary,
+   proposed options/default, how to resume (`/schedule-tasks resume <NAME>` or
+   `claude --resume <SESSION_ID>`).
+5. Run **chain step 9** (select-next-task.sh picks next unblocked card at +20 min).
+6. Emit `AUTO-RUN-RESULT: park: <NAME>: parked (<REASON>)` as the final marker.
 
 **When tg-notify fires (main thread only):**
-- On escalation — before blocking.
-- On terminal `fail` (qa-check or review red) — before the final marker.
-- On terminal `skip` (dirty tree at step 1) — before exit.
+- On `park` (step 6 above) — after branch/commit, before final marker.
 - NOT on `ok` (chain self-advances; long runs already covered by tg-notify auto-hooks).
-- NOT on the benign "not in todo" skip.
+- NOT on `skip` (benign "not in todo" or no eligible card).
 
-**Soft dependency:** if `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` are not configured the agent
-still asks in the window — the user just won't be pinged.
+**Soft dependency:** if `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` are not configured the tg-notify
+step silently no-ops; the run still parks, chains, and emits its final marker normally.
+
+## Parked state index (`.parked/`)
+
+File: `$HOME/.local/state/claude-auto-runs/<PROJECT>/.parked/<TASK_NAME>`
+
+Created by `park-task.sh`. Content:
+```
+branch=task/<TASK_NAME>
+base=<BASE_BRANCH>
+session=<SESSION_ID>
+reason=<REASON>
+card=<relative card path, e.g. .claude/kanban/progress/<TASK_NAME>.md>
+```
+
+`questions` / open-question detail lives in the `## ⏸ Parked — <REASON>` section
+of the card itself (the agent writes it before calling `park-task.sh`).
+
+Lifecycle:
+- **Created**: by `park-task.sh` (called at prompt park step 3, before tg-notify at step 4).
+- **Read**: by `/schedule-tasks resume` to discover parked tasks and reconstruct context.
+- **Deleted**: when the resumed task lands in `ready/` (resume cleanup step).
+- **Persists on fail/skip**: if the resumed task fails qa or review, the `.parked/<NAME>` file
+  remains — the user must delete it manually or it will show up in future `resume` discoveries.
 
 ## Conditions propagation (`.chain-conditions`)
 
@@ -186,18 +217,22 @@ Empty file = no extra conditions; no block injected into the prompt.
 
 ## Edge cases / risks
 
-- **Refuse-on-dirty cascading** — if task N fails (qa or review) and leaves the tree dirty, task N+1 SKIPs. Intentional. Surface this in the post-run summary so the user knows to clean up.
+- **New-dirt cascading** — if task N fails and leaves **new** uncommitted changes (beyond the baseline), the chain stops at step 9's `comm -23` check. Pre-existing dirt (present before the run) is ignored. Surface this in the post-run summary so the user knows to clean up.
+- **File both baseline-dirty and task-edited** — if the agent edits a file that was already dirty before the run, `comm -23` sees it in both baseline and current → treated as pre-existing → does NOT stop the chain. The agent's edits to that file are already staged/committed via the explicit-path commit; the residual (uncommitted portion, if any) is left for the user. There is no way to automatically separate the pre-task state from the agent's edits in a file that was dirty at start. Do not attempt to reconstruct it — leave as-is and note it in the run summary.
 - **Card stuck in `progress/` or `test/`** — the autonomous run never auto-reopens a failed card. The next at-job for that card needs the user to fix and rerun manually, or move it back to `todo/` explicitly.
-- **Run blocked on an escalation question** — the prompt lets the agent stop and ask the user on a blocker or an arch/logic-changing decision (see SKILL.md → *Escalation & Telegram notifications*). It fires a `tg-notify` ping **first**, then blocks on `AskUserQuestion` in the open window. While blocked it never reaches step 9, so the chain's next `at` job is **not** armed — the autopilot pauses until the user answers (via `byobu attach` or `claude --resume <SESSION_ID>`). Key risk: this relies on `AskUserQuestion` rendering/blocking correctly under `--dangerously-skip-permissions` (it should — skip-permissions bypasses permission prompts, not the question UI; the run launches interactive, not `-p` headless).
-- **`tg-notify` not configured** — escalation/fail/skip pings silently no-op (or print a sender error in the window); the run itself is unaffected — the agent still asks in the window and still emits `AUTO-RUN-RESULT`. The user just isn't pinged.
-- **Long task overruns its slot** — slot is just `at` firing time; nothing kills the previous claude. Two windows can run in parallel. The second window's step-1 dirty-tree check will see uncommitted state from the first and SKIP immediately (tg-notify sent). Warn the user when scheduling heavy cards close together (<60 min apart).
+- **Park: base card vs. branch annotation divergence** — after park, the card in `progress/` on base is in its pre-park state (no `## ⏸ Parked` section). The full annotation lives only on `task/<NAME>` + the `.parked/` index + the TG message. When the user later merges `task/<NAME>` → base, git may flag a trivial conflict on the card file (base version lacks the annotation, branch version has it). Resolution: accept the branch version.
+- **Resume concurrency guard** — if `git rev-parse --abbrev-ref HEAD` returns a `task/*` branch (not base), `/schedule-tasks resume` must STOP and report which task is in progress. Switching branches mid-session could corrupt another task's WIP.
+- **Dirty base during resume** — before committing anything, the orchestrator MUST first check for active runs (`atq` + byobu window scan). If any at-job is queued OR a run appears in-flight → **STOP with an explicit error** ("auto-run appears active — wait for it to finish before resuming"). A bulk `git add -A && git commit` while a run is mid-flight would silently absorb that run's partial WIP into an unrelated commit, corrupting the task history. Only when no run is in-flight: perform the bulk commit-all-at-once and report exactly what was committed to the user. *(Intentional asymmetry: resume is a deliberate, interactive user action guarded by the active-run check, so bulk-commit is safe here. The no-bulk-stage rule governs the autonomous run only, where pre-existing uncommitted work must be preserved untouched.)*
+- **`tg-notify` not configured** — park/fail/skip pings silently no-op; the run itself is unaffected — it still parks, chains, and emits `AUTO-RUN-RESULT`. The user just isn't pinged.
+- **Park index orphan** — if the resumed task fails qa or review, `.parked/<NAME>` is not deleted automatically. It persists and appears in future `resume` listings. User must clean it manually: `rm $HOME/.local/state/claude-auto-runs/<PROJECT>/.parked/<NAME>`.
+- **Long task overruns its slot** — slot is just `at` firing time; nothing kills the previous claude. Two windows can run in parallel. The second window will proceed despite the dirty tree but the chain dirty-check (step 9) may stop after the second card if the first run left uncommitted changes that the second run's baseline did not see. Warn the user when scheduling heavy cards close together (<60 min apart).
 - **Byobu session killed** — outer script auto-creates a detached session `1`; user reattaches with `byobu attach` to see the window.
 - **`cron` vs. `at`** — never use cron for one-shot; it leaves a recurring entry unless self-removed. `at` is the right primitive.
 - **Permissions** — `--dangerously-skip-permissions` skips ALL approvals; only use for scheduled autonomous runs the user explicitly requested.
-- **Self-chain runaway** — a chain only advances on `ok`; the agent arms exactly one `at` job (+20 min) for the single next card, so at most one chained job is ever queued. `fail`/`skip` (or dirty tree at step 9) breaks the chain rather than looping.
+- **Self-chain runaway** — a chain advances on `ok`, `park`, or `skip`; the agent arms exactly one `at` job (+20 min) for the single next card, so at most one chained job is ever queued. Only new uncommitted task changes at step 9, atd inactive, or no eligible next card stops the chain.
 - **Agent skipped the `at` call** — chain silently stops. Mitigated: step 9 of the prompt tells the agent to verify `at` printed a job id; the inner script emits a loud `[inner] WARN: result=ok but no at-job queued` in meta.log + the window. It does NOT auto-reschedule (no double-run risk).
 - **Manual batches + self-chain coexist** — they CAN both be active, but you'll get double-booked windows. Pick one mode or the other.
-- **`.chain-conditions` orphan after `fail`/`skip`** — cleanup only fires on `AUTO-RUN-NEXT: none` (clean chain end). On `fail`/`skip` the file persists. The next `/schedule-tasks` orchestrator overwrites it, so users running through the orchestrator are fine. But if the user re-arms a single card with raw `at` (skipping `/schedule-tasks`), they silently inherit stale conditions from the previous failed chain. Workaround: `rm $HOME/.local/state/claude-auto-runs/$(basename "$(git rev-parse --show-toplevel)")/.chain-conditions` before manual at-jobs.
+- **`.chain-conditions` orphan when the chain stops abnormally** — cleanup only fires on `AUTO-RUN-NEXT: none` (clean chain end). If the chain instead stops on atd-off / no-eligible-card / new uncommitted dirt on base, the file persists. The next `/schedule-tasks` orchestrator overwrites it, so users running through the orchestrator are fine. But if the user re-arms a single card with raw `at` (skipping `/schedule-tasks`), they silently inherit stale conditions from the previous chain. Workaround: `rm $HOME/.local/state/claude-auto-runs/$(basename "$(git rev-parse --show-toplevel)")/.chain-conditions` before manual at-jobs.
 
 ## Project-agnostic guarantees
 
