@@ -28,6 +28,12 @@ if ! tmux -S "$SOCKET" has-session -t "$SESSION" 2>/dev/null; then
     tmux -S "$SOCKET" new-session -d -s "$SESSION"
 fi
 
-WIN_NAME="${PROJECT_NAME}:${TASK_NAME:0:25}"
+# Window name ≤10 chars: 2-letter project prefix + card ID (e.g. avito-fix /
+# K-025-... -> "av:K-025"). Card IDs match ^[A-Za-z]+-[0-9]+ (K-025, FEAT-123);
+# cards without an ID fall back to the first 7 chars of the name. Hard-capped to
+# 10 chars, so an unusually long ID is truncated tail-first.
+CARD_ID="$(printf '%s' "$TASK_NAME" | grep -oE '^[A-Za-z]+-[0-9]+' || printf '%s' "${TASK_NAME:0:7}")"
+WIN_NAME="${PROJECT_NAME:0:2}:${CARD_ID}"
+WIN_NAME="${WIN_NAME:0:10}"
 tmux -S "$SOCKET" new-window -t "${SESSION}:" -n "$WIN_NAME" \
     "exec '$INNER' '$TASK_FILE'"

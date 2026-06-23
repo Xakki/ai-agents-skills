@@ -18,8 +18,8 @@ LOG_FILE="$TG_LOG_FILE"
 
 # Thresholds (seconds since UserPromptSubmit) and delivery delay. Overridable via env.
 PERM_THRESHOLD="${TG_NOTIFY_PERM_THRESHOLD:-1200}"   # 20 min
-IDLE_THRESHOLD="${TG_NOTIFY_IDLE_THRESHOLD:-600}"    # 10 min
-DELIVERY_DELAY="${TG_NOTIFY_DELAY:-300}"             # 5 min: cancel window
+IDLE_THRESHOLD="${TG_NOTIFY_IDLE_THRESHOLD:-1200}"    # 20 min
+DELIVERY_DELAY="${TG_NOTIFY_DELAY:-1800}"             # 30 min: cancel window
 DEBOUNCE="${TG_NOTIFY_DEBOUNCE:-300}"                # 5 min between schedules
 
 [[ -x "$TG" ]] || exit 0

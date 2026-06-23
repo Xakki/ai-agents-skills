@@ -17,8 +17,8 @@ PENDING_DIR="$TG_PENDING_DIR"
 TG="$TG_SENDER"
 LOG_FILE="$TG_LOG_FILE"
 
-DELIVERY_DELAY="${TG_NOTIFY_STOP_DELAY:-600}"       # 10 min cancel window
-DEBOUNCE="${TG_NOTIFY_STOP_DEBOUNCE:-300}"         # 5 min between Stop schedules
+DELIVERY_DELAY="${TG_NOTIFY_STOP_DELAY:-1800}"       # 30 min cancel window
+DEBOUNCE="${TG_NOTIFY_STOP_DEBOUNCE:-1200}"         # 20 min between Stop schedules
 STOP_THRESHOLD="${TG_NOTIFY_STOP_THRESHOLD:-1200}" # 20 min: min task duration to schedule notify
 
 [[ -x "$TG" ]] || exit 0
@@ -44,9 +44,11 @@ NOW=$(date +%s)
 DUR=0
 (( started_at > 0 )) && DUR=$(( NOW - started_at ))
 
-# Skip short tasks — user is still at the terminal
-if (( DUR > 0 && DUR < STOP_THRESHOLD )); then
-    log "stop dur=${DUR}s < threshold=${STOP_THRESHOLD}s, skip"
+# Skip short tasks — user is still at the terminal. Unknown duration (DUR=0,
+# e.g. resumed session or a start not seen by the UserPromptSubmit hook) is
+# treated as "skip" too: no reliable signal the user has walked away.
+if (( DUR < STOP_THRESHOLD )); then
+    log "stop dur=${DUR}s < threshold=${STOP_THRESHOLD}s (0=unknown), skip"
     exit 0
 fi
 

@@ -1,50 +1,32 @@
 ---
 name: tg-notify
-description: Send a Telegram notification with a short report — to a private chat, group, or channel (configurable). ONLY auto-trigger when a task that just finished took longer than 10 minutes of wall-clock time (deploy, big rsync/backup, large build, batch job, scheduled run) — the user is unlikely to still be watching the terminal. The 10-minute threshold may be bypassed only when the user explicitly asks ("send to telegram", "notify in TG", "ping me when done", or similar) or when invoked from a scheduled / background job that is expected to report regardless of duration.
+description: Send a Telegram notification with a short report (DM / group / channel, configurable). Auto-trigger ONLY when a just-finished task took >20 min of wall-clock time (deploy, rsync/backup, big build, batch/scheduled job) — the user has likely left the terminal. Bypass the threshold only when the user explicitly asks ("send to telegram", "notify in TG", "ping me when done") or when invoked from a scheduled / background job. MAIN THREAD ONLY — subagents / teammates do NOT use this skill; they return their report to the teamlead, who decides whether to notify.
 ---
 
 # tg-notify
 
-Sends a Telegram message to a configurable destination (DM, group, or channel) via a bot.
-This plugin also ships **hooks** (see `../../hooks/`) that auto-send a "task finished" notice
-for long turns and a "needs attention" notice on permission/idle prompts — those run
-automatically once configured; this skill is the **manual** sender you invoke on request.
+Manual sender of a Telegram message to a configurable destination (DM, group, or channel) via a bot.
+The plugin also ships **hooks** (`../../hooks/`) that auto-notify on long turns and permission/idle
+prompts — those fire on their own once configured; this skill is the **manual** sender.
 
-## When to use (manual sends)
+## When to use
 
-**Hard rule: 10-minute minimum for auto-sends.** Only auto-send if the operation that just
-finished consumed **more than 10 minutes**. For anything shorter, just answer in the terminal.
+**Threshold: 20-minute minimum for auto-sends** (matches the `TG_NOTIFY_STOP_THRESHOLD` hook default).
+Shorter → just answer in the terminal. Unknown duration → treat as below threshold, don't send.
 
-Trigger cases:
-- A long-running operation (>10 min) just finished — send a short status report with timing.
-- The user explicitly asks for a Telegram notification, summary, or ping (any duration).
-- A scheduled / background job needs to report results (any duration).
+Auto-send only if one of:
+- A long-running op (**>20 min**) just finished — send a short status report with timing.
+- The user explicitly asks for a Telegram notification/ping (any duration).
+- A scheduled / background job needs to report (any duration).
 
-Track duration honestly with `SECONDS=0; <command>; dur=$SECONDS` so the threshold check is real.
+Track duration honestly with `SECONDS=0; <command>; dur=$SECONDS` so the check is real.
 
-## Configuration
+## Main thread only
 
-Credentials and destination come from the **environment** — never committed. Set them either as
-exported env vars or in a creds file (chmod 600) at `~/.config/tg-notify/.env`
-(override path with `$TG_NOTIFY_ENV`). Copy `.env.example` to start. Exported vars win over the file.
-
-| Var | Purpose |
-|---|---|
-| `TELEGRAM_BOT_TOKEN` | Bot token from @BotFather (required). |
-| `TELEGRAM_CHAT_ID` | Destination (required) — **switch DM ↔ group ↔ channel here**. |
-| `TELEGRAM_THREAD_ID` | Forum topic id (optional; sent only when non-empty). |
-| `TELEGRAM_MENTION` | Mention prepended to every message (optional; empty = none). |
-
-**Destination = `TELEGRAM_CHAT_ID`:**
-- **Private chat (DM):** your numeric user id, e.g. `123456789`.
-- **Group / supergroup:** the negative id, e.g. `-1001234567890`.
-- **Channel:** the channel id (`-100…`) or public `@username`, e.g. `@my_channel`.
-
-The bot must be a member of the destination (admin for channels). For a group topic, also set
-`TELEGRAM_THREAD_ID`. Per-call you can override with `-c CHAT_ID` / `-T THREAD_ID`.
-
-State/logs/failed payloads live under `$TG_NOTIFY_HOME` (default `$CLAUDE_PLUGIN_DATA` or
-`~/.local/state/tg-notify`), outside the plugin directory.
+If you are a **subagent / teammate** (spawned with a task by another agent, no direct line to the
+user), do **not** invoke this skill — return your report to the teamlead and let them decide. When
+in doubt, assume subagent and hand the report up. (Auto-send hooks are unaffected; they fire on the
+main session's lifecycle, not from inside a subagent.)
 
 ## How to invoke
 
@@ -64,25 +46,7 @@ TG="${CLAUDE_PLUGIN_ROOT}/skills/tg-notify/tg-notify.sh"
 echo "released v1.2.3" | "$TG" -s ok -t "Deploy" -c "@my_channel"
 ```
 
-## Flags
+## Reference
 
-| Flag | Purpose |
-|---|---|
-| `-t TITLE` | Title (bold). |
-| `-m TEXT` | Body inline. |
-| `-f FILE` | Body from file. |
-| stdin | Body from stdin if `-m`/`-f` not given and stdin is a pipe. |
-| `-s ok\|fail\|warn\|info` | Adds an emoji to the title. |
-| `-p plain\|html\|markdown` | Parse mode (default `html` — body wrapped in `<pre>`). |
-| `-c CHAT_ID` | Override destination. |
-| `-T THREAD_ID` | Override topic/thread id. |
-| `-M MENTION` | Override mention (empty string disables). |
-| `-q` | Quiet on success. |
-
-Body is auto-split into ≤4000-char chunks if too long for one Telegram message.
-
-## Conventions
-
-- Title under ~70 chars, action-oriented (`saFin: rsync xakki завершён`, `prom rules reload failed`).
-- The body is the *report* — what you did, what changed, timings. Plain text or simple bullets.
-- Pick `-s` carefully: `ok` for success, `fail` for genuine failures, `warn` partial, `info` neutral.
+Configuration (env vars, destination types), full flag table, and conventions live in
+[reference.md](reference.md) — read it when you're actually sending.

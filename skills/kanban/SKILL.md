@@ -16,131 +16,67 @@ description: Use when managing tasks — creating, grooming/refining draft tasks
 
 Lifecycle: `grooming → todo → progress → test → ready → done`.
 
-`grooming/` and `ready/` are new stages — the autonomous run (`schedule-tasks`)
-never enters `grooming/` and never leaves a card past `ready/`. Only the user
-moves `ready/ → done/`.
-
-> **Note on commit shape during autonomous runs:** the `schedule-tasks` skill
-> collapses `progress → test → ready` into a single review commit (and bundles
-> `todo → progress` into the impl commit) — that's the autonomous-run contract,
-> not a deviation from these stages. See `schedule-tasks/lifecycle.md` for the
-> commit table. For manual work, transition stage by stage as you prefer.
+`grooming/` and `ready/` are agent-boundary stages: autonomous runs never enter `grooming/`
+and never advance past `ready/`. Only the user moves `ready/ → done/`.
 
 ## Task Lifecycle
 
-### 1. Planning a new task
+### 1. Create
 
-- **If scope is clear** (Acceptance Criteria, files, approach all settled) →
-  create new file from [task template](task-template.md) in `todo/`.
-- **If there are open questions** (unclear acceptance, missing decision,
-  conflicting conventions, dependency on another card) → create in
-  `grooming/`. List the open questions explicitly in a `**Open questions:**`
-  section. Only after the questions are resolved → move to `todo/`.
+- **Scope clear** (AC, files, approach all settled) → create from [task template](task-template.md) in `todo/`.
+- **Open questions remain** → create in `grooming/`; list them in `**Open questions:**`.
 
-`grooming/` is a parking lot for "we noticed this but haven't decided how to
-solve it yet". Do **not** start autonomously from `grooming/` — those cards
-are by definition not ready to execute.
+### 1a. Groom (grooming/ → todo/)
 
-### 1a. Grooming a card — consult, don't decide
+Grooming is a **user consultation**, not autonomous execution. Surface choices; don't resolve them silently.
 
-Working a `grooming/` card is a **consultation with the user**, not autonomous
-execution. Your job is to surface choices and resolve ambiguity *together* —
-never to silently pick an answer.
+- Read the card's `**Open questions:**` and raise each with the user (options + trade-off + recommendation). Use `AskUserQuestion` for discrete choices (recommended first). Do not guess.
+- If new ambiguities surface → append to `**Open questions:**` and raise them too.
+- Record every resolution in `**Decisions:**` before moving to `todo/`. Remove `**Open questions:**` on transition.
+- Only when **nothing ambiguous remains** (scope, acceptance, approach all settled) → move `grooming/ → todo/`.
 
-- Read the card and its `**Open questions:**`.
-- For every open question, doubtful point, or place where **more than one
-  approach is viable** → ask the user. Do not guess. *Consulting* means "here
-  are the options, here's the trade-off, here's what I'd pick and why" — not
-  dumping a bare question. Use `AskUserQuestion` for discrete choices
-  (recommended option first).
-- If new ambiguities or doubts surface while grooming → append them to
-  `**Open questions:**` and raise them too. Better to over-ask than to bake in a
-  wrong assumption.
-- **Record every resolution on the card before it leaves `grooming/`.** Fold
-  each answer into the `**Decisions:**` section (and Acceptance Criteria /
-  Recommendation as relevant). `**Open questions:**` is removed on the
-  `grooming → todo` move, so the rationale must survive in `**Decisions:**` or
-  it's lost.
-- When a parked `grooming/` topic comes up in conversation, proactively surface
-  that card's open questions instead of letting it sit silent.
-- Only when **nothing ambiguous remains** — scope, acceptance, and approach all
-  settled — finalize the card and move `grooming → todo/`.
+See [reference.md](reference.md) for the full grooming protocol.
 
 ### 2. Start (todo → progress)
 
-- **From file**: Move `.claude/kanban/todo/<task>.md` → `progress/`
-- **From description**: Create new file from [task template](task-template.md)
-  in `todo/`, then move to `progress/` (only if scope is clear).
+- **From file**: move `.claude/kanban/todo/<task>.md` → `progress/`.
+- **From description**: create from [task template](task-template.md) in `todo/`, then move to `progress/` (only if scope is clear).
 
-### 3. Plan & implement (in `progress/`)
+### 3. Implement (progress/)
 
-- Read task file.
-- Create sequential sub-task plan via `TaskCreate` (track progress with `TaskUpdate`).
-- Add "Execution Log" section to task file.
-- Update log after each significant sub-task completion.
+- Read task file. Plan via `TaskCreate` (atomic subtasks, 1-5 iterations each); track with `TaskUpdate`.
+- Add "Execution Log" section to the task file; update after each significant step.
 
 ### 4. Test (progress → test)
 
-- Move task file to `test/`.
-- Run relevant QA checks (lint/tests per project `CLAUDE.md`).
-- User tests, or agent runs review/tests.
+Move card to `test/`. Run QA checks (lint/tests per project `CLAUDE.md`).
 
-### 5. Ready for approval (test → ready)
+### 5. Ready (test → ready)
 
-- When auto-review passes (Acceptance Criteria met, tests green) → move to
-  `ready/`. Card is now waiting for the user's final OK.
-- If review finds issues → card **stays in `test/`**; do not move to `ready/`.
+Auto-review passed + AC met + tests green → move to `ready/`. If review finds issues → stay in `test/`.
 
 ### 6. Done (ready → done) — user only
 
-- The user explicitly approves and moves the card from `ready/` → `done/`.
-- Autonomous runs never touch this transition (the kanban contract is "don't
-  declare done without user approval").
+User explicitly approves and moves `ready/ → done/`. Never done autonomously.
 
-## Guidance
+## Git Commits
 
-- Break complex tasks into atomic subtasks (1-5 iterations each).
-- Update task file with progress, decisions, roadblocks.
-- Grooming a card → see **1a** (consult the user, don't decide silently).
+**Do not commit card movements separately.** Move cards with `git mv` (tracked) or plain `mv` (untracked) **without committing** — moves and edits stay in the working tree while the card progresses.
 
-## Git commits per transition
+Make **one commit only, on successful completion** — when the card reaches `ready/`. It bundles the implementation, card edits, and all stage moves.
 
-For **manual / orchestrated** work, every stage transition is its own git commit,
-made by the **orchestrator** (the main thread) — never by a sub-agent. A sub-agent
-does the *work* of its stage but **does not move the card**; the orchestrator
-performs the move and the commit.
+- Commit is made by the **orchestrator** (main thread); sub-agents do the work but never move cards or commit.
+- Commit subject describes the completed work (e.g. `task: <ID> done`), not individual moves.
+- Task fails or is abandoned before `ready/` → no commit.
+- See [`git-move`](../git-move/SKILL.md) for tracked/untracked move mechanics.
 
-- **Move with `git mv`** when the card is tracked (else plain `mv`) — the
-  [`git-move`](../git-move/SKILL.md) convention.
-- **Atomicity — two commits, not one:** first commit the *move* (`git mv` only),
-  then commit any *content* edits to the card separately. Move first, content
-  after.
-
-Commit subjects (`<ID>` = card name/slug):
-
-| Transition | Subject |
-|---|---|
-| grooming → todo | `task: groom <ID> (grooming→todo)` |
-| todo → progress | `task: start <ID> (todo→progress)` |
-| progress → test | `task: review <ID> (progress→test)` |
-| test → ready | `task: ready <ID> (test→ready)` |
-| ready → done | `task: done <ID> (ready→done)` *(user-approved)* |
-| test → progress (rework) | `task: rework <ID> (test→progress)` |
-| done → progress (reopen) | `task: reopen <ID> (done→progress)` |
-
-> **Autonomous runs keep their own collapse contract.** This per-transition rule
-> is for manual/orchestrated work. The `schedule-tasks` autonomous run still
-> collapses `progress → test → ready` into a single review commit (see the note
-> under **Stages** and `schedule-tasks/lifecycle.md`) — do not impose
-> per-transition commits on it.
+See [reference.md](reference.md) for the autonomous-run commit contract.
 
 ## Stop Conditions
 
-- Do NOT skip planning phase.
+- Do NOT skip planning.
 - Do NOT move to `done/` without explicit user approval.
-- Do NOT start a card directly from `grooming/` — clarify and move to `todo/` first.
-- Do NOT silently resolve a `grooming/` card's open questions — ask the user,
-  record the answer in `**Decisions:**`, then move to `todo/`.
-- Do NOT move to `ready/` while review/tests are red.
-- A sub-agent does NOT move its own card between stages — it does the work and
-  reports; the orchestrator performs the `git mv` and the transition commit.
+- Do NOT start a card from `grooming/` — resolve open questions, move to `todo/` first.
+- Do NOT silently resolve `grooming/` questions — ask the user; record in `**Decisions:**`.
+- Do NOT move to `ready/` while tests are red.
+- Sub-agents do NOT move cards or commit — orchestrator only.
