@@ -91,7 +91,7 @@ PROMPT=$(cat <<PROMPT_EOF
 9. **Цепочка (при ЛЮБОМ результате: ok/park/skip).** ОБЯЗАТЕЛЬНО до шага 10. Один Bash-вызов:
 
    \`\`\`bash
-   # НЕ ставь set -u (snapshot-caveat: Claude Code патчит grep(), обращаясь к $ZSH_VERSION).
+   # НЕ ставь set -u (snapshot-caveat: Claude Code патчит grep(), обращаясь к \$ZSH_VERSION).
    if ! systemctl is-active --quiet atd; then
        echo "[chain] WARN: atd inactive — chain stops"
        echo "AUTO-RUN-NEXT: none"
