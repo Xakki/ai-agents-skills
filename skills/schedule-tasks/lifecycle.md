@@ -10,7 +10,7 @@ final hop `ready → done` is the user's manual step.
 |-------|--------|--------------|
 | Start | **base** | `git mv todo→progress` + commit; then `git switch -c "task/<NAME>"` |
 | Impl / qa / review | `task/<NAME>` | all work + commits |
-| Finalize (ok) | `task/<NAME>` → **base** | `git mv test→ready` + commit; `git switch base`; `git merge --no-ff --no-edit "task/<NAME>"`; `git branch -d "task/<NAME>"` |
+| Finalize (ok) | `task/<NAME>` → **base** | `git mv test→ready` + commit; `git switch base`; `git merge --squash "task/<NAME>"` + one `git commit`; `git branch -m "task/<NAME>" "done/<NAME>"` (archive, not deleted) |
 | Park (any failure) | `task/<NAME>` | `wip(park): <NAME> (<REASON>)` via `park-task.sh`; branch stays; base stays clean |
 
 ## Commit shape per card
@@ -20,10 +20,10 @@ Happy path — 4+ commits on branch (except the start commit which lands on base
 | #  | Branch  | Commit subject                              | Content                                                                |
 |----|---------|---------------------------------------------|------------------------------------------------------------------------|
 | 1  | base    | `task: start <NAME> (todo→progress)`        | `git mv todo→progress` only                                            |
-| 2+ | task/*  | `<scope>: <short description>` (one or more)| Code + Execution Log; scope: `api\|goclient\|ext\|infra\|db\|docs`     |
+| 2+ | task/*  | `<scope>: <short description>` (one or more)| Code + Execution Log; scope: `api\|db\|infra\|docs\|task` (per git-flow)|
 | 3  | task/*  | `task: review <NAME> (progress→test)`       | `git mv progress→test` only                                            |
 | 4  | task/*  | `task: ready <NAME> (test→ready)`           | `git mv test→ready` only                                               |
-| — merge — | base | (merge commit from `--no-ff`)            | lands all branch commits on base                                       |
+| — merge — | base | one squash commit `task: <NAME> done`    | lands all branch commits on base as ONE commit; branch renamed to `done/<NAME>` |
 
 Park-path commit (on `task/<NAME>` branch only — via `park-task.sh`):
 

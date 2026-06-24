@@ -12,6 +12,7 @@ utilities.
 | **tg-notify** | Send a Telegram notification with a short report to a **DM, group, or channel** (configurable). Ships hooks that also auto-notify on long task completion and on permission/idle prompts. |
 | **tg-notify-timers** | View/tune the tg-notify hook timers (thresholds, delays, debounce) via `TG_NOTIFY_*` env vars in `settings.json`. |
 | **tg-report** | Send a structured **completion** or **task** report to a Telegram **notify group** topic (concise/full modes). Routes by keyword; destination/topics from `TELEGRAM_NOTIFY_*` env (separate from the DM hooks); asks if a value is unset — nothing hardcoded. |
+| **git-flow** | The shared git core every other git-using skill follows: commit format (`<scope>: …` + `Agent: <zone>` footer), branch model, explicit-path staging, no force-push to default, PR conventions. |
 | **git-move** | Move/rename/delete files while preserving git tracking (`git mv`/`git rm` when tracked, else plain `mv`/`rm`). |
 | **setup-claude** | Stack-agnostic template to set up Claude Code in any repo: `CLAUDE.md`, sub-agents, skills, `.mcp.json`, `settings.json`, `Makefile`. Token-economy focused. |
 | **new-project-docker** | Scaffold any new project Dockerized from day one: `Dockerfile` + `docker-compose.yml` + `Makefile` + fluent-logging wiring. Templates in `templates.md`. |
@@ -67,6 +68,7 @@ claude plugin validate /home/xakki/ai-agents-skills
 │   ├── tg-notify/         # SKILL.md + tg-notify.sh + runtime/context helpers + .env.example
 │   ├── tg-notify-timers/
 │   ├── tg-report/         # completion/task reports → tg-notify, topics from env
+│   ├── git-flow/          # shared git core (commit/branch/PR conventions)
 │   ├── git-move/
 │   ├── setup-claude/
 │   ├── new-project-docker/

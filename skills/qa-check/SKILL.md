@@ -10,6 +10,9 @@ A quality gate you run **before** declaring a task done. It is project-agnostic:
 it discovers *what* changed, maps that to the project's make targets, runs only
 the relevant ones, and reports Pass/Fail per check.
 
+Git mechanics follow the [git-flow](../git-flow/SKILL.md) core; this skill only
+adds the gate behaviour below.
+
 ## How to run
 
 1. **Scope by the diff.** `git diff --name-only` (vs the base/last commit) →

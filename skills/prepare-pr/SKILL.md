@@ -10,6 +10,10 @@ Gets the current branch ready for review. **Default mode is draft-only**: it
 prepares the description and stops — it does **not** push or open a PR unless the
 user asks. Stops on a red quality gate.
 
+Git mechanics (commit format, no force-push, explicit-path staging, no trailers
+beyond `Agent: <zone>`) follow the [git-flow](../git-flow/SKILL.md) core. This
+skill adds only the PR-assembly delta below.
+
 ## Steps
 
 1. **Sanity.** `git status` (clean? what's staged/untracked?) and
@@ -28,17 +32,12 @@ user asks. Stops on a red quality gate.
    commit / push / open-PR **only on explicit user request** and per the mode
    chosen in ask-on-first-use.
 
-## Commit message rule
+## Never (PR-specific)
 
-Subject ≤ 72 chars, imperative, one line. **No trailers, no signatures** — never
-add `Co-Authored-By`, `Generated with …`, or a `🤖` line. Body only if it adds
-meaning not visible from the diff.
-
-## Never
-
-- `git add .` / `git add -A`; `git push --force` / `-f`; `git commit --no-verify`.
 - Commit directly to the base branch (master/main) without an explicit request.
 - Push or open a PR automatically because the gate passed.
+
+(General staging / force-push / no-verify / trailer rules → git-flow core.)
 
 ## ask-on-first-use (per project)
 

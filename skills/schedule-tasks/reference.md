@@ -114,8 +114,9 @@ grep -h '^AUTO-RUN-RESULT' "$HOME/.local/state/claude-auto-runs/$(basename "$(gi
    uncommitted paths on base — pre-existing dirt is ignored.
 2. **Per-task branch.** Step 3 commits `task: start` on base (removing the card from
    `todo/` so the chain won't re-pick it), then creates `task/<NAME>`. All impl,
-   qa, and review commits land on the branch. On success (step 8), the agent merges
-   `--no-ff` to base and deletes the branch. On any failure the agent calls
+   qa, and review commits land on the branch. On success (step 8), the agent
+   squash-merges the branch to base as ONE commit and renames the branch to
+   `done/<NAME>` (archive, not deleted). On any failure the agent calls
    `park-task.sh` which commits WIP on the branch and returns to base; the branch
    stays unmerged.
 3. **Chain step (step 9, on ok/park/skip).** Step 9 runs on **every** outcome.

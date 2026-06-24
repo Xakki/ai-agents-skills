@@ -18,7 +18,8 @@ Behaviour:
 - Tracked path inside a work tree → `git mv` / `git rm` (history + index stay clean).
 - Untracked path, or not in a git repo → plain `mv` / `rm -rf` (fallback).
 - Destination parent dirs are created automatically (`mkdir -p`).
-- **Staging only — it never commits.** You commit separately when asked.
+- **Staging only — it never commits.** You commit separately when asked,
+  following the [git-flow](../git-flow/SKILL.md) core.
 
 Examples:
 

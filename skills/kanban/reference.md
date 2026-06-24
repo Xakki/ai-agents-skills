@@ -15,11 +15,10 @@ Working a `grooming/` card is a **consultation with the user**, not autonomous e
 
 ## Autonomous-Run Commit Contract
 
-For `schedule-tasks` autonomous runs, the per-stage commit rule is collapsed:
+Manual/orchestrated work uses the per-task branch model in `SKILL.md` (own
+`task/<ID>` branch, sub-agents commit their zones, squash-merge + rename to
+`done/<orig>` on OK), following the [git-flow](../git-flow/SKILL.md) core.
 
-- `todo → progress`: bundled into the implementation commit.
-- `progress → test → ready`: collapsed into a single review commit.
-
-This is the autonomous-run contract (not a deviation from the lifecycle). See
-`schedule-tasks/lifecycle.md` for the full commit table. For manual/orchestrated
-work, the single-commit-on-ready rule in `SKILL.md` applies.
+Autonomous (`schedule-tasks`) runs also use a `task/<ID>` branch but with their
+own commit shape and merge/park mechanics — `schedule-tasks` owns that contract.
+See `schedule-tasks/lifecycle.md` for its full commit table.

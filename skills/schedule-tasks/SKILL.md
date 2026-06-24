@@ -12,6 +12,10 @@ or the backlog has no eligible card.
 Final hop `ready→done` is **user-only**. Escalation parks non-blocking on a `task/*` branch;
 resume via `/schedule-tasks resume`.
 
+Git mechanics follow the [git-flow](../git-flow/SKILL.md) core. The autonomous
+**per-task branch + park-commit + bulk-stage-on-resume** model below is this
+skill's documented exception to that core.
+
 Commit shape + lifecycle → `lifecycle.md`. Script internals, session IDs, log paths, edge
 cases → `reference.md`.
 
@@ -31,7 +35,7 @@ cases → `reference.md`.
 Defaults (do NOT ask):
 - **Branch** = current branch. Commit shape per card: 4 commits (happy path) —
   1. `task: start <ID> (todo→progress)` — git mv only, own commit;
-  2. implementation commit(s) (scope: `api|goclient|ext|infra|db|docs`) — code + Execution Log;
+  2. implementation commit(s) (scope: `api|db|infra|docs|task`, per git-flow) — code + Execution Log;
   3. `task: review <ID> (progress→test)` — git mv only, own commit;
   4. `task: ready <ID> (test→ready)` — git mv only, own commit.
   Full details → `lifecycle.md`.
@@ -139,7 +143,7 @@ Run `/schedule-tasks resume [<NAME>]` in the main thread (interactive, not sched
 3. **Resume work**: read the card's `## ⏸ Parked` section, apply the user's answer, continue
    implementation, run qa-check, then `progress→test→ready` on the branch.
 4. **Merge**: when the task lands in `ready/` on the branch, merge to base:
-   `git switch <BASE_BRANCH>` → `git merge --no-ff --no-edit "task/<NAME>"` → `git branch -d "task/<NAME>"`.
+   `git switch <BASE_BRANCH>` → `git merge --squash "task/<NAME>"` → `git commit -m "task: <NAME> done"` (one squash commit) → `git branch -m "task/<NAME>" "done/<NAME>"` (archive, do not delete).
    On merge conflict → resolve manually; do NOT auto-park from resume (interactive, user present).
 5. **Cleanup**: after the merge, delete `$LOG_DIR/.parked/<NAME>`.
 6. **Done**: `ready→done` is **user-only** — do not perform it autonomously.

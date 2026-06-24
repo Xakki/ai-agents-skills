@@ -25,7 +25,7 @@ description: При создании ЛЮБОГО нового проекта с
 6. **`.gitignore`**, `README.md`/`DEPLOY.md` со списком команд.
 
 ## Happy-path
-1. Завести репо + `git init`.
+1. Завести репо + `git init`. Коммиты — по ядру [git-flow](../git-flow/SKILL.md).
 2. `Dockerfile` + `docker-compose.yml` (приложение + зависимости).
 3. `Makefile` из [templates.md](templates.md) — подогнать имена сервисов/портов.
 4. `.env`/`.env.example` (вкл. блок fluent-logging из skill `fluent-logging`).

@@ -61,14 +61,19 @@ User explicitly approves and moves `ready/ → done/`. Never done autonomously.
 
 ## Git Commits
 
-**Do not commit card movements separately.** Move cards with `git mv` (tracked) or plain `mv` (untracked) **without committing** — moves and edits stay in the working tree while the card progresses.
+Git mechanics follow the [git-flow](../git-flow/SKILL.md) core. Kanban's delta:
+a task is worked **in its own branch**.
 
-Make **one commit only, on successful completion** — when the card reaches `ready/`. It bundles the implementation, card edits, and all stage moves.
-
-- Commit is made by the **orchestrator** (main thread); sub-agents do the work but never move cards or commit.
-- Commit subject describes the completed work (e.g. `task: <ID> done`), not individual moves.
-- Task fails or is abandoned before `ready/` → no commit.
-- See [`git-move`](../git-move/SKILL.md) for tracked/untracked move mechanics.
+- **Branch.** By default work the task in a NEW branch `task/<ID>` (aligns with
+  schedule-tasks). Create it at start.
+- **Sub-agents commit.** Each sub-agent commits its OWN zone's work into that
+  branch (git-flow format + `Agent: <zone>` footer).
+- **Orchestrator finalizes.** On task completion the orchestrator makes a
+  wrap-up commit on the branch (adding its own remaining bits).
+- **Merge on OK.** Review OK → **squash-merge** the branch into the default
+  branch as ONE commit, then **rename** the branch to `done/<orig-name>` (kept
+  as an archive for optional later cleanup — do not delete immediately).
+- Moving cards between stage dirs → [`git-move`](../git-move/SKILL.md).
 
 See [reference.md](reference.md) for the autonomous-run commit contract.
 
@@ -79,4 +84,17 @@ See [reference.md](reference.md) for the autonomous-run commit contract.
 - Do NOT start a card from `grooming/` — resolve open questions, move to `todo/` first.
 - Do NOT silently resolve `grooming/` questions — ask the user; record in `**Decisions:**`.
 - Do NOT move to `ready/` while tests are red.
-- Sub-agents do NOT move cards or commit — orchestrator only.
+
+## Правила делегирования задачи
+
+1. **Один агент — одна зона.** Кросс-зональная задача: основной агент делает
+   свою зону; общий контракт закреплён в отдельном skill (например,
+   protocol/contract skill); смежные реализации делают свои агенты, читающие
+   тот же skill.
+2. **`security-auditor` — read-only**: выдаёт отчёт, код не пишет. Правки делает
+   агент-имплементатор.
+3. **`test-engineer` пишет тесты, не бизнес-логику.** Если тесту нужен новый
+   эндпойнт/хук в коде → завести подзадачу в kanban и делегировать её
+   агенту-имплементатору.
+4. **Новый агент — только по явной необходимости.** Если задача укладывается в
+   существующего агента — не плодить агентов.

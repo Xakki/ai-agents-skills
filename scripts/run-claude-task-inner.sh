@@ -84,8 +84,9 @@ PROMPT=$(cat <<PROMPT_EOF
    \`git mv .claude/kanban/test/\$(basename ${TASK_FILE}) .claude/kanban/ready/\$(basename ${TASK_FILE})\`
    \`git commit -m "task: ready ${TASK_NAME} (test→ready)"\`
    \`git switch ${BASE_BRANCH}\`
-   \`git merge --no-ff --no-edit "task/${TASK_NAME}"\` — при неудаче: если \`MERGE_HEAD\` существует (конфликт, мерж начался) → \`git merge --abort\` → **парковка (merge-conflict)**; если \`MERGE_HEAD\` отсутствует (мерж отклонён до старта) → **парковка (merge-conflict)** напрямую без \`--abort\`.
-   \`git branch -d "task/${TASK_NAME}"\`
+   \`git merge --squash "task/${TASK_NAME}"\` — при неудаче: если \`MERGE_HEAD\` существует (конфликт, мерж начался) → \`git merge --abort\` → **парковка (merge-conflict)**; если \`MERGE_HEAD\` отсутствует (мерж отклонён до старта) → **парковка (merge-conflict)** напрямую без \`--abort\`.
+   \`git commit -m "task: ${TASK_NAME} done"\` — ОДИН squash-коммит ветки на базу.
+   \`git branch -m "task/${TASK_NAME}" "done/${TASK_NAME}"\` — переименовать ветку в архивную \`done/<NAME>\` (НЕ удалять).
    → **шаг 9**, затем **шаг 10** с \`AUTO-RUN-RESULT: ok: ${TASK_NAME}: completed\`.
 
 9. **Цепочка (при ЛЮБОМ результате: ok/park/skip).** ОБЯЗАТЕЛЬНО до шага 10. Один Bash-вызов:
