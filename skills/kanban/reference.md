@@ -16,8 +16,9 @@ Working a `grooming/` card is a **consultation with the user**, not autonomous e
 ## Autonomous-Run Commit Contract
 
 Manual/orchestrated work uses the per-task branch model in `SKILL.md` (own
-`task/<ID>` branch, sub-agents commit their zones, squash-merge + rename to
-`done/<orig>` on OK), following the [git-flow](../git-flow/SKILL.md) core.
+`task/<ID>` branch, sub-agents commit their zones; on OK move the card to
+`done/`, verify the branch is clean, then squash-merge + rename to
+`done/<orig>`), following the [git-flow](../git-flow/SKILL.md) core.
 
 Autonomous (`schedule-tasks`) runs also use a `task/<ID>` branch but with their
 own commit shape and merge/park mechanics — `schedule-tasks` owns that contract.

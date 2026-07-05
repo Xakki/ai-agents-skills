@@ -57,7 +57,16 @@ Auto-review passed + AC met + tests green → move to `ready/`. If review finds 
 
 ### 6. Done (ready → done) — user only
 
-User explicitly approves and moves `ready/ → done/`. Never done autonomously.
+User explicitly approves. Order matters — card first, merge last:
+
+1. Move the card `ready/ → done/`.
+2. Verify the task branch is clean (`git status --short` empty — everything
+   committed, nothing stray left uncommitted).
+3. Only then squash-merge the branch into the default branch (see Git Commits
+   below).
+
+Never done autonomously; never merge before the card is in `done/` and the
+branch has been verified clean.
 
 ## Git Commits
 
@@ -70,9 +79,12 @@ a task is worked **in its own branch**.
   branch (git-flow format + `Agent: <zone>` footer).
 - **Orchestrator finalizes.** On task completion the orchestrator makes a
   wrap-up commit on the branch (adding its own remaining bits).
-- **Merge on OK.** Review OK → **squash-merge** the branch into the default
-  branch as ONE commit, then **rename** the branch to `done/<orig-name>` (kept
-  as an archive for optional later cleanup — do not delete immediately).
+- **Merge on OK — card and clean-check before merge.** Review OK → move the
+  card to `done/` and verify the branch is clean (`git status --short` empty)
+  *before* touching the default branch. Only then **squash-merge** the branch
+  into the default branch as ONE commit, then **rename** the branch to
+  `done/<orig-name>` (kept as an archive for optional later cleanup — do not
+  delete immediately).
 - Moving cards between stage dirs → [`git-move`](../git-move/SKILL.md).
 
 See [reference.md](reference.md) for the autonomous-run commit contract.
