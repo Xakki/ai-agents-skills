@@ -68,10 +68,28 @@ User explicitly approves. Order matters — card first, merge last:
 Never done autonomously; never merge before the card is in `done/` and the
 branch has been verified clean.
 
+## Epics
+
+An **epic** is a card whose body lists ordered subtask cards. Subtasks are normal
+cards; the epic is their parent and their integration point.
+
+- **Start.** Epic card → `progress/`. Create ONE branch `epic/<ID>` for the whole
+  epic; every subtask is implemented in that branch, not in its own `task/<ID>`.
+- **Subtasks.** Work them in the listed order. Each finished subtask card moves
+  `progress/ → test/ → ready/` as usual. A subtask **never** reaches `done/` on
+  its own — the epic gates that.
+- **Integration.** When the last subtask reaches `ready/`: restart the project,
+  refresh all data (re-run imports/migrations), and run the full test suite.
+- **Hand-off.** Only then move the epic card to `ready/` and ask the user to
+  verify. The user approves the epic; its subtasks follow it to `done/`.
+
+See [reference.md](reference.md) for the full epic protocol.
+
 ## Git Commits
 
 Git mechanics follow the [git-flow](../git-flow/SKILL.md) core. Kanban's delta:
-a task is worked **in its own branch**.
+a task is worked **in its own branch** (an epic's subtasks share the epic branch
+— see Epics above).
 
 - **Branch.** By default work the task in a NEW branch `task/<ID>` (aligns with
   schedule-tasks). Create it at start.

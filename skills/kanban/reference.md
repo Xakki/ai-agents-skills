@@ -13,6 +13,45 @@ Working a `grooming/` card is a **consultation with the user**, not autonomous e
 - When a parked `grooming/` topic comes up in conversation, proactively surface that card's open questions instead of letting it sit silent.
 - Only when **nothing ambiguous remains** — scope, acceptance criteria, and approach all settled — finalize the card and move `grooming/ → todo/`.
 
+## Full Epic Protocol
+
+An epic groups subtasks that must land together. It exists when the work spans
+several cards that share a schema, a contract, or a migration — shipping them
+one at a time would leave the project in a broken intermediate state.
+
+**Epic card body** must carry, beyond the normal template:
+- `**Subtasks:**` — an ordered list of subtask IDs with a one-line purpose each.
+  Order is execution order; note explicitly where two subtasks may run in
+  parallel and where one hard-blocks the next.
+- `**Integration checklist:**` — what must pass before the epic leaves `progress/`.
+
+**Branch.** One branch `epic/<ID>` for the entire epic, created when the epic
+card enters `progress/`. Subtasks do NOT get their own branches — this is the
+deliberate exception to the per-task branch rule in `SKILL.md`. Sub-agents commit
+their zone's work into the epic branch (git-flow format + `Agent: <zone>` footer).
+
+**Subtask flow inside an epic.** Each subtask card walks
+`todo/ → progress/ → test/ → ready/` normally. It stops at `ready/`:
+- Do NOT move a subtask to `done/`. `done/` for a subtask is granted only when
+  the user approves the parent epic.
+- Do NOT merge the epic branch when a subtask finishes. The branch merges once,
+  after the epic is approved.
+- If a subtask surfaces a new open question, park it in `grooming/` and raise it
+  with the user — an epic in flight does not license silent decisions.
+
+**Integration gate** (epic still in `progress/`, all subtasks in `ready/`):
+1. Restart the project from a clean state (rebuild image / recreate containers).
+2. Refresh all data — re-run migrations and every data import the epic touched.
+3. Run the full quality gate (lint, tests, coverage, build) — not just the
+   subset each subtask ran.
+4. Any red → the epic stays in `progress/`; fix in the epic branch or open a new
+   subtask. Never advance an epic on a red suite.
+
+**Hand-off.** Green gate → move the epic card to `ready/` and tell the user
+what to verify (concrete commands / URLs / expected output). The user moves
+`ready/ → done/`; then the subtask cards follow to `done/`, the branch is
+verified clean, squash-merged, and renamed `done/epic/<ID>`.
+
 ## Autonomous-Run Commit Contract
 
 Manual/orchestrated work uses the per-task branch model in `SKILL.md` (own
