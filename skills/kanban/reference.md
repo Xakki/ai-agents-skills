@@ -50,14 +50,16 @@ their zone's work into the epic branch (git-flow format + `Agent: <zone>` footer
 **Hand-off.** Green gate → move the epic card to `ready/` and tell the user
 what to verify (concrete commands / URLs / expected output). The user moves
 `ready/ → done/`; then the subtask cards follow to `done/`, the branch is
-verified clean, squash-merged, and renamed `done/epic/<ID>`.
+verified clean, squash-merged, and renamed `done/<ID>` (strip the `epic/`
+prefix — archive is `done/<ID>`, NOT `done/epic/<ID>`).
 
 ## Autonomous-Run Commit Contract
 
 Manual/orchestrated work uses the per-task branch model in `SKILL.md` (own
 `task/<ID>` branch, sub-agents commit their zones; on OK move the card to
 `done/`, verify the branch is clean, then squash-merge + rename to
-`done/<orig>`), following the [git-flow](../git-flow/SKILL.md) core.
+`done/<ID>` — strip the `task/` prefix, archive is `done/<ID>` not
+`done/task/<ID>`), following the [git-flow](../git-flow/SKILL.md) core.
 
 Autonomous (`schedule-tasks`) runs also use a `task/<ID>` branch but with their
 own commit shape and merge/park mechanics — `schedule-tasks` owns that contract.

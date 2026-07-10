@@ -44,7 +44,7 @@ examples → [reference.md](reference.md).
 
 | Skill | Follows CORE + its delta |
 |---|---|
-| [kanban](../kanban/SKILL.md) | Per-task `task/<ID>` branch; each sub-agent commits its zone; orchestrator finalizes; OK → squash-merge to default + rename branch to `done/<orig>`. |
+| [kanban](../kanban/SKILL.md) | Per-task `task/<ID>` branch; each sub-agent commits its zone; orchestrator finalizes; OK → squash-merge to default + rename branch to `done/<ID>` (strip the `task/` prefix — archive is `done/<ID>`, NOT `done/task/<ID>`). |
 | [schedule-tasks](../schedule-tasks/SKILL.md) | Autonomous per-task `task/<NAME>` branch + park-commit model; finalization is the SAME as kanban (squash-merge to default, rename branch to `done/<NAME>`). Owns its autonomous park / commit-shape specifics. |
 | [prepare-pr](../prepare-pr/SKILL.md) | PR assembly — sanity-check diff, run the gate, draft description. Draft-only by default. |
 | [qa-check](../qa-check/SKILL.md) | Quality gate scoped by `git diff`; never auto-merge / auto-push. |

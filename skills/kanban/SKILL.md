@@ -101,8 +101,9 @@ a task is worked **in its own branch** (an epic's subtasks share the epic branch
   card to `done/` and verify the branch is clean (`git status --short` empty)
   *before* touching the default branch. Only then **squash-merge** the branch
   into the default branch as ONE commit, then **rename** the branch to
-  `done/<orig-name>` (kept as an archive for optional later cleanup — do not
-  delete immediately).
+  `done/<ID>` — strip the `task/` prefix (`git branch -m task/<ID> done/<ID>`);
+  the archive is `done/<ID>`, NOT `done/task/<ID>`. Kept as an archive for
+  optional later cleanup — do not delete immediately.
 - Moving cards between stage dirs → [`git-move`](../git-move/SKILL.md).
 
 See [reference.md](reference.md) for the autonomous-run commit contract.
