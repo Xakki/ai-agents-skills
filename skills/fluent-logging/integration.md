@@ -45,6 +45,10 @@ services:
 
 - `include`-путь резолвится от **корня проекта**; bind-маунты ВНУТРИ `docker-fluent.yml`
   (`./fluent-bit`, `./logrotate`) — от каталога самой либы (потому вендорим каталогом).
+- **Хост-дир для file-tail (`MYSQL_SLOWLOG_PATH`, `JSON_LOG_PATH`) — только АБСОЛЮТНЫЙ.**
+  Значение попадает в `volumes:` внутри `docker-fluent.yml`, и Compose резолвит
+  относительный путь от каталога ЛИБЫ, молча биндя пустой/чужой дир вместо ошибки. Не клади
+  относительное в `.env`; отдавай абсолютный путь из Makefile (`$(CURDIR)/…`, экспортится).
 - `log_format`: дефолт = имя compose-сервиса. Для парсинга задавай явно `php`/`nginx`/
   `mariadb`/`redis`. Прочее → `gl.auto`.
 
@@ -63,8 +67,8 @@ services:
 | `HOST_NAME` | логическое имя (GELF `hostname`) | `myhost-myproj` |
 | `HOST_IP` | IP хоста (GELF `host` = Graylog `source`) | `203.0.113.10` |
 | `TZ` | таймзона контейнера fluent-bit | `Europe/Moscow` |
-| `JSON_LOG_PATH` | (опц.) хост-дир тейлится в `/var/log/json` для NDJSON | `/var/log/` |
-| `MYSQL_SLOWLOG_PATH` | (опц.) slowlog mariadb | `/var/log/` |
+| `JSON_LOG_PATH` | (опц.) хост-дир тейлится в `/var/log/json` для NDJSON — **абсолютный** | `/srv/app/docker/logs` |
+| `MYSQL_SLOWLOG_PATH` | (опц.) slowlog mariadb — **абсолютный** (Makefile `$(CURDIR)/…`) | `/srv/app/docker/logs` |
 
 Порты: каждый проект на хосте — свои `EXT_FLUENT_*` (не коллизить; `ss -ltn`).
 `HOST_IP`/`HOST_NAME` удобно вычислять в Makefile (`hostname -I`).
