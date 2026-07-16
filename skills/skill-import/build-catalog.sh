@@ -61,10 +61,24 @@ emit_local() { # source clone_dir
   done < <(find "$clone" -name SKILL.md -not -path '*/.git/*' | sort)
 }
 
+emit_external() { # source clone_dir
+  local source="$1" clone="$2" readme="$2/README.md"
+  [ -f "$readme" ] || return 0
+  # match list items: - [text](https://github.com/....) <sep> description
+  grep -oE '^[[:space:]]*[-*][[:space:]]+\[[^]]+\]\(https://github\.com/[^)]+\)[^`]*' "$readme" | \
+  while IFS= read -r line; do
+    local url slug desc
+    url="$(printf '%s' "$line" | sed -E 's/.*\((https:\/\/github\.com\/[^)]+)\).*/\1/')"
+    slug="$(basename "${url%/}")"
+    desc="$(printf '%s' "$line" | sed -E 's/.*\)[[:space:]]*[—-]?[[:space:]]*//' | sed -E 's/[[:space:]]+$//')"
+    printf '%s\t%s\texternal\t%s\t%s\n' "$source" "$slug" "$url" "$desc" >>"$OUT"
+  done
+}
+
 printf 'source\tskill\tkind\tlocation\tdescription\n' >"$OUT"
 while IFS=$'\t' read -r name url type; do
   case "$name" in ''|\#*) continue;; esac
   clone="$(refresh_repo "$name" "$url")" || continue
   emit_local "$name" "$clone"
-  # hybrid external parsing added in Task 2
+  if [ "$type" = hybrid ]; then emit_external "$name" "$clone"; fi
 done < "$SOURCES"
