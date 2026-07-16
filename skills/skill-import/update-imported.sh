@@ -41,6 +41,14 @@ while IFS=$'\t' read -r skill source url location sha date; do
   row="$(awk -F'\t' -v s="$source" -v k="$skill" '$1==s && $2==k {print; exit}' "$CATALOG")"
   [ -n "$row" ] || { echo "warn: $source/$skill no longer in catalog" >&2; continue; }
   IFS=$'\t' read -r _ _ kind loc _ <<<"$row"
+  if [ "$kind" = external ]; then
+    if [ "$FORCE" != 1 ]; then
+      echo "external $skill ($source): re-pull only with --force (cannot diff locally)"
+      continue
+    fi
+    bash "$IMPORT" "$source" "$skill" --project "$PROJECT" --cache "$CACHE" --catalog "$CATALOG" --force
+    continue
+  fi
   if [ "$kind" = local ]; then srcdir="$CACHE/repos/$source/$loc"; else srcdir=""; fi
   if [ -n "$srcdir" ] && [ -d "$srcdir" ] && diff -rq "$srcdir" "$dest" >/dev/null 2>&1; then
     continue   # identical, nothing to do

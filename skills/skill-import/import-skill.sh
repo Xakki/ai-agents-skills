@@ -54,7 +54,11 @@ else
   fi
   slug="$(basename "${repo_url%/}" .git)"
   clone="$CACHE/external/$slug"
-  if [ ! -d "$clone/.git" ]; then git clone --depth 1 -q "$repo_url" "$clone"; fi
+  if [ ! -d "$clone/.git" ]; then
+    git clone --depth 1 -q "$repo_url" "$clone"
+  else
+    { git -C "$clone" fetch --depth 1 -q origin && git -C "$clone" reset --hard -q FETCH_HEAD; } || true
+  fi
   src="$clone/$subpath"
   # if no SKILL.md at subpath, try to find one
   if [ ! -f "$src/SKILL.md" ]; then
