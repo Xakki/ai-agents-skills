@@ -36,7 +36,15 @@ fm_field() { # file field
   awk -v f="$2" '
     BEGIN{fm=0}
     /^---[[:space:]]*$/ { fm++; if (fm>=2) exit; next }
-    fm==1 && $0 ~ "^"f":" { sub("^"f":[[:space:]]*",""); gsub(/[[:space:]]+$/,""); print; exit }
+    fm==1 && $0 ~ "^"f":" {
+      sub("^"f":[[:space:]]*","")
+      gsub(/[[:space:]]+$/,"")
+      val=$0
+      # strip one matched pair of surrounding quotes
+      if (val ~ /^".*"$/ || val ~ /^'"'"'.*'"'"'$/) val = substr(val, 2, length(val)-2)
+      print val
+      exit
+    }
   ' "$1"
 }
 
@@ -72,9 +80,13 @@ emit_external() { # source clone_dir
   { grep -oE '^[[:space:]]*[-*][[:space:]]+\[[^]]+\]\(https://github\.com/[^)]+\)[^`]*' "$readme" || true; } | \
   while IFS= read -r line; do
     local url slug desc
-    url="$(printf '%s' "$line" | sed -E 's/.*\((https:\/\/github\.com\/[^)]+)\).*/\1/')"
+    # first github link on the line wins (a trailing "*By [@user](...)*"
+    # attribution link must not shadow the real entry)
+    url="$(printf '%s' "$line" | grep -oE 'https://github\.com/[^)]+' | head -n1 || true)"
+    [ -n "$url" ] || continue
     slug="$(basename "${url%/}")"
-    desc="$(printf '%s' "$line" | sed -E 's/.*\)[[:space:]]*[—-]?[[:space:]]*//' | sed -E 's/[[:space:]]+$//')"
+    case "$slug" in ''|.*|*/*|*..*) continue;; esac
+    desc="$(printf '%s' "$line" | sed -E 's/^[^)]*\)[[:space:]]*[—–-]?[[:space:]]*//' | sed -E 's/[[:space:]]+$//')"
     printf '%s\t%s\texternal\t%s\t%s\n' "$source" "$slug" "$url" "$desc" >>"$OUT"
   done
 }
