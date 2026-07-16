@@ -1,0 +1,4 @@
+# capture-buffer template — copy to ${ABBR_LOCAL:-$HOME/.config/abbr/local.tsv}
+# personal staging only, NOT a source of truth; format: abbr<TAB>full (real tabs)
+wip	work in progress
+repro	reproduction

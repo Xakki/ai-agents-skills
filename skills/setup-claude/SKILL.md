@@ -8,9 +8,9 @@ allowed-tools: Read Glob Grep Bash WebFetch WebSearch Write Edit
 
 # Setup Claude Code in this repository
 
-Универсальный шаблон, не зависит от стека. Все артефакты — локально в репо и под git.
+Universal template, stack-agnostic. All artifacts live locally in the repo and under git.
 
-## 1. Sources (обязательно — WebFetch перед работой)
+## 1. Sources (mandatory — WebFetch before work)
 
 Canonical domain: `code.claude.com/docs/en/*`. Full URL list with per-page descriptions → [reference.md](reference.md).
 

@@ -1,29 +1,29 @@
-# Python — структурный JSON в stdout
+# Python — structured JSON to stdout
 
-Цель: контейнер пишет **одну JSON-строку на запись в stdout/stderr**. Глобальный
-парсер `json_default` fluent-bit развернёт JSON автоматически (на всех `gl.*`),
-`log_format` можно не задавать → `gl.auto`. Поля — по контракту из [rules.md](rules.md).
-Рабочий референс: `<project>/app/logging_setup.py`.
+Goal: the container writes **one JSON line per record to stdout/stderr**. The global
+`json_default` fluent-bit parser unpacks the JSON automatically (on all `gl.*`),
+`log_format` can be left unset → `gl.auto`. Fields — per the contract in [rules.md](rules.md).
+Working reference: `<project>/app/logging_setup.py`.
 
-## Минимальные требования
-1. **Единая настройка во ВСЕХ точках входа** (web/worker/cron/скрипты) — один
-   `configure_logging()`-модуль, не копипастить `basicConfig` по файлам.
-2. **JSON-форматтер** на root-хендлере. Либо `python-json-logger`, либо свой
-   `logging.Formatter`, сериализующий `{datetime, level, level_name, message,
-   context:{...}}`. JSON сам экранирует control-chars (защита от log injection).
-3. **Фильтр-маскировка секретов** на root-ХЕНДЛЕРЕ (не на логгере — иначе не ловит
-   propagated-записи дочерних логгеров типа httpx/telethon/sqlalchemy).
-4. **Уровни** по дереву решений ([rules.md](rules.md)); дефолт прода `info`.
-5. **Бизнес-значения** — в `extra`/context, не в f-string: `log.info("order paid",
+## Minimal requirements
+1. **One setup across ALL entrypoints** (web/worker/cron/scripts) — a single
+   `configure_logging()` module, don't copy-paste `basicConfig` across files.
+2. **JSON formatter** on the root handler. Either `python-json-logger` or your own
+   `logging.Formatter` serializing `{datetime, level, level_name, message,
+   context:{...}}`. JSON escapes control chars itself (protection against log injection).
+3. **Secret-redaction filter** on the root HANDLER (not on the logger — otherwise it misses
+   propagated records from child loggers like httpx/telethon/sqlalchemy).
+4. **Levels** per the decision tree ([rules.md](rules.md)); prod default `info`.
+5. **Business values** — in `extra`/context, not in an f-string: `log.info("order paid",
    extra={"context": {"order_id": oid, "amount_cents": 4999, "tag": "billing"}})`.
 
-## Маскировка секретов (паттерн)
-Частая утечка: httpx/SDK логируют URL с токеном в пути (Telegram
-`api.telegram.org/bot<id>:<secret>/method`). Фильтр режет секрет ДО эмита:
+## Secret redaction (pattern)
+Common leak: httpx/SDK log a URL with the token in the path (Telegram
+`api.telegram.org/bot<id>:<secret>/method`). The filter cuts the secret BEFORE emit:
 
 ```python
 import logging, re
-_TG_TOKEN = re.compile(r"(\d{6,}):[A-Za-z0-9_-]{35,}")   # bot_id публичен, секрет — нет
+_TG_TOKEN = re.compile(r"(\d{6,}):[A-Za-z0-9_-]{35,}")   # bot_id is public, the secret isn't
 
 class RedactSecrets(logging.Filter):
     def filter(self, record):
@@ -39,25 +39,25 @@ def configure_logging(level=logging.INFO):
         if not any(isinstance(f, RedactSecrets) for f in h.filters):
             h.addFilter(RedactSecrets())
 ```
-Расширяй ban-list под проект (Authorization-заголовки, API-ключи, пароли, PHPSESSID…).
-**PII-regression тест обязателен:** известный (фейковый) секрет НЕ должен попасть в вывод.
+Extend the ban-list per project (Authorization headers, API keys, passwords, PHPSESSID…).
+**PII-regression test is mandatory:** a known (fake) secret must NOT reach the output.
 
-## Шумные библиотеки
-- `httpx`/`uvicorn`/`telethon`/`sqlalchemy` пишут в свои логгеры → propagate в root →
-  маскировка применяется (фильтр на root-хендлере). Уровень шумных — поднять до WARNING,
-  если INFO не нужен.
-- **arq** (воркер): CLI вешает свой хендлер на логгер `arq` → вместе с root двойной
-  вывод. Гасить **на уровне модуля** (до старта воркера): `logging.getLogger("arq").
-  propagate = False` (баннер «Starting worker» логируется до on_startup — в on_startup поздно).
+## Noisy libraries
+- `httpx`/`uvicorn`/`telethon`/`sqlalchemy` write to their own loggers → propagate to root →
+  redaction applies (filter on the root handler). Raise noisy loggers to WARNING,
+  if INFO isn't needed.
+- **arq** (worker): the CLI attaches its own handler to the `arq` logger → double output
+  together with root. Silence it **at module level** (before the worker starts): `logging.getLogger("arq").
+  propagate = False` (the «Starting worker» banner is logged before on_startup — too late in on_startup).
 
-## Best-effort и пул БД
-- `fluentd-async: true` → сокет недоступен не роняет приложение (см. integration.md).
-- **Перевод БД на fluentd = рекреация postgres = бонс** → пул SQLAlchemy получает
-  мёртвые коннекты. Обязательно `create_async_engine(..., pool_pre_ping=True,
-  pool_recycle=1800)` — иначе каскад «Can't reconnect until invalid transaction is
-  rolled back». Это применимо к ЛЮБОМУ рестарту БД (деплой), не только к включению логов.
+## Best-effort and the DB pool
+- `fluentd-async: true` → an unavailable socket doesn't crash the app (see integration.md).
+- **Switching the DB to fluentd = postgres recreation = a bounce** → the SQLAlchemy pool gets
+  dead connections. Mandatory `create_async_engine(..., pool_pre_ping=True,
+  pool_recycle=1800)` — otherwise a cascade "Can't reconnect until invalid transaction is
+  rolled back". This applies to ANY DB restart (deploy), not just enabling logs.
 
-## NDJSON-файл (альтернатива stdout)
-Если логи в файл, а не stdout: писать `<JSON_LOG_PATH>/<service>.ndjson`, один JSON на
-строку; fluent-bit тейлит `/var/log/json/*.ndjson`, имя файла = `docker_service`.
-Применять когда stdout занят (легаси) — по умолчанию предпочтительнее stdout (12-factor).
+## NDJSON file (stdout alternative)
+If logs go to a file, not stdout: write `<JSON_LOG_PATH>/<service>.ndjson`, one JSON per
+line; fluent-bit tails `/var/log/json/*.ndjson`, filename = `docker_service`.
+Use when stdout is taken (legacy) — by default stdout is preferred (12-factor).

@@ -1,46 +1,46 @@
 ---
 name: new-project-docker
-description: При создании ЛЮБОГО нового проекта с нуля — сразу делать его в Docker (Dockerfile + docker-compose.yml) + Makefile + подключать логирование (skill fluent-logging) с первого дня. Use when scaffolding/bootstrapping a new project, repo, or service from scratch. Триггеры RU: «новый проект», «создай проект», «инициализируй проект/репозиторий», «с нуля», «заскаффоль», «подними сервис». EN: new project, scaffold, bootstrap a service, set up a repo from scratch, project skeleton.
+description: When creating ANY new project from scratch — build it in Docker right away (Dockerfile + docker-compose.yml) + Makefile + wire up logging (skill fluent-logging) from day one. Use when scaffolding/bootstrapping a new project, repo, or service from scratch. Триггеры RU: «новый проект», «создай проект», «инициализируй проект/репозиторий», «с нуля», «заскаффоль», «подними сервис». EN: new project, scaffold, bootstrap a service, set up a repo from scratch, project skeleton.
 ---
 
-# new-project-docker — новый проект = Docker + Makefile
+# new-project-docker — new project = Docker + Makefile
 
-**Инвариант: любой новый проект создаётся сразу контейнеризованным.** Не «сначала
-локально, потом обернём» — с первого коммита есть `Dockerfile`, `docker-compose.yml`,
-`Makefile` и проводка логов. Это убирает «у меня работает», даёт единые команды и
-сразу включает наблюдаемость.
+**Invariant: every new project is containerized from the start.** Not "local first,
+wrap it later" — from the first commit there's a `Dockerfile`, `docker-compose.yml`,
+`Makefile` and log wiring. This kills "works on my machine", gives unified commands and
+turns on observability right away.
 
-## Что создаём в скелете
-1. **`Dockerfile`** — образ приложения (multi-stage если компилируемое; slim-база).
-2. **`docker-compose.yml`** — сервис(ы) приложения + зависимости (БД/кеш/очередь).
-   Каждому сервису — `restart`, `mem_limit`/`cpus`, healthcheck где уместно.
-3. **`.env` + `.env.example`** — конфиг (секреты в `.env`, он в `.gitignore`;
-   `.env.example` с плейсхолдерами в git).
-4. **`Makefile`** — единые команды (шаблон в [templates.md](templates.md)):
+## What we create in the skeleton
+1. **`Dockerfile`** — app image (multi-stage if compiled; slim base).
+2. **`docker-compose.yml`** — app service(s) + deps (db/cache/queue).
+   Each service — `restart`, `mem_limit`/`cpus`, healthcheck where apt.
+3. **`.env` + `.env.example`** — cfg (secrets in `.env`, it's in `.gitignore`;
+   `.env.example` with placeholders in git).
+4. **`Makefile`** — unified commands (template in [templates.md](templates.md)):
    `help`, `info`, `up`, `down`, `ps`, `restart name=…`, `logs name=…`, `build`,
-   `config`, `log-test`. `HOST_IP` вычисляется динамически (`hostname -I`).
-5. **Логирование** — подключить **skill `fluent-logging`** сразу: submodule/composer
-   либы, overlay `docker/fluent-logging.yml`, env-блок, `COMPOSE_FILE`. Контейнеры
-   пишут структурный JSON в stdout → fluent-bit → Graylog.
-6. **`.gitignore`**, `README.md`/`DEPLOY.md` со списком команд.
+   `config`, `log-test`. `HOST_IP` computed dynamically (`hostname -I`).
+5. **Logging** — wire up **skill `fluent-logging`** right away: submodule/composer
+   libs, overlay `docker/fluent-logging.yml`, env block, `COMPOSE_FILE`. Containers
+   write structured JSON to stdout → fluent-bit → Graylog.
+6. **`.gitignore`**, `README.md`/`DEPLOY.md` with the command list.
 
 ## Happy-path
-1. Завести репо + `git init`. Коммиты — по ядру [git-flow](../git-flow/SKILL.md).
-2. `Dockerfile` + `docker-compose.yml` (приложение + зависимости).
-3. `Makefile` из [templates.md](templates.md) — подогнать имена сервисов/портов.
-4. `.env`/`.env.example` (вкл. блок fluent-logging из skill `fluent-logging`).
-5. Подключить логи (skill `fluent-logging`): либа + overlay + `COMPOSE_FILE`.
-6. `make config` → `make up` → `make log-test` → проверить приход в Graylog.
+1. Create repo + `git init`. Commits — per [git-flow](../git-flow/SKILL.md) core.
+2. `Dockerfile` + `docker-compose.yml` (app + deps).
+3. `Makefile` from [templates.md](templates.md) — adjust service names/ports.
+4. `.env`/`.env.example` (incl. fluent-logging block from skill `fluent-logging`).
+5. Wire up logs (skill `fluent-logging`): lib + overlay + `COMPOSE_FILE`.
+6. `make config` → `make up` → `make log-test` → check arrival in Graylog.
 
-## Принципы
-- **Порты хоста — уникальные** на машине (не коллизить с другими проектами; `ss -ltn`).
-  Биндить на `127.0.0.1:<port>` если наружу не нужно.
-- **`COMPOSE_PROJECT_NAME`** задавать в `.env` (иначе кривые имена контейнеров и
-  префиксы в Graylog).
-- **Лимиты ресурсов** (`mem_limit`/`cpus`) с запасом — но задавать, не оставлять без.
-- **Зависимости — managed-образы** (postgres/redis/…), не ставить в образ приложения.
-- **Деплой** = `docker compose build && up -d` (+ `git submodule update --init` если
-  либа логов как submodule). Документировать в `DEPLOY.md`.
+## Principles
+- **Host ports — unique** on the machine (don't collide with other projects; `ss -ltn`).
+  Bind to `127.0.0.1:<port>` if not needed externally.
+- **`COMPOSE_PROJECT_NAME`** set in `.env` (else broken container names and
+  prefixes in Graylog).
+- **Resource limits** (`mem_limit`/`cpus`) with headroom — but set them, don't leave unset.
+- **Deps — managed images** (postgres/redis/…), don't install into the app image.
+- **Deploy** = `docker compose build && up -d` (+ `git submodule update --init` if
+  log lib is a submodule). Document in `DEPLOY.md`.
 
-Шаблоны (`Makefile`, `docker-compose.yml`, `Dockerfile`) — в [templates.md](templates.md).
-Проводку логов бери из skill `fluent-logging`.
+Templates (`Makefile`, `docker-compose.yml`, `Dockerfile`) — in [templates.md](templates.md).
+Take log wiring from skill `fluent-logging`.

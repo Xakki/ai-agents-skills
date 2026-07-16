@@ -1,22 +1,22 @@
-# fluent-logging — интеграция (детали)
+# fluent-logging — integration (details)
 
-Эталон overlay — `<project>/docker/fluent-logging.yml`. Рабочий Python-пример —
+Reference overlay — `<project>/docker/fluent-logging.yml`. Working Python example —
 `<project>/app/logging_setup.py` (overlay + Makefile + structured-logging setup).
 
-## 1. Подключение либы
+## 1. Wiring the lib
 - **PHP/composer:** `composer require xakki/fluent-log` → `vendor/xakki/fluent-log/`
-  (содержит `docker-fluent.yml` + `fluent-bit/` + `logrotate/`).
-- **Не-composer (Python/Node):** git submodule, целым каталогом (нужны соседи
+  (contains `docker-fluent.yml` + `fluent-bit/` + `logrotate/`).
+- **Non-composer (Python/Node):** git submodule, as a whole dir (needs the siblings
   `fluent-bit/`, `logrotate/`):
   ```bash
   git submodule add git@github.com:Xakki/fluent-log.git docker/vendor/fluent-log
-  git -C docker/vendor/fluent-log checkout v0.1.2   # пинить релиз-тег
+  git -C docker/vendor/fluent-log checkout v0.1.2   # pin the release tag
   ```
-  ⚠ Деплой обязан тянуть submodule: `git submodule update --init docker/vendor/fluent-log`
-  (нужен SSH-доступ сервера к приватному репо).
+  ⚠ Deploy must pull the submodule: `git submodule update --init docker/vendor/fluent-log`
+  (the server needs SSH access to the private repo).
 
 ## 2. Overlay `docker/fluent-logging.yml`
-Якоря YAML **file-local** → НЕ пересекают `include`: объяви `x-logging` заново в overlay.
+YAML anchors are **file-local** → they do NOT cross `include`: declare `x-logging` again in the overlay.
 
 ```yaml
 include:
@@ -37,56 +37,61 @@ x-logging: &_logging
 services:
     app:
         <<: *_logging
-        labels: { tier: "web" }          # log_format не задаём → дефолт = имя сервиса
+        labels: { tier: "web" }          # log_format left unset → default = service name
         depends_on:
             fluent-bit: { condition: service_started }
-    # … остальные сервисы аналогично; redis/mariadb/nginx/php → задать log_format под их парсер
+    # … other services likewise; redis/mariadb/nginx/php → set log_format for their parser
 ```
 
-- `include`-путь резолвится от **корня проекта**; bind-маунты ВНУТРИ `docker-fluent.yml`
-  (`./fluent-bit`, `./logrotate`) — от каталога самой либы (потому вендорим каталогом).
-- **Хост-дир для file-tail (`MYSQL_SLOWLOG_PATH`, `JSON_LOG_PATH`) — только АБСОЛЮТНЫЙ.**
-  Значение попадает в `volumes:` внутри `docker-fluent.yml`, и Compose резолвит
-  относительный путь от каталога ЛИБЫ, молча биндя пустой/чужой дир вместо ошибки. Не клади
-  относительное в `.env`; отдавай абсолютный путь из Makefile (`$(CURDIR)/…`, экспортится).
-- `log_format`: дефолт = имя compose-сервиса. Для парсинга задавай явно `php`/`nginx`/
-  `mariadb`/`redis`. Прочее → `gl.auto`.
+- The `include` path resolves from the **project root**; bind mounts INSIDE `docker-fluent.yml`
+  (`./fluent-bit`, `./logrotate`) — from the lib's own dir (that's why we vendor the whole dir).
+- **Host dir for file-tail (`MYSQL_SLOWLOG_PATH`, `JSON_LOG_PATH`) — ABSOLUTE only.**
+  The value lands in `volumes:` inside `docker-fluent.yml`, and Compose resolves a
+  relative path from the LIB's dir, silently binding an empty/wrong dir instead of erroring. Don't put
+  a relative value in `.env`; hand an absolute path from the Makefile (`$(CURDIR)/…`, exported).
+- `log_format`: default = compose service name. For parsing, set it explicitly `php`/`nginx`/
+  `mariadb`/`redis`. Anything else → `gl.auto`.
 
-## 3. Env-переменные (`.env` + плейсхолдеры в `.env.example`)
+## 3. Env vars (`.env` + placeholders in `.env.example`)
 
-| Переменная | Смысл | Пример |
+| Var | Meaning | Example |
 |---|---|---|
-| `COMPOSE_PROJECT_NAME` | **обязательно** — иначе `-fluent-bit` (ведущий дефис) | `myproj` |
-| `COMPOSE_FILE` | авто-мёрж overlay во все команды compose | `docker-compose.yml:docker/fluent-logging.yml` |
-| `COMPOSE_PROFILES` | → `docker_profile` (тег в Graylog) | `prod` |
-| `EXT_FLUENT_PORT` | хостовой forward-приём fluent-bit (host:port) | `127.0.0.1:10101` |
-| `EXT_FLUENT_METRIC_PORT` | метрики/health fluent-bit (:2020) | `127.0.0.1:10102` |
-| `GRAYLOG_HOST` | GELF/HTTP хост | `log.example.com` |
+| `COMPOSE_PROJECT_NAME` | **required** — else `-fluent-bit` (leading dash) | `myproj` |
+| `COMPOSE_FILE` | auto-merge overlay into all compose commands | `docker-compose.yml:docker/fluent-logging.yml` |
+| `COMPOSE_PROFILES` | → `docker_profile` (tag in Graylog) | `prod` |
+| `EXT_FLUENT_PORT` | host-side forward intake of fluent-bit (host:port) | `127.0.0.1:10101` |
+| `EXT_FLUENT_METRIC_PORT` | fluent-bit metrics/health (:2020) | `127.0.0.1:10102` |
+| `GRAYLOG_HOST` | GELF/HTTP host | `log.example.com` |
 | `GRAYLOG_URI` | GELF endpoint | `/gelf` |
-| `GRAYLOG_PORT` | GELF/HTTP порт | `443` |
-| `HOST_NAME` | логическое имя (GELF `hostname`) | `myhost-myproj` |
-| `HOST_IP` | IP хоста (GELF `host` = Graylog `source`) | `203.0.113.10` |
-| `TZ` | таймзона контейнера fluent-bit | `Europe/Moscow` |
-| `JSON_LOG_PATH` | (опц.) хост-дир тейлится в `/var/log/json` для NDJSON — **абсолютный** | `/srv/app/docker/logs` |
-| `MYSQL_SLOWLOG_PATH` | (опц.) slowlog mariadb — **абсолютный** (Makefile `$(CURDIR)/…`) | `/srv/app/docker/logs` |
+| `GRAYLOG_PORT` | GELF/HTTP port | `443` |
+| `HOST_NAME` | logical name (GELF `hostname`) | `myhost-myproj` |
+| `HOST_IP` | host IP (GELF `host` = Graylog `source`) | `203.0.113.10` |
+| `TZ` | fluent-bit container timezone | `Europe/Moscow` |
+| `JSON_LOG_PATH` | (opt.) host dir tailed into `/var/log/json` for NDJSON — **absolute** | `/srv/app/docker/logs` |
+| `MYSQL_SLOWLOG_PATH` | (opt.) mariadb slowlog — **absolute** (Makefile `$(CURDIR)/…`) | `/srv/app/docker/logs` |
 
-Порты: каждый проект на хосте — свои `EXT_FLUENT_*` (не коллизить; `ss -ltn`).
-`HOST_IP`/`HOST_NAME` удобно вычислять в Makefile (`hostname -I`).
+Ports: each project on the host gets its own `EXT_FLUENT_*` (don't collide; `ss -ltn`).
+`HOST_IP`/`HOST_NAME` are handy to compute in the Makefile (`hostname -I`).
 
-## 4. Порты fluent-bit
-| Внутр. | Назначение |
+## 4. fluent-bit ports
+| Internal | Purpose |
 |---|---|
-| 24224 | fluentd forward (TCP/UDP) — публикуется как `EXT_FLUENT_PORT` |
-| 2020 | HTTP health/metrics — публикуется как `EXT_FLUENT_METRIC_PORT` |
-| 2021 | Prometheus exporter (внутренний) |
+| 24224 | fluentd forward (TCP/UDP) — published as `EXT_FLUENT_PORT` |
+| 2020 | HTTP health/metrics — published as `EXT_FLUENT_METRIC_PORT` |
+| 2021 | Prometheus exporter (internal) |
 
-## 5. Поиск в Graylog
-`source` = IP хоста (общий для всех проектов на хосте). Фильтруй проект по
-**`docker_project:<COMPOSE_PROJECT_NAME>`**, сервис — `docker_service:<имя>`.
+## 5. Search in Graylog
+`source` = host IP (shared by all projects on the host). Filter the project by
+**`docker_project:<COMPOSE_PROJECT_NAME>`**, the service by `docker_service:<name>`.
 
-## 6. Верификация (порядок)
-1. `docker compose config` — мёрж/якорь/bind-пути ОК (оракул, делать первым).
-2. `docker compose up -d fluent-bit logrotate`; логи fluent-bit без `[error]`.
-3. Эмитнуть лог сервисом → проверить приход в Graylog (`docker_project:<имя>`) +
-   output-метрики fluent-bit (`fluentbit_output_proc_records_total` растёт,
-   `..._errors/retries` плоские).
+## 6. Verification (order)
+1. `docker compose config` — merge/anchor/bind paths OK (the oracle, do it first).
+2. `docker compose up -d fluent-bit logrotate`; fluent-bit logs with no `[error]`.
+3. Emit a log from a service → verify arrival in Graylog (`docker_project:<name>`) +
+   fluent-bit output metrics (`fluentbit_output_proc_records_total` growing,
+   `..._errors/retries` flat).
+
+## 7. Routing (`log_format` → parsers)
+The `log_format` label (default = service name) picks the parser set. Known:
+`php`, `nginx`, `mariadb`, `redis`. Unknown format → `route_unknown` → `gl.auto`
+(generic JSON + multiline join). `OUTPUT Match gl.*` catches everything → no logs lost.

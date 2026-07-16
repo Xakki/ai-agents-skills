@@ -1,93 +1,93 @@
-# Правила логов (конспект LaraLog `docs/LoggingRules.ru.md`)
+# Log rules (digest of LaraLog `docs/LoggingRules.ru.md`)
 
-Принципы языко-независимы (PHP/Python/Node). Источник:
+Principles are language-agnostic (PHP/Python/Node). Source:
 <https://raw.githubusercontent.com/Xakki/LaraLog/refs/heads/main/docs/LoggingRules.ru.md>
 
-## Базовые принципы
-1. **Лог — это API.** Сломать имя поля = сломать REST. Имена стабильны.
-2. **Структура важнее прозы.** Запись — JSON со стабильными именами; `message` для
-   глаз, поиск — по `context`/`extra`.
-3. **Логируем один раз, на границе.** Не catch-log-rethrow на каждом уровне.
-4. **Логирование не роняет запрос.** Best-effort; приёмник недоступен → запрос ОК.
-5. **Cardinality:** меняющееся per-request — в ПОЛЯ, не в индексные лейблы.
+## Base principles
+1. **A log is an API.** Breaking a field name = breaking REST. Names are stable.
+2. **Structure over prose.** A record is JSON with stable names; `message` for
+   eyes, search — by `context`/`extra`.
+3. **Log once, at the boundary.** No catch-log-rethrow at every level.
+4. **Logging never fails the request.** Best-effort; sink unavailable → request OK.
+5. **Cardinality:** per-request-varying data goes in FIELDS, not index labels.
 
-## Что НЕ логировать (нарушение = security-инцидент)
-Пароли/хеши/reset-токены; API-ключи, bearer/refresh; сессионные ID (`PHPSESSID`,
-`Cookie: session=`); полные платёжные (PAN/CVV); гос-ID (СНИЛС/ИНН/паспорт/SSN),
-медданные; полный PII скопом; сырые body эндпоинтов с этим. **Редактировать на
-границе процесса**, плейсхолдеры `***`/`[redacted]`/`sha256:<8 симв>`. Осторожно с
-дампами HTTP, трейсами с аргументами, ORM-биндингами, message исключений с user input.
+## What NOT to log (violation = security incident)
+Passwords/hashes/reset tokens; API keys, bearer/refresh; session IDs (`PHPSESSID`,
+`Cookie: session=`); full payment data (PAN/CVV); gov IDs (SNILS/INN/passport/SSN),
+medical data; bulk full PII; raw bodies of endpoints carrying these. **Redact at the
+process boundary**, placeholders `***`/`[redacted]`/`sha256:<8 chars>`. Careful with
+HTTP dumps, traces with args, ORM bindings, exception messages with user input.
 
-## Уровни — дерево решений
-- Сервис не обслуживает запросы → **emergency**
-- Данные повреждены/потеряны → **critical** (немедленный алерт)
-- Операция упала, восстановления нет, ушло пользователю → **error** (алерт от 1%)
-- Сбой поглощён, но надо что-то сделать → **warning** (от 5%)
-- Странное/подозрительное/автокорректировалось → **notice** (от 10%)
-- Нормальное бизнес-событие → **info**
-- Полезно только при воспроизведении бага → **debug** (в проде выключен)
+## Levels — decision tree
+- Service not serving requests → **emergency**
+- Data corrupted/lost → **critical** (immediate alert)
+- Operation failed, no recovery, reached the user → **error** (alert from 1%)
+- Failure absorbed but action needed → **warning** (from 5%)
+- Odd/suspicious/auto-corrected → **notice** (from 10%)
+- Normal business event → **info**
+- Useful only when reproducing a bug → **debug** (off in prod)
 
-Правила: **WARN без конкретного действия → NOTICE** (тест: «что должен сделать
-разработчик?»; «иногда бывает» → notice, иначе warning-fatigue). **WARN** = система
-поглотила сбой (fallback/кеш, запрос пользователя успешен); **ERROR** = сбой ушёл
-наружу (retry исчерпаны, 5xx). Промежуточные retry → warning, финальное → error.
-Числовые severity: debug 100, info 200, notice 250, warning 300, error 400,
-critical 500, alert 550, emergency 600. Дефолт прода — `info`; debug включается
-локально/per-instance/под инцидент, НИКОГДА глобально.
+Rules: **WARN with no concrete action → NOTICE** (test: "what should the dev
+do?"; "happens sometimes" → notice, else warning-fatigue). **WARN** = the system
+absorbed the failure (fallback/cache, user request succeeded); **ERROR** = the failure
+escaped outward (retries exhausted, 5xx). Intermediate retries → warning, final → error.
+Numeric severities: debug 100, info 200, notice 250, warning 300, error 400,
+critical 500, alert 550, emergency 600. Prod default — `info`; debug is enabled
+locally/per-instance/for an incident, NEVER globally.
 
-## Форма записи
-**Top-level (контракт):** `datetime` (RFC3339), `level` (int), `level_name`
-(lowercase), `channel`, `message` (короткое предложение, без интерполяции),
-`context` (per-event), `extra` (стабильно за процесс).
+## Record shape
+**Top-level (contract):** `datetime` (RFC3339), `level` (int), `level_name`
+(lowercase), `channel`, `message` (short sentence, no interpolation),
+`context` (per-event), `extra` (stable per process).
 - **extra:** `app_name`, `app_env`, `app_ver`, `tier`, `release_tag`, load_avg…
-- **context:** `log_type`, `request_id` (UUID, переносится через очереди/исходящие),
-  `trace_id`/`span_id`, `user_id`, `file`/`line`, `exception` (FQN), `tag`, бизнес-ID.
-- **log_type:** `logger` (явный вызов), `trigger` (рантайм/deprecation), `exception`
-  (uncaught/залогированное), `fatal` (shutdown/OOM/timeout). Алерт на `exception,fatal`.
-- **Бизнес-ID в `context`, не в `message`.** Дисциплина типов: `*_id/*_count` → int;
-  `is_*/has_*` → bool; деньги → int в минорных единицах (`amount_cents`), не float;
-  длительности → int мс. Имена — `snake_case`, префиксы `app_*`/`http_*`/`db_*`/`queue_*`.
-- **Лимиты:** `message` ~3 KB; вся строка <16 KB; трейс 5/10/20 кадров (Warn/Error/Crit);
-  аргументы в трейсе 128 chars; обрезка маркером `…`.
+- **context:** `log_type`, `request_id` (UUID, carried across queues/outbound),
+  `trace_id`/`span_id`, `user_id`, `file`/`line`, `exception` (FQN), `tag`, business IDs.
+- **log_type:** `logger` (explicit call), `trigger` (runtime/deprecation), `exception`
+  (uncaught/logged), `fatal` (shutdown/OOM/timeout). Alert on `exception,fatal`.
+- **Business IDs in `context`, not in `message`.** Type discipline: `*_id/*_count` → int;
+  `is_*/has_*` → bool; money → int in minor units (`amount_cents`), not float;
+  durations → int ms. Names — `snake_case`, prefixes `app_*`/`http_*`/`db_*`/`queue_*`.
+- **Limits:** `message` ~3 KB; whole line <16 KB; trace 5/10/20 frames (Warn/Error/Crit);
+  trace args 128 chars; truncation marker `…`.
 
-## Корреляция
-3 ID: `trace_id` (вся транзакция, OTel), `span_id` (единица работы), `request_id`
-(один HTTP-запрос, `X-Request-ID`). Инжектить в scope один раз на entrypoint (MDC),
-руками не таскать. Каждый entrypoint — пара `entry`/`exit` (`duration_ms`, `success`,
-`status_code`). Исходящий HTTP пробрасывает `X-Request-ID`/`traceparent`; queue job
-сериализует ID в payload.
+## Correlation
+3 IDs: `trace_id` (whole transaction, OTel), `span_id` (unit of work), `request_id`
+(one HTTP request, `X-Request-ID`). Inject into scope once per entrypoint (MDC),
+don't pass by hand. Every entrypoint — an `entry`/`exit` pair (`duration_ms`, `success`,
+`status_code`). Outbound HTTP forwards `X-Request-ID`/`traceparent`; a queue job
+serializes the IDs into the payload.
 
-## Особые сценарии
-- **Исключения:** логировать один раз сверху с бизнес-контекстом. Поля: `exception`
-  (FQN, не message), `exception_code`, `file:line`, `trace`, цепочка `prev`. Message
-  исключения — под подозрением (PII/log-injection): хранить FQN+code, message только
-  не в prod или санитайзенный.
-- **Внешние вызовы:** на каждый — `info` без payload, поля `target` (имя, не URL),
-  `method`, `path`, `response_code`, `latency_ms`, `attempt`. Прогрессия по сбоям:
-  1-й (retry стартует) → notice; retry → warning; max_attempts → error.
-- **Slow SQL:** канал `tag:sql`, поля `db_query` (обрезан), `db_table`, `db_time_ms`;
-  НИКОГДА сырые bindings в проде. N+1 (>50 одинаковых в одном request_id) → warning.
-- **Audit** (кто/что/когда/результат) — ОТДЕЛЬНЫЙ sink/индекс/retention, durable
-  append-only, без сэмплинга, sync. Не смешивать с operational. Детали — §6.5 доки.
+## Special scenarios
+- **Exceptions:** log once at the top with business context. Fields: `exception`
+  (FQN, not message), `exception_code`, `file:line`, `trace`, `prev` chain. The exception
+  message is suspect (PII/log-injection): store FQN+code, message only outside prod or
+  sanitized.
+- **External calls:** for each — `info` without payload, fields `target` (name, not URL),
+  `method`, `path`, `response_code`, `latency_ms`, `attempt`. Failure progression:
+  1st (retry starts) → notice; retry → warning; max_attempts → error.
+- **Slow SQL:** channel `tag:sql`, fields `db_query` (truncated), `db_table`, `db_time_ms`;
+  NEVER raw bindings in prod. N+1 (>50 identical within one request_id) → warning.
+- **Audit** (who/what/when/result) — SEPARATE sink/index/retention, durable
+  append-only, no sampling, sync. Don't mix with operational. Details — §6.5 of the doc.
 
-## Антипаттерны
-Интерполяция в message; лог исключения на каждом catch; `throw` без `previous`;
-`error("something happened")` (message = существительное+глагол, значения в context);
-warning на всегда-срабатывающем пути; `info` в tight loop (сэмплинг/debug);
-`request_id`/`user_id` как лейблы (→ поля); лог полного body (→ `size`/`content_type`);
-catch-and-swallow без лога; `print_r`/`var_export` в message; sync-запись на request path.
+## Antipatterns
+Interpolation in message; logging the exception at every catch; `throw` without `previous`;
+`error("something happened")` (message = noun+verb, values in context);
+warning on an always-taken path; `info` in a tight loop (sample/debug);
+`request_id`/`user_id` as labels (→ fields); logging the full body (→ `size`/`content_type`);
+catch-and-swallow with no log; `print_r`/`var_export` in message; sync write on the request path.
 
-## Транспорт
-12-factor: app пишет JSON в **stdout/stderr**, не заботясь о роутинге/хранении →
-агент (fluent-bit) тейлит → pipeline (Graylog). Backpressure на агенте, не в приложении.
-Среды изолированы (dev/staging НЕ в один индекс с prod). Sampling — только info/debug
-(notice+ всегда полностью); sticky-per-trace — де-факто стандарт; не сэмплить audit.
+## Transport
+12-factor: the app writes JSON to **stdout/stderr**, not caring about routing/storage →
+the agent (fluent-bit) tails → pipeline (Graylog). Backpressure at the agent, not in the app.
+Environments isolated (dev/staging NOT in the same index as prod). Sampling — only info/debug
+(notice+ always in full); sticky-per-trace — the de facto standard; don't sample audit.
 
-## Жизненный цикл
-- **Линтер в CI:** запрет интерполяции в message, `print_r`/`var_export`, ban-list ключей.
-- **PII regression тесты:** известные секреты НЕ попадают в логи (обязательно).
-- **Каталог полей** (`docs/log-fields.yml`) — source of truth; whitelist для `tag`
-  (auth, billing, sql, queue, upstream, entrypoint, audit, cron). Переименование поля =
-  dual-write ≥2 релиза.
-- **Алерты:** critical/emergency сразу; error >1% & count≥5; warning >5% & count≥20;
-  notice >10% & count≥50; окно 5 мин. Метрика-цель — MTTR.
+## Lifecycle
+- **Linter in CI:** ban interpolation in message, `print_r`/`var_export`, ban-list keys.
+- **PII regression tests:** known secrets do NOT reach the logs (mandatory).
+- **Field catalog** (`docs/log-fields.yml`) — source of truth; whitelist for `tag`
+  (auth, billing, sql, queue, upstream, entrypoint, audit, cron). Renaming a field =
+  dual-write ≥2 releases.
+- **Alerts:** critical/emergency immediately; error >1% & count≥5; warning >5% & count≥20;
+  notice >10% & count≥50; 5 min window. Target metric — MTTR.

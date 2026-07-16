@@ -1,0 +1,147 @@
+cfg	config
+ctx	context
+req	request
+res	response
+resp	response
+err	error
+idx	index
+i	index
+j	index
+k	index
+prev	previous
+next	next
+tmp	temporary
+auth	authentication / authorization
+dto	Data Transfer Object
+vo	Value Object
+fs	filesystem
+db	database
+id	identifier
+cmd	command
+env	environment
+dir	directory
+min	minimum
+max	maximum
+pos	position
+qty	quantity
+msg	message
+buf	buffer
+len	length
+cnt	count
+num	number
+val	value
+ptr	pointer
+ref	reference
+arg	argument
+args	arguments
+param	parameter
+params	parameters
+opt	option
+opts	options
+acc	accumulator / account
+amt	amount
+avg	average
+sum	sum
+agg	aggregate / aggregation
+calc	calculate / calculation
+gen	generate / generator
+ok	ok
+fn	function
+cb	callback
+ch	channel
+chan	channel
+wg	wait group
+mu	mutex
+mux	mutex
+sig	signal
+obj	object
+arr	array
+str	string
+int	integer
+bool	boolean
+char	character
+elem	element
+attr	attribute
+prop	property
+kv	key-value
+uuid	universally unique identifier
+ts	timestamp
+dt	date-time / datetime
+dur	duration
+ns	nanosecond
+ms	millisecond
+us	microsecond
+kb	kilobyte
+mb	megabyte
+gb	gigabyte
+impl	implementation
+init	initialize
+util	utility
+utils	utilities
+svc	service
+repo	repository
+mgr	manager
+ctl	controller
+ctrl	controller
+hdlr	handler
+pkg	package
+mod	module
+lib	library
+bin	binary
+src	source
+doc	documentation
+docs	documentation
+spec	specification
+def	definition
+decl	declaration
+expr	expression
+stmt	statement
+ns	namespace
+cap	capacity
+orm	Object-Relational Mapping
+sql	Structured Query Language
+ddl	Data Definition Language
+dml	Data Manipulation Language
+crud	Create, Read, Update, Delete
+pk	primary key
+fk	foreign key
+tx	transaction
+conn	connection
+pool	connection pool
+cache	cache
+ttl	time to live
+mq	message queue
+pubsub	publish-subscribe
+ws	WebSocket
+rpc	Remote Procedure Call
+http	HyperText Transfer Protocol
+url	Uniform Resource Locator
+uri	Uniform Resource Identifier
+dns	Domain Name System
+ip	Internet Protocol address
+tls	Transport Layer Security
+ssl	Secure Sockets Layer
+jwt	JSON Web Token
+hmac	Hash-based Message Authentication Code
+csrf	Cross-Site Request Forgery
+cors	Cross-Origin Resource Sharing
+cdn	Content Delivery Network
+api	Application Programming Interface
+cli	Command-Line Interface
+ui	User Interface
+ux	User Experience
+i18n	internationalization
+l10n	localization
+regex	regular expression
+re	regular expression
+json	JavaScript Object Notation
+yaml	YAML Ain't Markup Language
+csv	Comma-Separated Values
+ci	Continuous Integration
+cd	Continuous Delivery
+k8s	Kubernetes
+sync	synchronous
+async	asynchronous
+concur	concurrency
+seq	sequence
+deadline	deadline

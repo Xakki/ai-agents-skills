@@ -116,16 +116,16 @@ See [reference.md](reference.md) for the autonomous-run commit contract.
 - Do NOT silently resolve `grooming/` questions — ask the user; record in `**Decisions:**`.
 - Do NOT move to `ready/` while tests are red.
 
-## Правила делегирования задачи
+## Task Delegation Rules
 
-1. **Один агент — одна зона.** Кросс-зональная задача: основной агент делает
-   свою зону; общий контракт закреплён в отдельном skill (например,
-   protocol/contract skill); смежные реализации делают свои агенты, читающие
-   тот же skill.
-2. **`security-auditor` — read-only**: выдаёт отчёт, код не пишет. Правки делает
-   агент-имплементатор.
-3. **`test-engineer` пишет тесты, не бизнес-логику.** Если тесту нужен новый
-   эндпойнт/хук в коде → завести подзадачу в kanban и делегировать её
-   агенту-имплементатору.
-4. **Новый агент — только по явной необходимости.** Если задача укладывается в
-   существующего агента — не плодить агентов.
+1. **One agent — one zone.** Cross-zone task: the main agent does its own zone;
+   the shared contract lives in a separate skill (e.g. a protocol/contract
+   skill); adjacent implementations are done by their own agents reading that
+   same skill.
+2. **`security-auditor` — read-only**: emits a report, writes no code. Fixes are
+   done by an implementer agent.
+3. **`test-engineer` writes tests, not business logic.** If a test needs a new
+   endpoint/hook in the code → file a subtask in kanban and delegate it to an
+   implementer agent.
+4. **New agent — only when clearly needed.** If the task fits an existing
+   agent — don't spawn extra agents.

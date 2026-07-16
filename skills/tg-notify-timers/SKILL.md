@@ -3,95 +3,95 @@ name: tg-notify-timers
 description: View or change the timers/thresholds that control the tg-notify hooks (Stop + Notification) — idle/permission/stop thresholds, delivery delays, debounce. They are environment variables that override the hooks' built-in defaults; this skill sets them in settings.json. Use when the user asks to tune Telegram notification delays, debounce, idle/permission/stop thresholds, or to silence/sensitize TG notifications. Triggers (RU/EN) — «таймеры тг», «пороги тг», «debounce TG», «idle threshold», «когда писать в телеграм», «увеличить/уменьшить пороги уведомлений», «tune tg notify», «adjust telegram thresholds».
 ---
 
-# tg-notify-timers — конфиг таймеров TG-хуков
+# tg-notify-timers — TG-hook timers config
 
-Управляет 7 переменными, которыми хуки плагина `tg-on-notification.sh` и `tg-on-stop.sh`
-решают, когда и через какую задержку слать сообщение в Telegram.
+Manages the 7 vars the plugin hooks `tg-on-notification.sh` and `tg-on-stop.sh`
+use to decide when and after what delay to send a message to Telegram.
 
-## Как это работает (важно)
+## How it works (important)
 
-Хуки читают каждое значение как `${TG_NOTIFY_*:-<default>}` — то есть **берут число
-из окружения, а если переменной нет — встроенный дефолт**. Скрипты хуков лежат в
-read-only кэше плагина (`~/.claude/plugins/cache/...`), редактировать их **нельзя** —
-перезапишутся при обновлении. Поэтому единственный способ изменить таймер —
-**задать env-переменную**, которая перебьёт дефолт.
+The hooks read each value as `${TG_NOTIFY_*:-<default>}` — i.e. they **take the number
+from the env, and if the var is absent — the built-in default**. The hook scripts live in
+the read-only plugin cache (`~/.claude/plugins/cache/...`), you **can't** edit them —
+they get overwritten on update. So the only way to change a timer is to
+**set an env var** that overrides the default.
 
-Канонически — в `env` файла `~/.claude/settings.json` (его окружение наследуют хуки).
-**Профиль «default» = ни одной из 7 переменных не задано** → работают встроенные
-дефолты. Изменения подхватываются **после перезапуска** Claude Code (env читается на старте).
+Canonically — in the `env` of `~/.claude/settings.json` (the hooks inherit its environment).
+**The "default" profile = none of the 7 vars set** → the built-in
+defaults apply. Changes are picked up **after a restart** of Claude Code (env is read at startup).
 
-## Параметры
+## Params
 
-| Переменная | Хук | Семантика | Default    |
+| Var | Hook | Semantics | Default    |
 |---|---|---|------------|
-| `TG_NOTIFY_PERM_THRESHOLD` | notification | мин. длительность (сек) для «🔐 Требуется разрешение» | 1200 (20м) |
-| `TG_NOTIFY_IDLE_THRESHOLD` | notification | мин. длительность (сек) для «⏰ Ожидает ввода» | 1200 (20м) |
-| `TG_NOTIFY_DELAY` | notification | задержка доставки (окно отмены, сек) | 1800 (30м) |
-| `TG_NOTIFY_DEBOUNCE` | notification | мин. интервал между schedule на сессии | 300 (5м)   |
-| `TG_NOTIFY_STOP_THRESHOLD` | stop | мин. длительность задачи для Stop-уведомления | 1200 (20м) |
-| `TG_NOTIFY_STOP_DELAY` | stop | задержка доставки Stop (окно отмены) | 1800 (30м) |
-| `TG_NOTIFY_STOP_DEBOUNCE` | stop | мин. интервал между Stop-schedule на сессии | 1200 (20м) |
+| `TG_NOTIFY_PERM_THRESHOLD` | notification | min duration (sec) for "🔐 Требуется разрешение" | 1200 (20m) |
+| `TG_NOTIFY_IDLE_THRESHOLD` | notification | min duration (sec) for "⏰ Ожидает ввода" | 1200 (20m) |
+| `TG_NOTIFY_DELAY` | notification | delivery delay (cancel window, sec) | 1800 (30m) |
+| `TG_NOTIFY_DEBOUNCE` | notification | min interval between schedules per session | 300 (5m)   |
+| `TG_NOTIFY_STOP_THRESHOLD` | stop | min task duration for a Stop notification | 1200 (20m) |
+| `TG_NOTIFY_STOP_DELAY` | stop | Stop delivery delay (cancel window) | 1800 (30m) |
+| `TG_NOTIFY_STOP_DEBOUNCE` | stop | min interval between Stop schedules per session | 1200 (20m) |
 
-Все значения — секунды, в JSON хранятся строками (`"1800"`).
+All values are seconds, stored in JSON as strings (`"1800"`).
 
-## Посмотреть текущие
+## View current
 
 ```bash
 jq '.env | with_entries(select(.key | startswith("TG_NOTIFY_")))' ~/.claude/settings.json
 ```
-Пусто → действуют дефолты из таблицы.
+Empty → the defaults from the table apply.
 
-## Поменять
+## Change
 
-Правится `env` в `~/.claude/settings.json` (напрямую через Edit / skill `update-config`,
-либо jq ниже). Один таймер:
+Edit `env` in `~/.claude/settings.json` (directly via Edit / skill `update-config`,
+or the jq below). One timer:
 
 ```bash
 jq '.env.TG_NOTIFY_STOP_THRESHOLD = "1800"' ~/.claude/settings.json > /tmp/s.json && mv /tmp/s.json ~/.claude/settings.json
 ```
 
-Сбросить в default (убрать все 7 → встроенные дефолты):
+Reset to default (remove all 7 → built-in defaults):
 
 ```bash
 jq 'del(.env.TG_NOTIFY_PERM_THRESHOLD, .env.TG_NOTIFY_IDLE_THRESHOLD, .env.TG_NOTIFY_DELAY, .env.TG_NOTIFY_DEBOUNCE, .env.TG_NOTIFY_STOP_THRESHOLD, .env.TG_NOTIFY_STOP_DELAY, .env.TG_NOTIFY_STOP_DEBOUNCE)' ~/.claude/settings.json > /tmp/s.json && mv /tmp/s.json ~/.claude/settings.json
 ```
 
-После любой правки — перезапустить Claude Code, чтобы хуки увидели новый env.
+After any change — restart Claude Code so the hooks see the new env.
 
-## Профили
+## Profiles
 
-Применять одним jq-мёрджем в `.env`.
+Apply with a single jq merge into `.env`.
 
-### тише
+### quieter
 ```bash
 jq '.env += {TG_NOTIFY_PERM_THRESHOLD:"1800",TG_NOTIFY_IDLE_THRESHOLD:"1200",TG_NOTIFY_DELAY:"600",TG_NOTIFY_DEBOUNCE:"600",TG_NOTIFY_STOP_THRESHOLD:"1800",TG_NOTIFY_STOP_DELAY:"900",TG_NOTIFY_STOP_DEBOUNCE:"600"}' ~/.claude/settings.json > /tmp/s.json && mv /tmp/s.json ~/.claude/settings.json
 ```
 
-### чувствительнее
+### more sensitive
 ```bash
 jq '.env += {TG_NOTIFY_PERM_THRESHOLD:"600",TG_NOTIFY_IDLE_THRESHOLD:"300",TG_NOTIFY_DELAY:"180",TG_NOTIFY_DEBOUNCE:"180",TG_NOTIFY_STOP_THRESHOLD:"600",TG_NOTIFY_STOP_DELAY:"300",TG_NOTIFY_STOP_DEBOUNCE:"180"}' ~/.claude/settings.json > /tmp/s.json && mv /tmp/s.json ~/.claude/settings.json
 ```
 
-### отключить (пороги в недостижимое)
+### disable (thresholds set unreachable)
 ```bash
 jq '.env += {TG_NOTIFY_PERM_THRESHOLD:"99999999",TG_NOTIFY_IDLE_THRESHOLD:"99999999",TG_NOTIFY_STOP_THRESHOLD:"99999999"}' ~/.claude/settings.json > /tmp/s.json && mv /tmp/s.json ~/.claude/settings.json
 ```
 
-## Проверка
+## Verification
 
 ```bash
-# что задано в окружении
+# what is set in the environment
 jq '.env | with_entries(select(.key | startswith("TG_NOTIFY_")))' ~/.claude/settings.json
-# JSON валиден?
+# JSON valid?
 jq empty ~/.claude/settings.json && echo "settings.json OK"
-# лог: что хук планирует/шлёт (runtime home: $TG_NOTIFY_HOME, по умолчанию ~/.local/state/tg-notify)
+# log: what the hook schedules/sends (runtime home: $TG_NOTIFY_HOME, defaults to ~/.local/state/tg-notify)
 tail -50 "${TG_NOTIFY_HOME:-$HOME/.local/state/tg-notify}/tg-notify.log" 2>/dev/null
-# активные pending payload-файлы
+# active pending payload files
 ls -la "${TG_NOTIFY_HOME:-$HOME/.local/state/tg-notify}/pending/"*/ 2>/dev/null
 ```
 
-## Связанные
+## Related
 
-- Хуки плагина (read-only, **не редактировать**): `hooks/tg-on-notification.sh`, `hooks/tg-on-stop.sh`,
+- Plugin hooks (read-only, **do not edit**): `hooks/tg-on-notification.sh`, `hooks/tg-on-stop.sh`,
   `hooks/tg-prompt-start.sh`, `hooks/tg-cancel-pending.sh`.
-- Отправка и креды/назначение — скилл `tg-notify` (`skills/tg-notify/`).
+- Sending and creds/targeting — skill `tg-notify` (`skills/tg-notify/`).

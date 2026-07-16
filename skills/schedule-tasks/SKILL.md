@@ -42,10 +42,10 @@ Defaults (do NOT ask):
 - **Order** = chain picks the next card itself (related-first, then lex-oldest — see `lifecycle.md`).
 
 Ask only for:
-- **Ambiguous date/time** — "через час" / "вечером" when already past that. Skip if user gave
-  `at -t YYYYMMDDhhmm`-style precision.
-- **User-stated constraints** that need confirmation ("только front-* задачи", "не трогай DB",
-  "после каждой задачи e2e" — confirm prefix / scope / command).
+- **Ambiguous date/time** — "через час" (in an hour) / "вечером" (in the evening) when already
+  past that. Skip if user gave `at -t YYYYMMDDhhmm`-style precision.
+- **User-stated constraints** that need confirmation ("только front-* задачи" (only front-* tasks),
+  "не трогай DB" (don't touch DB), "после каждой задачи e2e" (e2e after each task) — confirm prefix / scope / command).
 
 Capture any constraints verbatim — they go into `.chain-conditions` (step 3).
 
@@ -72,8 +72,8 @@ PROJECT_NAME="$(basename "$REPO")"
 COND_FILE="$HOME/.local/state/claude-auto-runs/$PROJECT_NAME/.chain-conditions"
 mkdir -p "$(dirname "$COND_FILE")"
 cat > "$COND_FILE" <<'EOF'
-- Не пушить и не открывать PR.
-- Используй sonnet для имплементации.
+- Do not push or open a PR.
+- Use sonnet for implementation.
 EOF
 ```
 
