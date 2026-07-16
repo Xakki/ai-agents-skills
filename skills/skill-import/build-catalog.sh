@@ -65,7 +65,9 @@ emit_external() { # source clone_dir
   local source="$1" clone="$2" readme="$2/README.md"
   [ -f "$readme" ] || return 0
   # match list items: - [text](https://github.com/....) <sep> description
-  grep -oE '^[[:space:]]*[-*][[:space:]]+\[[^]]+\]\(https://github\.com/[^)]+\)[^`]*' "$readme" | \
+  # `|| true` guards against pipefail aborting the whole script when a
+  # hybrid README happens to have zero github.com list-links.
+  { grep -oE '^[[:space:]]*[-*][[:space:]]+\[[^]]+\]\(https://github\.com/[^)]+\)[^`]*' "$readme" || true; } | \
   while IFS= read -r line; do
     local url slug desc
     url="$(printf '%s' "$line" | sed -E 's/.*\((https:\/\/github\.com\/[^)]+)\).*/\1/')"
