@@ -68,6 +68,7 @@ fi
 
 mkdir -p "$dest"; rm -rf "${dest:?}/"* 2>/dev/null || true
 cp -R "$src/." "$dest/"
+rm -rf "${dest:?}/.git"
 
 # manifest: replace existing row for this skill, then append
 man="$PROJECT/.claude/skills/.imported.tsv"
