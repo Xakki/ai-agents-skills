@@ -73,6 +73,10 @@ branch has been verified clean.
 An **epic** is a card whose body lists ordered subtask cards. Subtasks are normal
 cards; the epic is their parent and their integration point.
 
+- **Naming — shared prefix + numbering.** The epic and its subtasks share a
+  prefix (a short epic name); the epic itself is `00`, subtasks are `01`, `02`…
+  in execution order. E.g. `admin-00-<epic>.md`, `admin-01-<subtask>.md`,
+  `admin-02-…`. This groups an epic's cards together and shows their order.
 - **Start.** Epic card → `progress/`. Create ONE branch `epic/<ID>` for the whole
   epic; every subtask is implemented in that branch, not in its own `task/<ID>`.
 - **Subtasks.** Work them in the listed order. Each finished subtask card moves
