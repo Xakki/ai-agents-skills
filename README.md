@@ -19,6 +19,7 @@ utilities.
 | **qa-check** | Quality gate before marking a task done: scopes by `git diff`, runs the project's lint/type/test targets via `make`, reports Pass/Fail. Bans the usual "make it pass" anti-patterns; asks for the target mapping on first use. |
 | **prepare-pr** | Get a branch ready for review: sanity-check the diff, delegate the gate to `qa-check`, draft a PR description from commits. Draft-only by default (no auto-push/PR), secret-leak guard, no commit trailers. |
 | **fluent-logging** | Cross-project structured-logging standard: containers emit JSON to stdout → fluent-bit → Graylog (GELF), via [`xakki/fluent-log`](https://github.com/Xakki/FluentLog). |
+| **skill-import** | Discover & import skills from external git repos into a project's `.claude/skills/`, matched to the project (a subagent picks fits from a built catalog); supports updating imported skills. |
 
 ## Agents
 
@@ -38,6 +39,22 @@ As a marketplace from this repo:
 /plugin marketplace add Xakki/ai-agents-skills
 /plugin install ai-agents-skills@ai-agents-skills
 ```
+
+### Dependency: mempalace
+
+This plugin declares a dependency on the [mempalace](https://github.com/MemPalace/mempalace)
+plugin (cross-marketplace). Claude Code resolves a dependency only from a
+marketplace you have already added — so add the mempalace marketplace **before**
+installing, otherwise the install fails with `dependency-unsatisfied`:
+
+```
+/plugin marketplace add MemPalace/mempalace
+/plugin marketplace add Xakki/ai-agents-skills
+/plugin install ai-agents-skills@ai-agents-skills
+```
+
+With the mempalace marketplace present, installing `ai-agents-skills` pulls in
+`mempalace` automatically.
 
 Or from a local checkout:
 
