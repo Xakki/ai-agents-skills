@@ -6,7 +6,19 @@ usage() { cat <<EOF
 Usage: import-skill.sh <source> <skill> [--force] [--project DIR] [--cache DIR] [--catalog FILE]
 Copy a catalog skill into <project>/.claude/skills/<skill>/ and record the manifest.
 Exit 3 on name collision without --force.
+Exit 5 on an unsafe (path-traversal) catalog-derived path component.
 EOF
+}
+
+reject_unsafe_component() { # a single path component (no slashes allowed)
+  case "$1" in
+    ''|.*|*/*|*..*) echo "skill-import: unsafe path component: '$1'" >&2; exit 5;;
+  esac
+}
+reject_unsafe_subpath() { # a relative subpath (slashes allowed, but no traversal/absolute)
+  case "$1" in
+    /*|*..*) echo "skill-import: unsafe subpath: '$1'" >&2; exit 5;;
+  esac
 }
 
 CACHE="${SKILL_IMPORT_CACHE:-$HOME/.cache/skill-import}"
@@ -25,6 +37,7 @@ while [ $# -gt 0 ]; do
   shift
 done
 [ -n "$SOURCE" ] && [ -n "$SKILL" ] || { usage >&2; exit 2; }
+reject_unsafe_component "$SKILL"
 [ -n "$CATALOG" ] || CATALOG="$CACHE/catalog.tsv"
 [ -f "$CATALOG" ] || { echo "no catalog: $CATALOG (run build-catalog.sh)" >&2; exit 1; }
 
@@ -52,7 +65,9 @@ else
     subpath="$(printf '%s' "$c_loc" | sed -E 's#.*/tree/[^/]+/(.*)$#\1#')"
     repo_url="$(printf '%s' "$c_loc" | sed -E 's#(/tree/.*)$##')"
   fi
+  reject_unsafe_subpath "$subpath"
   slug="$(basename "${repo_url%/}" .git)"
+  reject_unsafe_component "$slug"
   clone="$CACHE/external/$slug"
   if [ ! -d "$clone/.git" ]; then
     git clone --depth 1 -q "$repo_url" "$clone"

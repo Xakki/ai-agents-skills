@@ -54,8 +54,10 @@ refresh_repo() { # name url -> echoes clone dir
 emit_local() { # source clone_dir
   local source="$1" clone="$2" md dir rel skill desc
   while IFS= read -r md; do
-    dir="${md%/SKILL.md}"; rel="${dir#"$clone"/}"
+    dir="${md%/SKILL.md}"
+    if [ "$dir" = "$clone" ]; then rel="."; else rel="${dir#"$clone"/}"; fi
     skill="$(fm_field "$md" name)"; [ -n "$skill" ] || skill="$(basename "$dir")"
+    case "$skill" in ''|.*|*/*|*..*) echo "skill-import: skipping unsafe skill name '$skill' in $source" >&2; continue;; esac
     desc="$(fm_field "$md" description)"
     printf '%s\t%s\tlocal\t%s\t%s\n' "$source" "$skill" "$rel" "$desc" >>"$OUT"
   done < <(find "$clone" -name SKILL.md -not -path '*/.git/*' | sort)
