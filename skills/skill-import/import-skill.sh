@@ -46,7 +46,24 @@ if [ "$c_kind" = local ]; then
   rec_url="file://$clone"; [ -n "$url" ] && rec_url="$url"
   rec_loc="$c_loc"
 else
-  echo "external import handled in Task 4" >&2; exit 1
+  # location is a github URL, optionally .../tree/<branch>/<subpath>
+  repo_url="$c_loc"; subpath="."
+  if printf '%s' "$c_loc" | grep -q '/tree/'; then
+    subpath="$(printf '%s' "$c_loc" | sed -E 's#.*/tree/[^/]+/(.*)$#\1#')"
+    repo_url="$(printf '%s' "$c_loc" | sed -E 's#(/tree/.*)$##')"
+  fi
+  slug="$(basename "${repo_url%/}" .git)"
+  clone="$CACHE/external/$slug"
+  if [ ! -d "$clone/.git" ]; then git clone --depth 1 -q "$repo_url" "$clone"; fi
+  src="$clone/$subpath"
+  # if no SKILL.md at subpath, try to find one
+  if [ ! -f "$src/SKILL.md" ]; then
+    found="$(find "$clone" -name SKILL.md -not -path '*/.git/*' | head -n1 || true)"
+    [ -n "$found" ] || { echo "no SKILL.md in $repo_url" >&2; exit 1; }
+    src="${found%/SKILL.md}"
+  fi
+  sha="$(git -C "$clone" rev-parse --short HEAD)"
+  rec_url="$repo_url"; rec_loc="$subpath"
 fi
 
 mkdir -p "$dest"; rm -rf "${dest:?}/"* 2>/dev/null || true
