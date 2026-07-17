@@ -25,8 +25,8 @@ utilities.
 
 | Agent | What it does |
 |-------|--------------|
-| **log-investigator** | Read-only incident triage. Pulls container logs (Portainer), app logs (Graylog), and metrics (Grafana/Prometheus) and returns a focused UTC timeline + likely root cause — not a raw log dump. `model: sonnet`, mutations denied. On first use in a project it **asks** for the service/tag/endpoint context and offers to save it to your `.claude/`. |
-| **db-schema** | Read-only DB schema introspection. Returns concise `table → columns → PK → indexes → FKs` summaries from the live DB, migrations, or config — always naming the source. `model: sonnet`, mutations/migrations denied. Asks for ORM/stack/paths on first use. |
+| **ai-agents-skills:log-investigator** | Read-only incident triage. Pulls container logs (Portainer), app logs (Graylog), and metrics (Grafana/Prometheus) and returns a focused UTC timeline + likely root cause — not a raw log dump. `model: sonnet`, mutations denied. On first use in a project it **asks** for the service/tag/endpoint context and offers to save it to your `.claude/`. |
+| **ai-agents-skills:db-schema** | Read-only DB schema introspection. Returns concise `table → columns → PK → indexes → FKs` summaries from the live DB, migrations, or config — always naming the source. `model: sonnet`, mutations/migrations denied. Asks for ORM/stack/paths on first use. |
 
 Agents are auto-discovered from `agents/` (no manifest entry needed) and addressable
 as `ai-agents-skills:<name>` (e.g. `ai-agents-skills:log-investigator`).
