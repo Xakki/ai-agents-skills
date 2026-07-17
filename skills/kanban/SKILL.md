@@ -39,6 +39,13 @@ See [reference.md](reference.md) for the full grooming protocol.
 
 ### 2. Start (todo → progress)
 
+- **Brief the user first (interactive starts).** Before moving the card to
+  `progress/`, post a short, plain-language task briefing to the user **in the
+  user's language**: what the task does and why, the acceptance criteria, the
+  planned approach, and which files/areas it touches. It's a read-back so the
+  user can catch a wrong card or misread scope before work starts — keep it
+  concise and explained, don't dump the raw card. Skip only on autonomous/
+  unattended runs (no user present, e.g. schedule-tasks).
 - **From file**: move `.claude/kanban/todo/<task>.md` → `progress/`.
 - **From description**: create from [task template](task-template.md) in `todo/`, then move to `progress/` (only if scope is clear).
 
