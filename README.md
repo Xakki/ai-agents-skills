@@ -7,9 +7,11 @@ utilities.
 
 This repository also ships a [Codex](https://developers.openai.com/codex/plugins/build)
 plugin manifest (`.codex-plugin/plugin.json`) so the same skills can be used
-from Codex CLI — see [Install (Codex)](#install-codex) below. Both
-integrations share the same `skills/` tree; see [AGENTS.md](AGENTS.md) for the
-repo conventions that keep them in sync.
+from Codex CLI — see [Install (Codex)](#install-codex) below — and a
+[Cursor](https://cursor.com/docs/reference/plugins) Agent CLI/IDE plugin
+manifest (`.cursor-plugin/plugin.json`) — see [Install (Cursor)](#install-cursor)
+below. All three integrations share the same `skills/` tree; see
+[AGENTS.md](AGENTS.md) for the repo conventions that keep them in sync.
 
 | Skill | What it does |
 |-------|--------------|
@@ -118,6 +120,59 @@ Note: the `mempalace` cross-marketplace dependency declared in
 [mempalace](https://github.com/MemPalace/mempalace) separately as a Codex
 plugin if you want it there too.
 
+## Install (Cursor)
+
+1. Install the [Cursor Agent CLI](https://cursor.com/docs/cli) (`cursor-agent`).
+2. Register this repo as a plugin marketplace source:
+
+   ```
+   cursor-agent plugin marketplace add https://github.com/Xakki/ai-agents-skills
+   ```
+
+3. As of this writing, the Cursor CLI has **no non-interactive `plugin
+   install` command** (confirmed against `cursor-agent plugin --help` and
+   Cursor's own docs/forum, 2026-07-31) — `plugin marketplace add` only
+   registers the source. Enable the plugin one of these ways:
+   - **Interactive CLI:** run `cursor-agent`, type `/plugin`, open the
+     **Marketplace** tab, select `ai-agents-skills`, and press Enter —
+     choose **user** scope to make it available in every future session, or
+     **project** scope for just this repo.
+   - **Cursor IDE:** open **Customize** in the sidebar → **Plugins** → find
+     `ai-agents-skills` → install.
+   - **Local/dev testing** (no marketplace registration needed): point the
+     CLI directly at a checkout of this repo:
+
+     ```
+     cursor-agent --plugin-dir /path/to/ai-agents-skills
+     ```
+
+4. Verify:
+
+   ```
+   cursor-agent plugin marketplace list   # confirms the source is registered
+   ```
+
+   In a fresh session, confirm the skills (`skills/`), the 3 agents
+   (`agents/*.md`), and the 5 Cursor hook bindings from
+   `hooks/cursor-hooks.json` are discoverable — the **Hooks** tab and
+   **Customize** panel in Cursor list configured/executed hooks and
+   installed skills/agents.
+
+Cursor loads this plugin's skills, agents, and hooks through
+`hooks/cursor-hooks.json` (routed through a normalization adapter,
+`hooks/cursor-adapter.sh`, since Cursor's hook payload field names differ
+from Claude Code's/Codex's). Session-start context injection, prompt-start
+bookkeeping, and the "✅ task finished" Telegram ping all work the same as
+under Claude Code/Codex. The "🔐 needs your permission" / "⏰ waiting for
+input" ping does **not** fire under Cursor — there is no Cursor hook event
+for it. See [the design doc](docs/superpowers/specs/2026-07-31-cursor-plugin-design.md#safe-degradation-notification--permissionrequest)
+for why.
+
+Note: the `mempalace` cross-marketplace dependency declared in
+`.claude-plugin/plugin.json` is Claude Code–specific; install
+[mempalace](https://github.com/MemPalace/mempalace) separately for Cursor if
+you want it there too.
+
 ## Layout
 
 ```
@@ -127,10 +182,15 @@ plugin if you want it there too.
 │   └── marketplace.json   # marketplace entry → source "./" (also read by Codex, legacy-compatible)
 ├── .codex-plugin/
 │   └── plugin.json        # Codex plugin manifest (only this file lives here)
+├── .cursor-plugin/
+│   ├── plugin.json        # Cursor plugin manifest — declares "hooks": "./hooks/cursor-hooks.json"
+│   └── marketplace.json   # marketplace entry → source "./"
 ├── AGENTS.md              # Codex instructions: shared skills/, separate hook maps
 ├── hooks/
 │   ├── hooks.json         # Claude Code hooks (auto-registered, 6 events)
 │   ├── codex-hooks.json   # same hooks mapped to Codex's event names (see plugin.json → "hooks")
+│   ├── cursor-hooks.json  # same hooks mapped to Cursor's event names, via cursor-adapter.sh
+│   ├── cursor-adapter.sh  # normalizes Cursor payloads for the shared tg-*.sh / abbr-inject.sh scripts
 │   └── tg-*.sh
 ├── skills/
 │   ├── kanban/
@@ -151,7 +211,11 @@ from `hooks/hooks.json` — no `skills` or `hooks` field in
 `.claude-plugin/plugin.json` is needed. The Codex manifest
 (`.codex-plugin/plugin.json`) declares both explicitly: `"skills": "./skills/"`
 and `"hooks": "./hooks/codex-hooks.json"`, so Codex loads the same skills but
-its own hook map instead of `hooks/hooks.json`.
+its own hook map instead of `hooks/hooks.json`. The Cursor manifest
+(`.cursor-plugin/plugin.json`) auto-discovers `skills/` and `agents/` the same
+way Claude Code does (default folder-based discovery), and declares `hooks`
+explicitly (same posture as Codex) pointing at `./hooks/cursor-hooks.json` —
+the adapted event map that routes through `hooks/cursor-adapter.sh`.
 
 ## Usage
 
@@ -227,6 +291,11 @@ The hooks fire on these events (auto-registered from `hooks/hooks.json`):
 | `Notification` | `tg-on-notification.sh` | "🔐 Требуется разрешение" / "⏰ Ожидает ввода" on permission/idle. |
 | `UserPromptSubmit` | `tg-prompt-start.sh` | records task start; cancels stale pending notices. |
 | `PreToolUse`, `SessionEnd` | `tg-cancel-pending.sh` | cancels pending notices when the turn resumes/ends. |
+
+Under Cursor, the same four scripts fire via
+`sessionStart`/`beforeSubmitPrompt`/`preToolUse`/`stop`/`sessionEnd` through
+`hooks/cursor-adapter.sh`; there is no Cursor equivalent of `Notification`,
+so the permission/idle ping does not fire there.
 
 Each notice is **scheduled with a delay** and cancelled if you become active before
 it fires, so you only get pinged when you've genuinely stepped away. Thresholds and

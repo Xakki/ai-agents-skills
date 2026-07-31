@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      { "command": "\"${CURSOR_PLUGIN_ROOT}\"/hooks/cursor-adapter.sh abbr-inject.sh" }
+    ],
+    "beforeSubmitPrompt": [
+      { "command": "\"${CURSOR_PLUGIN_ROOT}\"/hooks/cursor-adapter.sh tg-prompt-start.sh" }
+    ],
+    "preToolUse": [
+      { "command": "\"${CURSOR_PLUGIN_ROOT}\"/hooks/cursor-adapter.sh tg-cancel-pending.sh" }
+    ],
+    "stop": [
+      { "command": "\"${CURSOR_PLUGIN_ROOT}\"/hooks/cursor-adapter.sh tg-on-stop.sh" }
+    ],
+    "sessionEnd": [
+      { "command": "\"${CURSOR_PLUGIN_ROOT}\"/hooks/cursor-adapter.sh tg-cancel-pending.sh" }
+    ]
+  }
+}

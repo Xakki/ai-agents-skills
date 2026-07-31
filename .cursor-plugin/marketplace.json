@@ -1,0 +1,16 @@
+{
+  "name": "ai-agents-skills",
+  "owner": {
+    "name": "Xakki"
+  },
+  "metadata": {
+    "description": "Skills + hooks for Cursor Agent CLI/IDE: kanban board, autonomous timed task runner, Telegram notifications & reports, self-hosted artifact publishing, and utilities (git-move, setup-claude, new-project-docker, fluent-logging)."
+  },
+  "plugins": [
+    {
+      "name": "ai-agents-skills",
+      "source": "./",
+      "description": "Kanban task management, autonomous timed runs of kanban cards, Telegram notifications (tg-notify skill + hooks, task-finished only under Cursor) and reports (tg-report), self-hosted artifact publishing (publish-artifact), utility skills (git-flow, git-move, setup-claude, new-project-docker, fluent-logging), and skill-import (discover & import skills from external git repos, matched by a subagent, with updates) for the Cursor Agent CLI/IDE."
+    }
+  ]
+}
