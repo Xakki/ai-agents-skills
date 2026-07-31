@@ -19,12 +19,46 @@ Lifecycle: `grooming → todo → progress → test → ready → done`.
 `grooming/` and `ready/` are agent-boundary stages: autonomous runs never enter `grooming/`
 and never advance past `ready/`. Only the user moves `ready/ → done/`.
 
+## IDs & Prefix
+
+Every card carries `<PREFIX>-<NUM>` (epic subtasks: `<PREFIX>-<NUM>-<NN>`, see
+Epics below). Counters live in `<repo>/.claude/kanban.lock` (git-committed,
+`flock`-guarded, reconciled against cards actually on the board on every
+allocation — a stale counter after a merge can't hand out a duplicate ID).
+**First use in a project (no `prefix=` yet) is a confirmation, never a
+guess.** `kanban-id.sh next`/`prefix` exits 2 with the board's candidate
+prefixes (existing board cards win by count if any, else a dir-name-derived
+one) — on that exit, **ask the user** which to use (`AskUserQuestion`,
+candidates as options, recommended one first) and then run
+`kanban-id.sh set-prefix <PREFIX>` to confirm it; don't auto-pick and don't
+retry silently. Full mechanics, lock format, prefix registry →
+[scripts.md](scripts.md).
+
+## Scripts
+
+Default path — invoke as `"${CLAUDE_PLUGIN_ROOT}"/skills/kanban/scripts/<name>`
+(optional leading `--repo <path>`, default git toplevel):
+
+| Script | Purpose | Key flag |
+|---|---|---|
+| `kanban-id.sh` | allocate/inspect IDs (`next`\|`epic`\|`sub`\|`peek`\|`prefix`) | `sub <EPIC-ID>` |
+| `kanban-new.sh` | allocate ID + render template + stage card | `--epic`\|`--sub <EPIC-ID>` |
+| `kanban-move.sh` | validated stage transition (wraps [git-move](../git-move/SKILL.md)) | `--approved` (required for `→done`) |
+| `kanban-status.sh` | board overview, subtasks grouped under their epic | `--epic ID` |
+| `kanban-lint.sh` | card validation (shape, template, dupes, counter drift) | — |
+
+Full CLI, flags, exit codes, worked examples → [scripts.md](scripts.md). Manual
+fallback (hand-written card + [git-move](../git-move/SKILL.md) directly) still
+works if a script is unavailable.
+
 ## Task Lifecycle
 
 ### 1. Create
 
-- **Scope clear** (AC, files, approach all settled) → create from [task template](task-template.md) in `todo/`.
-- **Open questions remain** → create in `grooming/`; list them in `**Open questions:**`.
+- **Default:** `"${CLAUDE_PLUGIN_ROOT}"/skills/kanban/scripts/kanban-new.sh --title "…" --stage todo` (or `--stage grooming` when scope isn't settled) — allocates the ID, renders [task template](task-template.md), stages the card, prints its path.
+- **Manual fallback:** allocate the next ID by hand against `.claude/kanban.lock`, fill in [task template](task-template.md), `git add`.
+- **Scope clear** (AC, files, approach all settled) → `todo/`.
+- **Open questions remain** → `grooming/`; list them in `**Open questions:**`.
 
 ### 1a. Groom (grooming/ → todo/)
 
@@ -66,7 +100,7 @@ Auto-review passed + AC met + tests green → move to `ready/`. If review finds 
 
 User explicitly approves. Order matters — card first, merge last:
 
-1. Move the card `ready/ → done/`.
+1. Move the card `ready/ → done/` (`kanban-move.sh <ID> done --approved` or git-move manually).
 2. Verify the task branch is clean (`git status --short` empty — everything
    committed, nothing stray left uncommitted).
 3. Only then squash-merge the branch into the default branch (see Git Commits
@@ -80,10 +114,13 @@ branch has been verified clean.
 An **epic** is a card whose body lists ordered subtask cards. Subtasks are normal
 cards; the epic is their parent and their integration point.
 
-- **Naming — shared prefix + numbering.** The epic and its subtasks share a
-  prefix (a short epic name); the epic itself is `00`, subtasks are `01`, `02`…
-  in execution order. E.g. `admin-00-<epic>.md`, `admin-01-<subtask>.md`,
-  `admin-02-…`. This groups an epic's cards together and shows their order.
+- **Naming — shared ID.** The epic gets a normal `<PREFIX>-<NUM>` ID
+  (`kanban-new.sh --epic`); every subtask reuses that SAME ID plus a 2-digit
+  suffix in execution order (`kanban-new.sh --sub <EPIC-ID>`): e.g.
+  `K-042-billing-epic.md`, `K-042-01-db-schema.md`, `K-042-02-api-crud.md`…
+  Epic and subtasks share the leading `^[A-Za-z][A-Za-z0-9]*-[0-9]+` ID token —
+  `schedule-tasks` groups them as one chain (related-card-first selection,
+  dependency blocking) and the byobu window name stays inside its 10-char cap.
 - **Start.** Epic card → `progress/`. Create ONE branch `epic/<ID>` for the whole
   epic; every subtask is implemented in that branch, not in its own `task/<ID>`.
 - **Subtasks.** Work them in the listed order. Each finished subtask card moves
@@ -115,7 +152,7 @@ a task is worked **in its own branch** (an epic's subtasks share the epic branch
   `done/<ID>` — strip the `task/` prefix (`git branch -m task/<ID> done/<ID>`);
   the archive is `done/<ID>`, NOT `done/task/<ID>`. Kept as an archive for
   optional later cleanup — do not delete immediately.
-- Moving cards between stage dirs → [`git-move`](../git-move/SKILL.md).
+- Moving cards between stage dirs → `kanban-move.sh` (wraps [git-move](../git-move/SKILL.md), validates the transition); manual fallback → `git-move` directly.
 
 See [reference.md](reference.md) for the autonomous-run commit contract.
 

@@ -30,6 +30,14 @@ card enters `progress/`. Subtasks do NOT get their own branches — this is the
 deliberate exception to the per-task branch rule in `SKILL.md`. Sub-agents commit
 their zone's work into the epic branch (git-flow format + `Agent: <zone>` footer).
 
+**Scripts.** `kanban-new.sh --epic` allocates the epic's `<PREFIX>-<NUM>` ID and
+renders its card; each subtask card is then created with
+`kanban-new.sh --sub <EPIC-ID>` (or `kanban-id.sh sub <EPIC-ID>` to just get the
+next `NN`), which reuses the epic's ID plus a 2-digit suffix — see naming in
+`SKILL.md`. `kanban-move.sh` enforces the `done/` gate mechanically: a subtask
+move to `done/` is rejected until its epic is already in `done/`. Full CLI →
+[scripts.md](scripts.md).
+
 **Subtask flow inside an epic.** Each subtask card walks
 `todo/ → progress/ → test/ → ready/` normally. It stops at `ready/`:
 - Do NOT move a subtask to `done/`. `done/` for a subtask is granted only when
