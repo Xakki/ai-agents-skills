@@ -1,0 +1,46 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "\"${PLUGIN_ROOT}\"/hooks/abbr-inject.sh" }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "\"${PLUGIN_ROOT}\"/hooks/tg-prompt-start.sh" }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          { "type": "command", "command": "jq -c '.message = ((.message // \"\") + \" (Codex permission request)\")' | \"${PLUGIN_ROOT}\"/hooks/tg-on-notification.sh" }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          { "type": "command", "command": "\"${PLUGIN_ROOT}\"/hooks/tg-cancel-pending.sh" }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "\"${PLUGIN_ROOT}\"/hooks/tg-on-stop.sh" }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          { "type": "command", "command": "\"${PLUGIN_ROOT}\"/hooks/tg-cancel-pending.sh" }
+        ]
+      }
+    ]
+  }
+}

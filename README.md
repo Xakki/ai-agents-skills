@@ -5,6 +5,12 @@ set of skills (and hooks) for running Claude Code productively: a kanban
 workflow, an autonomous timed task runner, Telegram notifications, and a few
 utilities.
 
+This repository also ships a [Codex](https://developers.openai.com/codex/plugins/build)
+plugin manifest (`.codex-plugin/plugin.json`) so the same skills can be used
+from Codex CLI — see [Install (Codex)](#install-codex) below. Both
+integrations share the same `skills/` tree; see [AGENTS.md](AGENTS.md) for the
+repo conventions that keep them in sync.
+
 | Skill | What it does |
 |-------|--------------|
 | **kanban** | Manage a `.claude/kanban/` board in your project: create, start, review, and complete task cards across `grooming → todo → progress → test → ready → done`. |
@@ -69,15 +75,62 @@ Verify the manifest and skill frontmatter at any time:
 claude plugin validate /home/xakki/ai-agents-skills
 ```
 
+## Install (Codex)
+
+1. Install Codex CLI. The standalone installer is preferred on Linux (no
+   Node.js/Homebrew dependency):
+
+   ```
+   curl -fsSL https://chatgpt.com/codex/install.sh | sh
+   ```
+
+2. Add this repo as a Codex plugin marketplace:
+
+   ```
+   codex plugin marketplace add Xakki/ai-agents-skills
+   ```
+
+3. Launch `codex`, open the plugin picker, and install/enable
+   `ai-agents-skills`:
+
+   ```
+   /plugins
+   ```
+
+4. Start a **new** Codex session — plugin skills and hooks are loaded at
+   session start, so an existing session won't pick them up.
+
+Codex loads hooks from the path declared in `.codex-plugin/plugin.json`
+(`./hooks/codex-hooks.json`), not from `hooks/hooks.json` (that file is
+Claude Code–only). Plugin-bundled hooks are non-managed, so on first run
+Codex prompts you to review and trust them before they execute.
+
+### Verify the Codex install
+
+```
+codex plugin marketplace list   # confirms the Xakki/ai-agents-skills source is registered
+codex plugin list               # confirms ai-agents-skills is installed/enabled
+/plugins                        # same, from inside a Codex session
+```
+
+Note: the `mempalace` cross-marketplace dependency declared in
+`.claude-plugin/plugin.json` is Claude Code–specific; install
+[mempalace](https://github.com/MemPalace/mempalace) separately as a Codex
+plugin if you want it there too.
+
 ## Layout
 
 ```
 .
 ├── .claude-plugin/
-│   ├── plugin.json        # plugin manifest (only this file lives here)
-│   └── marketplace.json   # marketplace entry → source "./"
+│   ├── plugin.json        # Claude Code plugin manifest (only this file lives here)
+│   └── marketplace.json   # marketplace entry → source "./" (also read by Codex, legacy-compatible)
+├── .codex-plugin/
+│   └── plugin.json        # Codex plugin manifest (only this file lives here)
+├── AGENTS.md              # Codex instructions: shared skills/, separate hook maps
 ├── hooks/
-│   ├── hooks.json         # auto-registers the tg-notify hooks (5 events)
+│   ├── hooks.json         # Claude Code hooks (auto-registered, 6 events)
+│   ├── codex-hooks.json   # same hooks mapped to Codex's event names (see plugin.json → "hooks")
 │   └── tg-*.sh
 ├── skills/
 │   ├── kanban/
@@ -93,8 +146,12 @@ claude plugin validate /home/xakki/ai-agents-skills
 └── scripts/               # runners used by schedule-tasks (run from the plugin cache)
 ```
 
-The skills are auto-discovered from `skills/`, and the hooks from `hooks/hooks.json` —
-no `skills` or `hooks` field in `plugin.json` is needed.
+For Claude Code, the skills are auto-discovered from `skills/`, and the hooks
+from `hooks/hooks.json` — no `skills` or `hooks` field in
+`.claude-plugin/plugin.json` is needed. The Codex manifest
+(`.codex-plugin/plugin.json`) declares both explicitly: `"skills": "./skills/"`
+and `"hooks": "./hooks/codex-hooks.json"`, so Codex loads the same skills but
+its own hook map instead of `hooks/hooks.json`.
 
 ## Usage
 
