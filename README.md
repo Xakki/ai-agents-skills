@@ -184,6 +184,11 @@ State, logs, and undelivered payloads live under `$TG_NOTIFY_HOME`
 - `tg-notify`: `curl`, `jq`, `python3`, and (for the context header in hooks) a
   tmux/byobu session. A `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` as above.
 
+## Recommendation skills
+
+- impeccable (for landings) `npx -y skills add pbakaus/impeccable --skill impeccable --agent claude-code -g`
+- task observer `npx -y skills add rebelytics/one-skill-to-rule-them-all --skill task-observer --agent claude-code -g`
+
 ## Contributing — when to migrate a skill here
 
 A debugged, **universal** skill / agent / rule belongs in this plugin. Criteria:
