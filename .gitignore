@@ -3,3 +3,6 @@ __pycache__/
 .DS_Store
 /.idea/
 /.mempalace-wing
+
+# Local design/plan docs — keep on disk, not in git
+docs/

@@ -111,6 +111,21 @@ LEN=$(printf '%s' "$OUT" | jq -r '.additional_context | length')
 echo "PASS sessionStart -> abbr-inject.sh reshaping"
 
 # ---------------------------------------------------------------------------
+# 1b. sessionStart -> model-tiers-inject.sh output reshaping
+# ---------------------------------------------------------------------------
+export CURSOR_PLUGIN_ROOT="$REPO_ROOT"
+OUT_MT=$(printf '%s' "$SESSION_START_PAYLOAD" | "$ADAPTER" model-tiers-inject.sh)
+printf '%s' "$OUT_MT" | jq -e . >/dev/null 2>&1 || fail "model-tiers sessionStart output is not valid JSON: $OUT_MT"
+printf '%s' "$OUT_MT" | jq -e 'has("additional_context")' >/dev/null 2>&1 || fail "model-tiers sessionStart output missing additional_context key: $OUT_MT"
+CTX_MT=$(printf '%s' "$OUT_MT" | jq -r '.additional_context')
+printf '%s' "$CTX_MT" | grep -q 'cheap = haiku' || fail "model-tiers inject missing cheap = haiku: $CTX_MT"
+printf '%s' "$CTX_MT" | grep -q 'standard = sonnet' || fail "model-tiers inject missing standard = sonnet: $CTX_MT"
+printf '%s' "$CTX_MT" | grep -q 'judgment = opus' || fail "model-tiers inject missing judgment = opus: $CTX_MT"
+printf '%s' "$CTX_MT" | grep -q 'runtime = cursor' || fail "model-tiers inject missing runtime = cursor: $CTX_MT"
+unset CURSOR_PLUGIN_ROOT
+echo "PASS sessionStart -> model-tiers-inject.sh reshaping"
+
+# ---------------------------------------------------------------------------
 # 2. beforeSubmitPrompt -> tg-prompt-start.sh session-id mapping
 # ---------------------------------------------------------------------------
 export TG_NOTIFY_HOME="$TMP/home1"
@@ -237,7 +252,7 @@ unset TG_NOTIFY_HOME
 # 5. Adapter target allowlist: unknown/deliberately-excluded target names
 #    must never be invoked at all — not just have their stdout discarded
 #    (defense-in-depth; the only real caller is hooks/cursor-hooks.json,
-#    which only ever names the 4 wired scripts). Stdout is already discarded
+#    which only ever names the 5 wired scripts). Stdout is already discarded
 #    for every non-abbr-inject.sh target, so an emptiness check on the
 #    adapter's own stdout can't distinguish "blocked" from "ran but silent";
 #    use a real side effect (a marker file) instead.
@@ -257,6 +272,7 @@ EOF
     chmod +x "$ALLOWLIST_SANDBOX/$1"
 }
 make_probe "tg-prompt-start.sh"     # allowlisted name -> must still run
+make_probe "model-tiers-inject.sh"  # allowlisted name -> must still run
 make_probe "tg-on-notification.sh"  # deliberately NOT wired -> must be blocked
 
 rm -f "$MARKER"
@@ -289,7 +305,7 @@ echo "PASS regression guard: no Notification/PermissionRequest binding"
 # ---------------------------------------------------------------------------
 cd "$REPO_ROOT"
 if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    DIFF=$(git diff HEAD --stat -- hooks/hooks.json hooks/codex-hooks.json hooks/abbr-inject.sh 'hooks/tg-*.sh' skills agents 2>/dev/null || true)
+    DIFF=$(git diff HEAD --stat -- hooks/abbr-inject.sh 'hooks/tg-*.sh' skills/agents 2>/dev/null || true)
     [ -z "$DIFF" ] || fail "pre-existing hook files/skills/agents must not change:
 $DIFF"
     echo "PASS no drift in shared hook files, skills, agents (staged + unstaged)"

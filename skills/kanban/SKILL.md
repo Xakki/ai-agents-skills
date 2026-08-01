@@ -60,6 +60,18 @@ works if a script is unavailable.
 - **Scope clear** (AC, files, approach all settled) → `todo/`.
 - **Open questions remain** → `grooming/`; list them in `**Open questions:**`.
 
+#### Side-found / user-suggested fixes
+
+When a bug/err is found OR the user suggests a fix:
+
+1. **Dedupe first.** Scan `grooming/` and `todo/` for an existing card on the same topic. If found → do NOT create another; apply triage (step 2) against that card — if fix-now criteria hold → fix now and log/note on it; else leave work on that card (groom later).
+2. **Triage — fix now vs file grooming:**
+   - **Fix now** when ANY of: in-scope of the active task; OR cplx ≤ 3/10; OR standard-subagent-sized.
+     - Active task → log on the card (Execution Log / `**Decisions:**`).
+     - No active task → mention in the commit msg.
+   - **File a new `grooming/` card** only when ALL hold: (oos of active task OR no active task) AND cplx > 3/10 AND not standard-subagent-sized.
+3. **Wrap-up report.** On task completion (hand-off / ready), surface to the user a short list of: (a) side-filed grooming cards created during the work, (b) en-route fixes that were done (no new card).
+
 ### 1a. Groom (grooming/ → todo/)
 
 Grooming is a **user consultation**, not autonomous execution. Surface choices; don't resolve them silently.
@@ -163,6 +175,9 @@ See [reference.md](reference.md) for the autonomous-run commit contract.
 - Do NOT start a card from `grooming/` — resolve open questions, move to `todo/` first.
 - Do NOT silently resolve `grooming/` questions — ask the user; record in `**Decisions:**`.
 - Do NOT move to `ready/` while tests are red.
+- Do NOT file a new card for an en-route/user-suggested fix until `grooming/`+`todo/` are scanned for a duplicate.
+- Do NOT file when the fix is in-scope OR cplx ≤ 3/10 OR standard-subagent-sized — fix now; log on card or commit msg if no active task.
+- MUST surface wrap-up list (side-filed grooming + en-route fixes) on hand-off/ready.
 
 ## Task Delegation Rules
 

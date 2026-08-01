@@ -201,7 +201,7 @@ $LOG_DIR/.chain-conditions
 
 Every chained inner-script invocation is **intended** to read this file at startup and embed
 its contents verbatim into the autonomous prompt under an "Additional user conditions"
-block. Examples: "не пушить" (don't push), "use sonnet", "после каждой задачи прогон e2e"
+block. Examples: "не пушить" (don't push), "use standard tier", "после каждой задачи прогон e2e"
 (run e2e after each task), "только front-* карточки" (only front-* cards), branch overrides, etc.
 
 > ⚠ **Not yet wired in `run-claude-task-inner.sh`** — the file injection into the prompt is

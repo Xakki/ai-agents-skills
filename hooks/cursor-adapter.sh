@@ -22,7 +22,7 @@ HOOK_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 
 TARGET="${1:-}"
 case "$TARGET" in
-  abbr-inject.sh|tg-prompt-start.sh|tg-on-stop.sh|tg-cancel-pending.sh) ;;
+  abbr-inject.sh|model-tiers-inject.sh|tg-prompt-start.sh|tg-on-stop.sh|tg-cancel-pending.sh) ;;
   *) cat >/dev/null; exit 0 ;;
 esac
 
@@ -42,15 +42,17 @@ NORMALIZED=$(printf '%s' "$INPUT" | jq -c '{
 # target scripts already default every field with `// "unknown"` / `// ""`.
 PAYLOAD="${NORMALIZED:-$INPUT}"
 
-if [ "$TARGET" = "abbr-inject.sh" ]; then
-  RAW_OUT=$(printf '%s' "$PAYLOAD" | "$HOOK_DIR/$TARGET")
-  printf '%s' "$RAW_OUT" | jq -c '
-    if (.hookSpecificOutput.additionalContext // "") != ""
-    then {additional_context: .hookSpecificOutput.additionalContext}
-    else empty end
-  ' 2>/dev/null
-  exit 0
-fi
+case "$TARGET" in
+  abbr-inject.sh|model-tiers-inject.sh)
+    RAW_OUT=$(printf '%s' "$PAYLOAD" | "$HOOK_DIR/$TARGET")
+    printf '%s' "$RAW_OUT" | jq -c '
+      if (.hookSpecificOutput.additionalContext // "") != ""
+      then {additional_context: .hookSpecificOutput.additionalContext}
+      else empty end
+    ' 2>/dev/null
+    exit 0
+    ;;
+esac
 
 printf '%s' "$PAYLOAD" | "$HOOK_DIR/$TARGET" >/dev/null 2>&1
 exit 0

@@ -73,7 +73,7 @@ COND_FILE="$HOME/.local/state/claude-auto-runs/$PROJECT_NAME/.chain-conditions"
 mkdir -p "$(dirname "$COND_FILE")"
 cat > "$COND_FILE" <<'EOF'
 - Do not push or open a PR.
-- Use sonnet for implementation.
+- Use standard tier for implementation (pass resolved `AI_MODEL_STANDARD` slug).
 EOF
 ```
 

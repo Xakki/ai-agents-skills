@@ -63,7 +63,7 @@ name: code-reviewer            # required, lowercase + hyphens
 description: When Claude should delegate here  # required
 tools: Read, Glob, Grep, Bash  # comma-separated; omit = inherit all
 disallowedTools: Write, Edit   # denylist (applied first)
-model: sonnet                  # sonnet|opus|haiku|claude-opus-4-7|inherit
+model: sonnet                  # concrete slug or inherit; plugin agents use defaults matching cheap/standard/judgment via skill model-tiers (AI_MODEL_*)
 permissionMode: default        # default|acceptEdits|auto|dontAsk|bypassPermissions|plan
 maxTurns: 20
 skills: [api-conventions]      # preload skill content at startup

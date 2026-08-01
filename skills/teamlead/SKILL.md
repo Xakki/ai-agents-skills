@@ -34,7 +34,7 @@ task (write/edit/refactor/read code, feature, bug-fix, migration):
    team-lead decides what to do with the context of **the agent it is assigning**:
    give the task to a **fresh agent** (clean context — a new `Agent` call) or
    **compact/clear** an already-running teammate's context (`compact`/`clear`).
-   Goal — no junk piling up in the implementer's context. **Same moment — pick the model:** every `Agent` call sets `model:` explicitly. Omitting it inherits the team-lead's opus — the expensive default and the actual failure mode. Default to haiku/sonnet by the point-8 table; opus only for genuine judgment.
+   Goal — no junk piling up in the implementer's context. **Same moment — pick the model:** every `Agent` call sets `model:` explicitly. Omitting it inherits the team-lead's **judgment** tier (expensive default). Default to cheap/standard by the point-8 table; judgment only for genuine judgment.
 
 5. **Language.** The team-lead (main thread) replies to the user **in Russian**.
    Teammates (subagents) think and communicate (task prompts, reasoning, reports
@@ -57,16 +57,19 @@ task (write/edit/refactor/read code, feature, bug-fix, migration):
 
 8. **Pick the teammate's model by cognitive load, not by topic.** For each
    subtask ask: does it need judgment/synthesis, or just execution against a
-   clear spec? Route by the table below (pass the tier via `model:` on the
-   `Agent` call or the agent file). **When torn between two tiers — take the
-   cheaper one and let it escalate to the team-lead on any ambiguity.** Floor =
-   Sonnet for anything touching **product logic**; drop to Haiku only when "done"
-   is unambiguous.
+   clear spec? Route by the table below (pass the **resolved slug** from the
+   SessionStart model-tiers map as `model:` on the `Agent` call or the agent
+   file — skills name tiers; inject provides slugs). **When torn between two
+   tiers — take the cheaper one and let it escalate to the team-lead on any
+   ambiguity.** Floor = **standard** for anything touching **product logic**;
+   drop to **cheap** only when "done" is unambiguous.
 
-   | Model | Class of work | Why |
+   | Tier | Class of work | Why |
    |---|---|---|
-   | **haiku** | Kanban card moves, `git mv`, formatting, inventory/listing, grep "where is X", Explore excerpt-reads; mechanical spec-complete edits (rename a symbol, bump a config value across files, apply a lint-fix) | Deterministic, single pass, no design judgment, unambiguous "done". The most frequent class — the biggest saving. Use the `ai-agents-skills:chore` agent (`agents/chore.md`). |
-   | **sonnet** | Standard feature by a known pattern, table-driven tests, routine bugfix, doc/skill edits, code-review | Accuracy within known contracts. The project default. |
-   | **opus** | Architecture, tricky root-cause debug, cross-file synthesis, multi-source research, advisor | Judgment, ambiguity, holding many constraints at once. Usually stays with the team-lead or a spawned opus agent. |
+   | **cheap** | Kanban card moves, `git mv`, formatting, inventory/listing, grep "where is X", Explore excerpt-reads; mechanical spec-complete edits (rename a symbol, bump a config value across files, apply a lint-fix) | Deterministic, single pass, no design judgment, unambiguous "done". The most frequent class — the biggest saving. Use the `ai-agents-skills:chore` agent (`agents/chore.md`). |
+   | **standard** | Standard feature by a known pattern, table-driven tests, routine bugfix, doc/skill edits, code-review | Accuracy within known contracts. The project default. |
+   | **judgment** | Architecture, tricky root-cause debug, cross-file synthesis, multi-source research, advisor | Judgment, ambiguity, holding many constraints at once. Usually stays with the team-lead or a spawned judgment-tier agent. |
 
-   > Omitting `model:` on a `general-purpose` `Agent` call inherits the team-lead's tier (opus) — the expensive default. Always set the tier explicitly.
+   Resolved slugs come from the injected model-tiers map / `AI_MODEL_*` (see skill `model-tiers`).
+
+   > Omitting `model:` on a `general-purpose` `Agent` call inherits the team-lead's judgment tier — the expensive default. Always set the tier/slug explicitly.

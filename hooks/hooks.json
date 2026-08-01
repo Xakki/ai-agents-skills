@@ -3,7 +3,8 @@
     "SessionStart": [
       {
         "hooks": [
-          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/abbr-inject.sh" }
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/abbr-inject.sh" },
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/model-tiers-inject.sh" }
         ]
       }
     ],

@@ -2,7 +2,8 @@
   "version": 1,
   "hooks": {
     "sessionStart": [
-      { "command": "\"${CURSOR_PLUGIN_ROOT}\"/hooks/cursor-adapter.sh abbr-inject.sh" }
+      { "command": "\"${CURSOR_PLUGIN_ROOT}\"/hooks/cursor-adapter.sh abbr-inject.sh" },
+      { "command": "\"${CURSOR_PLUGIN_ROOT}\"/hooks/cursor-adapter.sh model-tiers-inject.sh" }
     ],
     "beforeSubmitPrompt": [
       { "command": "\"${CURSOR_PLUGIN_ROOT}\"/hooks/cursor-adapter.sh tg-prompt-start.sh" }
