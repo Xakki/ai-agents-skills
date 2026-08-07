@@ -5,7 +5,7 @@ description: Sends a structured Telegram report (completion or task topic) via t
 
 # tg-report
 
-Thin wrapper around `${CLAUDE_PLUGIN_ROOT}/skills/tg-notify/tg-notify.sh` that routes to one of two forum topics and enforces a length budget in concise mode.
+Thin wrapper around `$AI_AGENTS_SKILLS_ROOT/skills/tg-notify/tg-notify.sh` (with Claude/Codex/Cursor root fallbacks below) that routes to one of two forum topics and enforces a length budget in concise mode.
 
 ## When to invoke
 
@@ -43,7 +43,8 @@ See [reference.md](reference.md) for env-resolution details, report structure, a
 ## How to invoke
 
 ```bash
-TG="${CLAUDE_PLUGIN_ROOT}/skills/tg-notify/tg-notify.sh"
+ROOT="${AI_AGENTS_SKILLS_ROOT:-${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-${CURSOR_PLUGIN_ROOT:-}}}}"
+TG="$ROOT/skills/tg-notify/tg-notify.sh"
 ENV_FILE="${TG_NOTIFY_ENV:-${XDG_CONFIG_HOME:-$HOME/.config}/tg-notify/.env}"
 
 # capture process env FIRST (settings.json wins over .env)

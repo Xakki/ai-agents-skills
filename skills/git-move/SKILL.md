@@ -10,8 +10,9 @@ git**, never use bare `mv` / `rm` — that drops git's rename/delete tracking an
 leaves the index inconsistent. Use the helper:
 
 ```bash
-"${CLAUDE_PLUGIN_ROOT}"/skills/git-move/git-move.sh <src> <dst>        # move / rename
-"${CLAUDE_PLUGIN_ROOT}"/skills/git-move/git-move.sh --rm <path> [path…] # delete
+ROOT="${AI_AGENTS_SKILLS_ROOT:-${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-${CURSOR_PLUGIN_ROOT:-}}}}"
+"$ROOT"/skills/git-move/git-move.sh <src> <dst>        # move / rename
+"$ROOT"/skills/git-move/git-move.sh --rm <path> [path…] # delete
 ```
 
 Behaviour:
@@ -24,6 +25,6 @@ Behaviour:
 Examples:
 
 ```bash
-"${CLAUDE_PLUGIN_ROOT}"/skills/git-move/git-move.sh .claude/kanban/grooming/foo.md .claude/kanban/todo/foo.md
-"${CLAUDE_PLUGIN_ROOT}"/skills/git-move/git-move.sh --rm .claude/kanban/todo/old.md .claude/kanban/todo/dup.md
+"$ROOT"/skills/git-move/git-move.sh .claude/kanban/grooming/foo.md .claude/kanban/todo/foo.md
+"$ROOT"/skills/git-move/git-move.sh --rm .claude/kanban/todo/old.md .claude/kanban/todo/dup.md
 ```

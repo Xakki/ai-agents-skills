@@ -1,0 +1,10 @@
+manifest_version: 1
+name: ai-agents-skills
+version: "0.2.13"
+description: Cross-agent skills, specialist prompts, and optional Telegram lifecycle hooks for Hermes Agent
+repository: https://github.com/Xakki/ai-agents-skills
+provides_hooks:
+  - pre_llm_call
+  - post_llm_call
+  - on_session_finalize
+  - on_session_reset

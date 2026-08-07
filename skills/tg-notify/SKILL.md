@@ -31,7 +31,8 @@ main session's lifecycle, not from inside a subagent.)
 ## How to invoke
 
 ```bash
-TG="${CLAUDE_PLUGIN_ROOT}/skills/tg-notify/tg-notify.sh"
+ROOT="${AI_AGENTS_SKILLS_ROOT:-${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-${CURSOR_PLUGIN_ROOT:-}}}}"
+TG="$ROOT/skills/tg-notify/tg-notify.sh"
 
 # Short status (title only)
 "$TG" -s ok -t "Backup завершён" -m "wephost: 64 GiB, 12m 03s"

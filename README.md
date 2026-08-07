@@ -1,7 +1,7 @@
 # ai-agents-skills
 
-A [Claude Code](https://code.claude.com/docs/en/plugins) plugin that bundles a
-set of skills (and hooks) for running Claude Code productively: a kanban
+A cross-agent plugin that bundles skills, specialist prompts, and hooks for
+running coding agents productively: a kanban
 workflow, an autonomous timed task runner, Telegram notifications, and a few
 utilities.
 
@@ -10,7 +10,9 @@ plugin manifest (`.codex-plugin/plugin.json`) so the same skills can be used
 from Codex CLI — see [Install (Codex)](#install-codex) below — and a
 [Cursor](https://cursor.com/docs/reference/plugins) Agent CLI/IDE plugin
 manifest (`.cursor-plugin/plugin.json`) — see [Install (Cursor)](#install-cursor)
-below. All three integrations share the same `skills/` tree; see
+below — plus a [Hermes Agent](https://hermes-agent.nousresearch.com/docs/user-guide/features/plugins)
+plugin (`plugin.yaml` + `__init__.py`) — see [Install (Hermes)](#install-hermes).
+All four integrations share the same `skills/` tree; see
 [AGENTS.md](AGENTS.md) for the repo conventions that keep them in sync.
 
 | Skill | What it does |
@@ -37,10 +39,12 @@ below. All three integrations share the same `skills/` tree; see
 | **ai-agents-skills:log-investigator** | Read-only incident triage. Pulls container logs (Portainer), app logs (Graylog), and metrics (Grafana/Prometheus) and returns a focused UTC timeline + likely root cause — not a raw log dump. `model:` frontmatter = plugin **standard**-tier default (`sonnet`); override via `AI_MODEL_*` / skill `model-tiers`. Mutations denied. On first use in a project it **asks** for the service/tag/endpoint context and offers to save it to your `.claude/`. |
 | **ai-agents-skills:db-schema** | Read-only DB schema introspection. Returns concise `table → columns → PK → indexes → FKs` summaries from the live DB, migrations, or config — always naming the source. `model:` frontmatter = plugin **standard**-tier default (`sonnet`); override via `AI_MODEL_*` / skill `model-tiers`. Mutations/migrations denied. Asks for ORM/stack/paths on first use. |
 
-Agents are auto-discovered from `agents/` (no manifest entry needed) and addressable
-as `ai-agents-skills:<name>` (e.g. `ai-agents-skills:log-investigator`).
+Claude, Codex, and Cursor auto-discover agents from `agents/` and address them
+as `ai-agents-skills:<name>`. Hermes exposes the same prompt bodies as read-only
+plugin skills named `ai-agents-skills:agent-<name>` (for example,
+`skill_view("ai-agents-skills:agent-log-investigator")`).
 
-## Install
+## Install (Claude Code)
 
 As a marketplace from this repo:
 
@@ -121,6 +125,45 @@ Note: the `mempalace` cross-marketplace dependency declared in
 [mempalace](https://github.com/MemPalace/mempalace) separately as a Codex
 plugin if you want it there too.
 
+## Install (Hermes)
+
+Install and explicitly enable the plugin from GitHub:
+
+```bash
+hermes plugins install Xakki/ai-agents-skills --enable
+```
+
+For a local Git checkout, use a `file://` Git URL (the installer clones the
+repository, so uncommitted working-tree changes are not included):
+
+```bash
+hermes plugins install file:///path/to/ai-agents-skills --enable
+```
+
+Verify discovery and state:
+
+```bash
+hermes plugins list --plain --no-bundled
+```
+
+Hermes registers all `skills/*/SKILL.md` files read-only under
+`ai-agents-skills:<name>` and all `agents/*.md` prompts under
+`ai-agents-skills:agent-<name>`. Plugin skills are intentionally namespaced and
+opt-in in Hermes, so load one explicitly, for example:
+
+```text
+skill_view("ai-agents-skills:qa-check")
+skill_view("ai-agents-skills:agent-db-schema")
+```
+
+The Hermes adapter maps `pre_llm_call`, `post_llm_call`, session-finalize, and
+session-reset events to the shared abbreviation and Telegram hook behavior.
+Hermes does not expose a plugin hook for permission/idle notifications, so that
+specific Telegram ping is not wired. `schedule-tasks` and `setup-claude` remain
+Claude-specific workflows; `model-tiers` is informational under Hermes because
+Hermes subagents inherit the active model rather than accepting a per-call tier.
+The mempalace dependency in the Claude manifest is not installed by Hermes.
+
 ## Install (Cursor)
 
 1. Install the [Cursor Agent CLI](https://cursor.com/docs/cli) (`cursor-agent`).
@@ -186,6 +229,9 @@ you want it there too.
 ├── .cursor-plugin/
 │   ├── plugin.json        # Cursor plugin manifest — declares "hooks": "./hooks/cursor-hooks.json"
 │   └── marketplace.json   # marketplace entry → source "./"
+├── plugin.yaml             # Hermes plugin manifest
+├── __init__.py             # Hermes skill + lifecycle-hook registration adapter
+├── after-install.md        # Hermes post-install usage summary
 ├── AGENTS.md              # Codex instructions: shared skills/, separate hook maps
 ├── hooks/
 │   ├── hooks.json         # Claude Code hooks (auto-registered, 6 events)
@@ -217,6 +263,9 @@ its own hook map instead of `hooks/hooks.json`. The Cursor manifest
 way Claude Code does (default folder-based discovery), and declares `hooks`
 explicitly (same posture as Codex) pointing at `./hooks/cursor-hooks.json` —
 the adapted event map that routes through `hooks/cursor-adapter.sh`.
+Hermes loads the root `plugin.yaml` and `__init__.py`; the adapter registers the
+same skill files without copying them and normalizes Hermes lifecycle callback
+arguments for the shared Telegram scripts.
 
 ## Usage
 
@@ -249,7 +298,8 @@ committed. Configure once, then both the manual sender and the hooks use it.
 
    ```
    mkdir -p ~/.config/tg-notify
-   cp "${CLAUDE_PLUGIN_ROOT}/skills/tg-notify/.env.example" ~/.config/tg-notify/.env
+   ROOT="${AI_AGENTS_SKILLS_ROOT:-${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-${CURSOR_PLUGIN_ROOT:-}}}}"
+   cp "$ROOT/skills/tg-notify/.env.example" ~/.config/tg-notify/.env
    chmod 600 ~/.config/tg-notify/.env
    $EDITOR ~/.config/tg-notify/.env
    ```
@@ -298,6 +348,11 @@ Under Cursor, the same four scripts fire via
 `hooks/cursor-adapter.sh`; there is no Cursor equivalent of `Notification`,
 so the permission/idle ping does not fire there.
 
+Under Hermes, `pre_llm_call` records prompt start and injects abbreviations on
+the first turn; `post_llm_call` supplies the final response directly to
+`tg-on-stop.sh`; session finalize/reset cancels stale pending notices. Hermes
+has no permission/idle hook, so that notice is intentionally omitted.
+
 Each notice is **scheduled with a delay** and cancelled if you become active before
 it fires, so you only get pinged when you've genuinely stepped away. Thresholds and
 delays are overridable via env (`TG_NOTIFY_STOP_THRESHOLD`, `TG_NOTIFY_DELAY`, …).
@@ -325,7 +380,9 @@ following the `tg-notify` pattern:
 - secrets in `~/.config/<tool>/.env` (chmod 600) + a placeholder `.env.example` in git;
 - the skill body references env vars only — no hardcoded chat ids, threads, tokens,
   host paths, or other users' paths;
-- in-repo paths use `${CLAUDE_PLUGIN_ROOT}`, never `~/.claude/...`.
+- in-repo paths use `AI_AGENTS_SKILLS_ROOT` with the runtime-specific
+  `CLAUDE_PLUGIN_ROOT` / `PLUGIN_ROOT` / `CURSOR_PLUGIN_ROOT` fallbacks, never a
+  hardcoded checkout path.
 
 After moving a skill: commit + push → force a plugin update → verify the new
 `gitCommitSha` (auto-update keys off the SHA, not the manifest `version`) → only

@@ -299,13 +299,19 @@ fi
 echo "PASS regression guard: no Notification/PermissionRequest binding"
 
 # ---------------------------------------------------------------------------
-# 7. No drift in shared, pre-existing hook files (staged AND unstaged, i.e.
+# 7. No drift in shared hooks not intentionally extended by another runtime
+#    adapter (staged AND unstaged, i.e.
 #    the full working-tree diff against HEAD — not just the unstaged diff
 #    against the index, which would miss a `git add`-ed regression).
 # ---------------------------------------------------------------------------
 cd "$REPO_ROOT"
 if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    DIFF=$(git diff HEAD --stat -- hooks/abbr-inject.sh 'hooks/tg-*.sh' skills/agents 2>/dev/null || true)
+    DIFF=$(git diff HEAD --stat -- \
+        hooks/abbr-inject.sh \
+        hooks/tg-prompt-start.sh \
+        hooks/tg-on-notification.sh \
+        hooks/tg-cancel-pending.sh \
+        skills/agents 2>/dev/null || true)
     [ -z "$DIFF" ] || fail "pre-existing hook files/skills/agents must not change:
 $DIFF"
     echo "PASS no drift in shared hook files, skills, agents (staged + unstaged)"

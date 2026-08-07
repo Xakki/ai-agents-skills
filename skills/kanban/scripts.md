@@ -5,11 +5,13 @@ flag, the lock-file format, or a worked example beyond the [SKILL.md](SKILL.md)
 happy path. All scripts live in `skills/kanban/scripts/`, invoked as:
 
 ```bash
-"${CLAUDE_PLUGIN_ROOT}"/skills/kanban/scripts/<name> [--repo <path>] ...
+ROOT="${AI_AGENTS_SKILLS_ROOT:-${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-${CURSOR_PLUGIN_ROOT:-}}}}"
+"$ROOT"/skills/kanban/scripts/<name> [--repo <path>] ...
 ```
 
-`${CLAUDE_PLUGIN_ROOT}` is inlined by Claude Code — not a real shell env var,
-don't `echo` it. `--repo <path>` is optional on every script; default is the
+The portable root chain prefers Hermes' `AI_AGENTS_SKILLS_ROOT`, then the
+Claude/Codex/Cursor runtime-specific plugin roots. `--repo <path>` is optional
+on every script; default is the
 git toplevel of the CWD. Every script prints its result value on **stdout**
 and human-readable notices on **stderr** — safe to capture stdout into a
 variable.
@@ -237,7 +239,7 @@ kanban-lint.sh [<ID|path>…]
 
 **First use in a project (no `prefix=` yet) — confirm before proceeding:**
 ```bash
-"${CLAUDE_PLUGIN_ROOT}"/skills/kanban/scripts/kanban-id.sh --repo . next
+"$ROOT"/skills/kanban/scripts/kanban-id.sh --repo . next
 # exit 2, stderr:
 #   kanban: this project has no default prefix yet — confirmation required (never auto-picked).
 #   kanban: prefixes on the board, most frequent first:
@@ -246,34 +248,34 @@ kanban-lint.sh [<ID|path>…]
 #   kanban: confirm with:  kanban-id.sh --repo <repo> set-prefix <PREFIX>
 # an agent should ASK THE USER here (AskUserQuestion, candidates as options),
 # not guess — then:
-"${CLAUDE_PLUGIN_ROOT}"/skills/kanban/scripts/kanban-id.sh --repo . set-prefix K
-"${CLAUDE_PLUGIN_ROOT}"/skills/kanban/scripts/kanban-id.sh --repo . next   # K-77
+"$ROOT"/skills/kanban/scripts/kanban-id.sh --repo . set-prefix K
+"$ROOT"/skills/kanban/scripts/kanban-id.sh --repo . next   # K-77
 ```
 
 **Create a task:**
 ```bash
-"${CLAUDE_PLUGIN_ROOT}"/skills/kanban/scripts/kanban-new.sh --title "Add rate limiter" --stage todo
+"$ROOT"/skills/kanban/scripts/kanban-new.sh --title "Add rate limiter" --stage todo
 # .claude/kanban/todo/AVF-43-add-rate-limiter.md
 ```
 
 **Create an epic + 2 subtasks:**
 ```bash
 S=skills/kanban/scripts
-"${CLAUDE_PLUGIN_ROOT}"/$S/kanban-new.sh --title "Billing rewrite" --epic --stage todo
+"$ROOT"/$S/kanban-new.sh --title "Billing rewrite" --epic --stage todo
 # .claude/kanban/todo/AVF-44-billing-rewrite.md   (epic ID = AVF-44)
-"${CLAUDE_PLUGIN_ROOT}"/$S/kanban-new.sh --title "DB schema" --sub AVF-44
+"$ROOT"/$S/kanban-new.sh --title "DB schema" --sub AVF-44
 # .claude/kanban/todo/AVF-44-01-db-schema.md
-"${CLAUDE_PLUGIN_ROOT}"/$S/kanban-new.sh --title "API CRUD" --sub AVF-44
+"$ROOT"/$S/kanban-new.sh --title "API CRUD" --sub AVF-44
 # .claude/kanban/todo/AVF-44-02-api-crud.md
 ```
 
 **Move a card and commit:**
 ```bash
-MSG="$("${CLAUDE_PLUGIN_ROOT}"/skills/kanban/scripts/kanban-move.sh AVF-43 progress)"
+MSG="$("$ROOT"/skills/kanban/scripts/kanban-move.sh AVF-43 progress)"
 git commit -m "$MSG"   # task: start AVF-43 (todo→progress)
 ```
 
 **Lint before finishing:**
 ```bash
-"${CLAUDE_PLUGIN_ROOT}"/skills/kanban/scripts/kanban-lint.sh || echo "fix findings above before moving on"
+"$ROOT"/skills/kanban/scripts/kanban-lint.sh || echo "fix findings above before moving on"
 ```

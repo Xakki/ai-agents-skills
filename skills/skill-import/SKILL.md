@@ -9,7 +9,7 @@ Copies skills from configured source repos into `<project>/.claude/skills/`,
 matched to what the project actually needs. Catalog is built on the fly into a
 cache; imported skills are tracked for updates.
 
-Scripts (run via `"${CLAUDE_PLUGIN_ROOT}"/skills/skill-import/<script>`):
+Set `ROOT="${AI_AGENTS_SKILLS_ROOT:-${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-${CURSOR_PLUGIN_ROOT:-}}}}"`. Scripts run via `"$ROOT"/skills/skill-import/<script>`:
 `build-catalog.sh`, `import-skill.sh`, `update-imported.sh`. Config:
 `sources.tsv` (append a row to add a repo). Details, catalog/manifest formats
 and the matcher prompt: [reference.md](reference.md).
@@ -26,7 +26,7 @@ and the matcher prompt: [reference.md](reference.md).
 ## Discover (happy path)
 
 1. Build/refresh the catalog:
-   `bash "${CLAUDE_PLUGIN_ROOT}"/skills/skill-import/build-catalog.sh`
+   `bash "$ROOT"/skills/skill-import/build-catalog.sh`
    (writes `${SKILL_IMPORT_CACHE:-~/.cache/skill-import}/catalog.tsv`).
 2. **Delegate matching to a subagent** — do NOT read the full catalog into the
    main thread. Hand the subagent the catalog path and the project's doc paths
@@ -36,7 +36,7 @@ and the matcher prompt: [reference.md](reference.md).
 3. Present the shortlist to the user **in their language** (translate the
    description + why-relevant). Let them choose.
 4. Import each chosen skill:
-   `bash "${CLAUDE_PLUGIN_ROOT}"/skills/skill-import/import-skill.sh <source> <skill>`
+   `bash "$ROOT"/skills/skill-import/import-skill.sh <source> <skill>`
    (run from the project root, or pass `--project <dir>`).
 5. The import **stages** files; commit via the `git-flow` skill.
 

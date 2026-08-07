@@ -36,7 +36,7 @@ retry silently. Full mechanics, lock format, prefix registry →
 
 ## Scripts
 
-Default path — invoke as `"${CLAUDE_PLUGIN_ROOT}"/skills/kanban/scripts/<name>`
+Set `ROOT="${AI_AGENTS_SKILLS_ROOT:-${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-${CURSOR_PLUGIN_ROOT:-}}}}"`, then invoke as `"$ROOT"/skills/kanban/scripts/<name>`
 (optional leading `--repo <path>`, default git toplevel):
 
 | Script | Purpose | Key flag |
@@ -55,7 +55,7 @@ works if a script is unavailable.
 
 ### 1. Create
 
-- **Default:** `"${CLAUDE_PLUGIN_ROOT}"/skills/kanban/scripts/kanban-new.sh --title "…" --stage todo` (or `--stage grooming` when scope isn't settled) — allocates the ID, renders [task template](task-template.md), stages the card, prints its path.
+- **Default:** `"$ROOT"/skills/kanban/scripts/kanban-new.sh --title "…" --stage todo` (or `--stage grooming` when scope isn't settled) — allocates the ID, renders [task template](task-template.md), stages the card, prints its path.
 - **Manual fallback:** allocate the next ID by hand against `.claude/kanban.lock`, fill in [task template](task-template.md), `git add`.
 - **Scope clear** (AC, files, approach all settled) → `todo/`.
 - **Open questions remain** → `grooming/`; list them in `**Open questions:**`.
@@ -70,7 +70,30 @@ When a bug/err is found OR the user suggests a fix:
      - Active task → log on the card (Execution Log / `**Decisions:**`).
      - No active task → mention in the commit msg.
    - **File a new `grooming/` card** only when ALL hold: (oos of active task OR no active task) AND cplx > 3/10 AND not standard-subagent-sized.
-3. **Wrap-up report.** On task completion (hand-off / ready), surface to the user a short list of: (a) side-filed grooming cards created during the work, (b) en-route fixes that were done (no new card).
+   - **Append to the nits dump** when the finding is oos of the active task AND is
+     NOT being taken into work now AND is too small to deserve its own card. This
+     is the catch-all: a finding is never dropped silently — it is fixed, carded,
+     or dumped.
+3. **Wrap-up report.** On task completion (hand-off / ready), surface to the user a short list of: (a) side-filed grooming cards created during the work, (b) en-route fixes that were done (no new card), (c) nits appended to the dump.
+
+#### Nits dump — `.claude/kanban/grooming/TODO.md`
+
+Running scratch list of small out-of-scope findings picked up in passing. Create
+the file if absent.
+
+- **One line per finding:** `<date> — <file>:<line> — what's wrong`, grouped
+  under a dated heading `## <YYYY-MM-DD> — from <what you were doing>`.
+- **Small findings only.** Anything substantial gets its own `grooming/` card
+  instead. Mark a borderline entry `CANDIDATE FOR ITS OWN CARD` so the next
+  grooming pass promotes it rather than re-triaging it from scratch.
+- **Include the evidence**, not just the symptom: how it was confirmed, and what
+  it was confirmed NOT to be (a ruled-out cause is the expensive part to redo).
+- **Promoted to a card → DELETE the line.** Leave no back-pointer: the card is
+  the single source, and a pointer stub only clutters the dump and goes stale.
+  The file holds ONLY what has no card yet. Same when a nit gets fixed in
+  passing — delete it, don't annotate it as done.
+- **Project-local scratch.** Projects commonly git-exclude this file — follow the
+  project's convention, and never slip it into a task branch or PR.
 
 ### 1a. Groom (grooming/ → todo/)
 
@@ -177,7 +200,9 @@ See [reference.md](reference.md) for the autonomous-run commit contract.
 - Do NOT move to `ready/` while tests are red.
 - Do NOT file a new card for an en-route/user-suggested fix until `grooming/`+`todo/` are scanned for a duplicate.
 - Do NOT file when the fix is in-scope OR cplx ≤ 3/10 OR standard-subagent-sized — fix now; log on card or commit msg if no active task.
-- MUST surface wrap-up list (side-filed grooming + en-route fixes) on hand-off/ready.
+- Do NOT drop an oos finding silently — fix it, card it, or append it to `.claude/kanban/grooming/TODO.md`.
+- Do NOT commit the nits dump into a task branch/PR when the project git-excludes it.
+- MUST surface wrap-up list (side-filed grooming + en-route fixes + dumped nits) on hand-off/ready.
 
 ## Task Delegation Rules
 

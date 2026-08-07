@@ -29,6 +29,7 @@ log() { printf '%s\t[on-stop]\t%s\n' "$(date -Iseconds)" "$*" >> "$LOG_FILE" 2>/
 INPUT=$(cat)
 SESSION_ID=$(printf '%s' "$INPUT" | jq -r '.session_id // "unknown"' 2>/dev/null)
 TRANSCRIPT=$(printf '%s' "$INPUT" | jq -r '.transcript_path // ""' 2>/dev/null)
+ASSISTANT_RESPONSE=$(printf '%s' "$INPUT" | jq -r '.assistant_response // ""' 2>/dev/null)
 CWD=$(printf '%s' "$INPUT" | jq -r '.cwd // ""' 2>/dev/null)
 [[ -n "$CWD" ]] || CWD="$PWD"
 
@@ -88,6 +89,11 @@ if [[ -n "$TRANSCRIPT" && -f "$TRANSCRIPT" ]]; then
         | map(select(. != "")) | last // ""
     ' "$TRANSCRIPT" 2>/dev/null)
     log "stop last_text_len=${#LAST_TEXT}"
+elif [[ -n "$ASSISTANT_RESPONSE" ]]; then
+    # Hermes supplies the final response directly to post_llm_call rather than
+    # exposing a Claude-style transcript JSONL path.
+    LAST_TEXT="$ASSISTANT_RESPONSE"
+    log "stop direct_response_len=${#LAST_TEXT}"
 fi
 
 truncate_body() {

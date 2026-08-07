@@ -37,7 +37,9 @@ STANDARD=$(resolve_tier AI_MODEL_STANDARD)
 JUDGMENT=$(resolve_tier AI_MODEL_JUDGMENT)
 
 RUNTIME="unknown"
-if [ -n "${CURSOR_PLUGIN_ROOT:-}" ]; then
+if [ -n "${HERMES_PLUGIN_ROOT:-}" ]; then
+    RUNTIME="hermes"
+elif [ -n "${CURSOR_PLUGIN_ROOT:-}" ]; then
     RUNTIME="cursor"
 elif [ -n "${CLAUDE_PLUGIN_ROOT:-}" ]; then
     RUNTIME="claude"
