@@ -1,6 +1,10 @@
 ---
 name: model-tiers
-description: Map cheap / standard / judgment work to resolved model slugs via AI_MODEL_* env — override defaults, pick a tier for subagents, or change which model handles mechanical vs product-logic vs architecture tasks. Триггеры RU: «модель по умолчанию», «какую модель выбрать», «дешёвая модель», «tier mapping», «haiku sonnet opus», «модель для субагента», «AI_MODEL_». EN: «model tier», «default model», «cheap standard judgment», «which model for subagent», «AI_MODEL_CHEAP», «override model mapping».
+description: >
+  Map cheap, standard, and judgment work to resolved model slugs via
+  AI_MODEL_*. Use to select a subagent tier, override defaults, or map
+  mechanical, product-logic, and architecture work to models such as Haiku,
+  Sonnet, and Opus.
 ---
 
 # model-tiers — cheap / standard / judgment

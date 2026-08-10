@@ -1,6 +1,10 @@
 ---
 name: fluent-logging
-description: Cross-project logging standard. ALL projects log via xakki/fluent-log (fluent-bit → Graylog GELF); containers write STRUCTURED logs (JSON) to stdout/stderr. Use when setting up or changing logging in any project, dockerizing logs, wiring fluent-bit/Graylog, or the question of how/where to log, which level/format, secret redaction comes up. Laravel → composer require xakki/laralog; Python → JSON-to-stdout. Триггеры RU: «настрой логи», «логирование», «куда писать логи», «fluent-bit», «graylog», «структурные логи». EN: logging setup, structured logs, fluent-bit, graylog, log level/format.
+description: >
+  Cross-project logging standard using xakki/fluent-log, Fluent Bit, and
+  Graylog GELF; containers emit structured JSON to stdout or stderr. Use for
+  logging setup, Docker logging, Fluent Bit, Graylog, log location, level or
+  format, secret redaction, Laravel, or Python JSON-to-stdout logging.
 ---
 
 # fluent-logging — unified logging standard

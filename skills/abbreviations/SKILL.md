@@ -1,6 +1,11 @@
 ---
 name: abbreviations
-description: Authoritative, ever-growing dictionary of standard developer abbreviations for naming (variables, functions, classes, CSS classes, tokens) and for terse technical writing — the single source of truth new abbreviations get appended to, never duplicated elsewhere. Consult it before shortening any identifier; only widely-recognized, at-a-glance abbreviations are allowed, never invented/private ones. Триггеры RU: «сокращение», «сокращения», «словарь сокращений», «как назвать переменную/функцию коротко», «пополни словарь», «добавь сокращение», «общепринятое сокращение», «сократи имя». EN: «abbreviation», «abbreviations», «short name», «naming convention», «shorten», «add to the abbreviations dictionary», «glossary», «acronym».
+description: >
+  Authoritative dictionary of standard developer abbreviations for variables,
+  functions, classes, CSS classes, tokens, and terse technical writing. Use it
+  before shortening a name, choosing a naming convention, or adding to the
+  shared abbreviation dictionary, glossary, or acronym list. Accept only
+  widely recognized terms.
 ---
 
 # abbreviations — naming & terse-writing dictionary

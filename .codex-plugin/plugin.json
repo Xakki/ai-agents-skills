@@ -1,7 +1,7 @@
 {
   "name": "ai-agents-skills",
   "version": "0.2.13",
-  "description": "Skills + hooks for Codex: teamlead (main thread as team-lead: delegate code work to subagents, surface only decisions), roadmap (plan & autonomously build a whole app phase-by-phase), kanban (manage a .claude/kanban board), schedule-tasks (auto-pilot todo cards via `at`/tmux), git-flow (shared git core: commits, branches, PRs), tg-notify (Telegram notifications to a DM/group/channel, plus auto task-finished & needs-attention hooks) and tg-notify-timers, tg-report (completion/task reports to configurable topics), git-move (git-aware file ops), publish-artifact (self-hosted HTML artifact publishing via a project `make publish-artifact` target), setup-claude (repo bootstrap template), new-project-docker (Dockerized project scaffold), fluent-logging (structured-logging standard), skill-import (discover & import skills from external git repos into a project, matched by a subagent, with updates).",
+  "description": "Reusable Codex skills and lifecycle hooks for task planning, Git workflows, optional Telegram notifications, project scaffolding, artifact publishing, logging, and skill import.",
   "author": {
     "name": "Xakki"
   },
@@ -25,9 +25,12 @@
   "interface": {
     "displayName": "ai-agents-skills",
     "shortDescription": "Kanban, scheduled tasks, Telegram notifications, git helpers, and more.",
-    "longDescription": "Kanban task management, autonomous timed runs of kanban cards, Telegram notifications (tg-notify skill + hooks) and reports (tg-report), self-hosted artifact publishing (publish-artifact), utility skills (git-flow, git-move, setup-claude, new-project-docker, fluent-logging), and skill-import (discover & import skills from external git repos, matched by a subagent, with updates).",
+    "longDescription": "Kanban task management, autonomous timed runs of kanban cards, optional Telegram notifications and reports, self-hosted artifact publishing, Git and project-scaffolding utilities, structured logging, and skill import. Codex lifecycle hooks use the dedicated Codex event map and require review before execution.",
     "developerName": "Xakki",
     "category": "Productivity",
-    "capabilities": ["Read", "Write"]
+    "capabilities": ["Read", "Write"],
+    "defaultPrompt": [
+      "Help me manage a coding task with the ai-agents-skills workflows."
+    ]
   }
 }

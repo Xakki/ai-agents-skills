@@ -17,7 +17,8 @@ Codex, Cursor Agent CLI/IDE, and Hermes Agent integrations:
 - Shared skills live under `skills/` and are used by **all four**
   integrations — don't fork or duplicate a skill per runtime.
 - Runtime-specific lifecycle hook maps stay separate: `hooks/hooks.json`
-  (Claude Code), `hooks/codex-hooks.json` (Codex), and
+  (Claude Code), `hooks/codex-hooks.json` (Codex, declared explicitly in
+  `.codex-plugin/plugin.json`), and
   `hooks/cursor-hooks.json` (Cursor — routes every event through
   `hooks/cursor-adapter.sh`, which normalizes Cursor's payload field names
   into the shape the shared `tg-*.sh`/`abbr-inject.sh` scripts already
@@ -34,6 +35,9 @@ Codex, Cursor Agent CLI/IDE, and Hermes Agent integrations:
   **all four** integrations — verify the change still works for Claude Code,
   Codex, Cursor, and Hermes, and update every manifest the change affects
   metadata for (e.g. `version`).
+- Codex hooks must be declared explicitly as `./hooks/codex-hooks.json` so
+  Codex does not auto-discover the Claude Code-specific `hooks/hooks.json`.
+  Plugin hooks require the user's Codex trust review before they can execute.
 - Script-bearing skills must resolve the root through
   `AI_AGENTS_SKILLS_ROOT`, with Claude/Codex/Cursor root fallbacks. Hermes sets
   `AI_AGENTS_SKILLS_ROOT` during plugin registration.

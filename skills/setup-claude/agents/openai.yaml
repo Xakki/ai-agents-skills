@@ -1,0 +1,6 @@
+interface:
+  display_name: Setup Claude Code
+  short_description: Set up or audit Claude Code configuration in a repository.
+  default_prompt: Set up Claude Code configuration for this repository.
+policy:
+  allow_implicit_invocation: false

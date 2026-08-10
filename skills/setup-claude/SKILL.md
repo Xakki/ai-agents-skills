@@ -1,7 +1,11 @@
 ---
 name: setup-claude
-description: Universal template to set up Claude Code in any repository — generates CLAUDE.md, sub-agents, skills, .mcp.json, settings.json, and Makefile. Use when initializing Claude Code in a new project, auditing existing config, or migrating .claude/commands/ to skills. Token-economy focused; mandates make-targets; always asks user which hooks to enable.
-when_to_use: User says "настрой Claude Code", "init claude", "сделай CLAUDE.md", "проанализируй проект и настрой агентов", "/setup-claude", or asks to configure sub-agents/skills/MCP/hooks for a repo.
+description: >
+  Set up or audit Claude Code configuration in a repository, including
+  CLAUDE.md, subagents, skills, MCP, settings, hooks, and Make targets.
+when_to_use: >
+  Use when initializing Claude Code, creating CLAUDE.md, configuring agents,
+  skills, MCP, hooks, or auditing an existing repository configuration.
 disable-model-invocation: true
 allowed-tools: Read Glob Grep Bash WebFetch WebSearch Write Edit
 ---

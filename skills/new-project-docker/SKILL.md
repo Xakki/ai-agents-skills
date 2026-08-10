@@ -1,6 +1,9 @@
 ---
 name: new-project-docker
-description: When creating ANY new project from scratch — build it in Docker right away (Dockerfile + docker-compose.yml) + Makefile + wire up logging (skill fluent-logging) from day one. Use when scaffolding/bootstrapping a new project, repo, or service from scratch. Триггеры RU: «новый проект», «создай проект», «инициализируй проект/репозиторий», «с нуля», «заскаффоль», «подними сервис». EN: new project, scaffold, bootstrap a service, set up a repo from scratch, project skeleton.
+description: >
+  Scaffold a new project, repository, or service in Docker from day one with
+  a Dockerfile, Docker Compose, Makefile, and fluent logging. Use for a new
+  project, bootstrap, service setup, or project skeleton.
 ---
 
 # new-project-docker — new project = Docker + Makefile

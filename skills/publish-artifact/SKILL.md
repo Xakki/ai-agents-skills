@@ -1,6 +1,8 @@
 ---
 name: publish-artifact
-description: Publish a self-contained HTML artifact/page to a self-hosted static host (via a project `make publish-artifact` target) and return its public URL. Триггеры RU: «опубликуй артефакт», «выложи артефакт», «захостить HTML-страницу», «дай ссылку на артефакт», «опубликуй на xakki.pro»; EN: "publish artifact", "self-host this page", "host this HTML", "give me a public link".
+description: >
+  Publish a self-contained HTML artifact or page to a self-hosted static site
+  with a project make publish-artifact target, then return its public URL.
 ---
 
 # publish-artifact

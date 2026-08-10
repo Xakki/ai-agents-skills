@@ -6,8 +6,9 @@ workflow, an autonomous timed task runner, Telegram notifications, and a few
 utilities.
 
 This repository also ships a [Codex](https://developers.openai.com/codex/plugins/build)
-plugin manifest (`.codex-plugin/plugin.json`) so the same skills can be used
-from Codex CLI — see [Install (Codex)](#install-codex) below — and a
+plugin manifest (`.codex-plugin/plugin.json`) and repository marketplace
+(`.agents/plugins/marketplace.json`) so the same skills can be installed from
+Codex CLI — see [Install (Codex)](#install-codex) below — and a
 [Cursor](https://cursor.com/docs/reference/plugins) Agent CLI/IDE plugin
 manifest (`.cursor-plugin/plugin.json`) — see [Install (Cursor)](#install-cursor)
 below — plus a [Hermes Agent](https://hermes-agent.nousresearch.com/docs/user-guide/features/plugins)
@@ -39,8 +40,11 @@ All four integrations share the same `skills/` tree; see
 | **ai-agents-skills:log-investigator** | Read-only incident triage. Pulls container logs (Portainer), app logs (Graylog), and metrics (Grafana/Prometheus) and returns a focused UTC timeline + likely root cause — not a raw log dump. `model:` frontmatter = plugin **standard**-tier default (`sonnet`); override via `AI_MODEL_*` / skill `model-tiers`. Mutations denied. On first use in a project it **asks** for the service/tag/endpoint context and offers to save it to your `.claude/`. |
 | **ai-agents-skills:db-schema** | Read-only DB schema introspection. Returns concise `table → columns → PK → indexes → FKs` summaries from the live DB, migrations, or config — always naming the source. `model:` frontmatter = plugin **standard**-tier default (`sonnet`); override via `AI_MODEL_*` / skill `model-tiers`. Mutations/migrations denied. Asks for ORM/stack/paths on first use. |
 
-Claude, Codex, and Cursor auto-discover agents from `agents/` and address them
-as `ai-agents-skills:<name>`. Hermes exposes the same prompt bodies as read-only
+Claude and Cursor auto-discover agents from `agents/` and address them as
+`ai-agents-skills:<name>`. The Codex package exposes the shared `skills/` tree;
+`setup-claude` additionally declares a Codex policy that prevents implicit
+invocation. The root `agents/` prompts are not declared by its Codex manifest.
+Hermes exposes the same prompt bodies as read-only
 plugin skills named `ai-agents-skills:agent-<name>` (for example,
 `skill_view("ai-agents-skills:agent-log-investigator")`).
 
@@ -91,33 +95,29 @@ claude plugin validate /home/xakki/ai-agents-skills
    curl -fsSL https://chatgpt.com/codex/install.sh | sh
    ```
 
-2. Add this repo as a Codex plugin marketplace:
+2. Add this GitHub repository as a Codex marketplace, then install its plugin:
 
    ```
-   codex plugin marketplace add Xakki/ai-agents-skills
+   codex plugin marketplace add Xakki/ai-agents-skills --ref main
+   codex plugin add ai-agents-skills@ai-agents-skills
    ```
 
-3. Launch `codex`, open the plugin picker, and install/enable
-   `ai-agents-skills`:
-
-   ```
-   /plugins
-   ```
-
-4. Start a **new** Codex session — plugin skills and hooks are loaded at
+3. Start a **new** Codex session — plugin skills and plugin metadata are loaded at
    session start, so an existing session won't pick them up.
 
-Codex loads hooks from the path declared in `.codex-plugin/plugin.json`
-(`./hooks/codex-hooks.json`), not from `hooks/hooks.json` (that file is
-Claude Code–only). Plugin-bundled hooks are non-managed, so on first run
-Codex prompts you to review and trust them before they execute.
+The Codex manifest explicitly selects `./hooks/codex-hooks.json`, rather than
+the Claude Code-specific default `hooks/hooks.json`. Codex requires the user
+to review and trust plugin hooks before executing them. Once trusted, these
+hooks can send the optional Telegram task-finished and needs-attention
+notifications configured by `tg-notify`; review the outbound commands before
+trusting them. Root `agents/` prompts remain available to the Claude, Cursor,
+and Hermes integrations only.
 
 ### Verify the Codex install
 
 ```
-codex plugin marketplace list   # confirms the Xakki/ai-agents-skills source is registered
-codex plugin list               # confirms ai-agents-skills is installed/enabled
-/plugins                        # same, from inside a Codex session
+codex plugin marketplace list   # confirms the GitHub marketplace is registered
+codex plugin list               # lists ai-agents-skills in its marketplace snapshot
 ```
 
 Note: the `mempalace` cross-marketplace dependency declared in
@@ -224,6 +224,8 @@ you want it there too.
 ├── .claude-plugin/
 │   ├── plugin.json        # Claude Code plugin manifest (only this file lives here)
 │   └── marketplace.json   # marketplace entry → source "./" (also read by Codex, legacy-compatible)
+├── .agents/plugins/
+│   └── marketplace.json   # Codex repository marketplace → source "./"
 ├── .codex-plugin/
 │   └── plugin.json        # Codex plugin manifest (only this file lives here)
 ├── .cursor-plugin/
@@ -235,7 +237,7 @@ you want it there too.
 ├── AGENTS.md              # Codex instructions: shared skills/, separate hook maps
 ├── hooks/
 │   ├── hooks.json         # Claude Code hooks (auto-registered, 6 events)
-│   ├── codex-hooks.json   # same hooks mapped to Codex's event names (see plugin.json → "hooks")
+│   ├── codex-hooks.json   # Codex event map declared by the Codex manifest
 │   ├── cursor-hooks.json  # same hooks mapped to Cursor's event names, via cursor-adapter.sh
 │   ├── cursor-adapter.sh  # normalizes Cursor payloads for the shared tg-*.sh / abbr-inject.sh scripts
 │   └── tg-*.sh
@@ -256,9 +258,10 @@ you want it there too.
 For Claude Code, the skills are auto-discovered from `skills/`, and the hooks
 from `hooks/hooks.json` — no `skills` or `hooks` field in
 `.claude-plugin/plugin.json` is needed. The Codex manifest
-(`.codex-plugin/plugin.json`) declares both explicitly: `"skills": "./skills/"`
-and `"hooks": "./hooks/codex-hooks.json"`, so Codex loads the same skills but
-its own hook map instead of `hooks/hooks.json`. The Cursor manifest
+(`.codex-plugin/plugin.json`) declares `"skills": "./skills/"`; its repository
+marketplace (`.agents/plugins/marketplace.json`) points at this plugin root.
+It explicitly declares `"hooks": "./hooks/codex-hooks.json"`, so Codex uses
+its own event map instead of the Claude Code default. The Cursor manifest
 (`.cursor-plugin/plugin.json`) auto-discovers `skills/` and `agents/` the same
 way Claude Code does (default folder-based discovery), and declares `hooks`
 explicitly (same posture as Codex) pointing at `./hooks/cursor-hooks.json` —
