@@ -1,0 +1,30 @@
+{
+  "name": "ai-agents-skills",
+  "version": "0.2.14",
+  "description": "Reusable Agent Skills, prompt templates, and optional Telegram lifecycle hooks for Prime Agent.",
+  "license": "MIT",
+  "keywords": [
+    "pi-package",
+    "prime-agent",
+    "agent-skills",
+    "kanban",
+    "telegram",
+    "git",
+    "logging"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Xakki/ai-agents-skills.git"
+  },
+  "pi": {
+    "extensions": [
+      "./extensions/prime-adapter.ts"
+    ],
+    "skills": [
+      "./skills"
+    ],
+    "prompts": [
+      "./agents"
+    ]
+  }
+}

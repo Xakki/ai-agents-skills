@@ -1,7 +1,7 @@
 # AGENTS.md
 
-This repository ships **four** plugins from the same source tree: Claude Code,
-Codex, Cursor Agent CLI/IDE, and Hermes Agent integrations:
+This repository ships **five** integrations from the same source tree: Claude Code,
+Codex, Cursor Agent CLI/IDE, Hermes Agent, and Prime Agent:
 
 - `.claude-plugin/plugin.json` + `.claude-plugin/marketplace.json` — Claude
   Code manifest and marketplace entry.
@@ -11,6 +11,9 @@ Codex, Cursor Agent CLI/IDE, and Hermes Agent integrations:
 - `plugin.yaml` + `__init__.py` — Hermes manifest and Python registration
   adapter. It registers the shared skills read-only under the
   `ai-agents-skills:` namespace and maps compatible lifecycle hooks.
+- `package.json` + `extensions/prime-adapter.ts` — Prime Agent capability-package
+  manifest and lifecycle adapter. It exposes `skills/` and `agents/` through the
+  Prime package resource API, then maps only lifecycle events Prime supports.
 
 ## Conventions
 
@@ -32,9 +35,9 @@ Codex, Cursor Agent CLI/IDE, and Hermes Agent integrations:
   has no permission/idle notification event, so that ping degrades safely just
   as it does under Cursor.
 - When changing shared behavior (a skill, an agent, a hook script), preserve
-  **all four** integrations — verify the change still works for Claude Code,
-  Codex, Cursor, and Hermes, and update every manifest the change affects
-  metadata for (e.g. `version`).
+  **all five** integrations — verify the change still works for Claude Code,
+  Codex, Cursor, Hermes, and Prime Agent, and update every manifest the change
+  affects metadata for (e.g. `version`).
 - Codex hooks must be declared explicitly as `./hooks/codex-hooks.json` so
   Codex does not auto-discover the Claude Code-specific `hooks/hooks.json`.
   Plugin hooks require the user's Codex trust review before they can execute.

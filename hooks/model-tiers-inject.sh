@@ -45,6 +45,8 @@ elif [ -n "${CLAUDE_PLUGIN_ROOT:-}" ]; then
     RUNTIME="claude"
 elif [ -n "${PLUGIN_ROOT:-}" ]; then
     RUNTIME="codex"
+elif [ -n "${PRIME_AGENT_ROOT:-}" ]; then
+    RUNTIME="prime-agent"
 fi
 
 CTX="## Model tiers (resolved for this session)

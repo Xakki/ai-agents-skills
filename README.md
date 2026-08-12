@@ -125,6 +125,43 @@ Note: the `mempalace` cross-marketplace dependency declared in
 [mempalace](https://github.com/MemPalace/mempalace) separately as a Codex
 plugin if you want it there too.
 
+## Install (Prime Agent)
+
+Prime Agent natively installs capability packages from Git. This repository's
+`package.json` exposes the shared `skills/` tree, the specialist prompts in
+`agents/`, and a Prime lifecycle adapter:
+
+```bash
+prime-agent package install git:github.com/Xakki/ai-agents-skills
+```
+
+Install only for the current project instead of the user configuration:
+
+```bash
+prime-agent package install git:github.com/Xakki/ai-agents-skills --local
+```
+
+For reproducibility, pin a tag or commit. Start a fresh Prime Agent session
+once installed:
+
+```bash
+prime-agent package install git:github.com/Xakki/ai-agents-skills@<tag-or-commit>
+prime-agent package list
+```
+
+Prime discovers all `skills/*/SKILL.md` files and exposes `agents/*.md` as
+prompt templates (for example, `/chore`), rather than as Claude-style named
+subagents. The adapter runs the shared abbreviation and model-tier context
+injection, task-start, pending-notification cancellation, and delayed
+completion-notification hooks. Prime Agent does not expose Claude's
+`Notification`/`PermissionRequest` lifecycle events, so its optional Telegram
+"needs attention" notice safely degrades; completion notifications still work.
+
+For Prime subagent tiers, set exact model selectors in the environment before
+starting Prime Agent, for example `AI_MODEL_CHEAP`, `AI_MODEL_STANDARD`, and
+`AI_MODEL_JUDGMENT`. Use values accepted by your `prime-agent model list`;
+provider availability is installation-specific.
+
 ## Install (Hermes)
 
 Install and explicitly enable the plugin from GitHub:

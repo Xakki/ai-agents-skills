@@ -35,7 +35,10 @@ When torn between two tiers, pick the cheaper one; escalate on ambiguity. Floor 
 
 ## Precedence
 
-1. **Runtime `settings.json` env** — `{.claude\|.cursor\|.codex}/settings.json` → `env` block (process env at session start).
+1. **Runtime environment** — `AI_MODEL_*` values inherited when the agent starts.
+   Claude, Codex, and Cursor can set these through their `settings.json` `env`
+   block. For Prime Agent, export them in the shell/service that starts
+   `prime-agent`; use exact selectors accepted by `prime-agent model list`.
 2. **Plugin defaults** — `skills/model-tiers/defaults.env` (shipped with the plugin).
 
 Unset override keys fall back to defaults. **Never invent a model** — always use
@@ -57,8 +60,9 @@ the caller's tier (expensive default).
 
 ## Configure overrides
 
-Set `AI_MODEL_*` in the active runtime's `settings.json` `env` block. Long jq
-examples → [reference.md](reference.md).
+Set `AI_MODEL_*` in the active runtime's environment. Claude, Codex, and Cursor
+can use their `settings.json` `env` block; for Prime Agent, export the values
+before startup. Long jq examples → [reference.md](reference.md).
 
 ## Agent frontmatter limitation
 
