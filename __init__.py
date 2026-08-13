@@ -187,10 +187,13 @@ def register(ctx: Any) -> None:
     os.environ["AI_AGENTS_SKILLS_ROOT"] = str(_ROOT)
 
     for skill_md in sorted((_ROOT / "skills").glob("*/SKILL.md")):
+        name = skill_md.parent.name
         ctx.register_skill(
-            skill_md.parent.name,
+            name,
             skill_md,
             description=_frontmatter_description(skill_md),
+            expose_as_command=True,
+            command_name="ai-kanban" if name == "kanban" else name,
         )
     for agent_md in sorted((_ROOT / "agents").glob("*.md")):
         ctx.register_skill(

@@ -1,6 +1,6 @@
 manifest_version: 1
 name: ai-agents-skills
-version: "0.2.14"
+version: "0.2.15"
 description: Cross-agent skills, specialist prompts, and optional Telegram lifecycle hooks for Hermes Agent
 repository: https://github.com/Xakki/ai-agents-skills
 provides_hooks:

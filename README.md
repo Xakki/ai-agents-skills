@@ -184,9 +184,13 @@ hermes plugins list --plain --no-bundled
 ```
 
 Hermes registers all `skills/*/SKILL.md` files read-only under
-`ai-agents-skills:<name>` and all `agents/*.md` prompts under
-`ai-agents-skills:agent-<name>`. Plugin skills are intentionally namespaced and
-opt-in in Hermes, so load one explicitly, for example:
+`ai-agents-skills:<name>` and exposes them in the interactive slash-command
+autocomplete. Type `/` and press Tab in a new Hermes session (or run
+`/reload-skills` in an existing one) to invoke workflows such as `/qa-check`.
+The `kanban` skill uses `/ai-kanban` because Hermes reserves `/kanban` for its
+built-in board command. All `agents/*.md` prompts remain namespaced as
+`ai-agents-skills:agent-<name>`. You can also load skills explicitly, for
+example:
 
 ```text
 skill_view("ai-agents-skills:qa-check")
@@ -304,8 +308,8 @@ way Claude Code does (default folder-based discovery), and declares `hooks`
 explicitly (same posture as Codex) pointing at `./hooks/cursor-hooks.json` —
 the adapted event map that routes through `hooks/cursor-adapter.sh`.
 Hermes loads the root `plugin.yaml` and `__init__.py`; the adapter registers the
-same skill files without copying them and normalizes Hermes lifecycle callback
-arguments for the shared Telegram scripts.
+same skill files without copying them, opts them into slash autocomplete, and
+normalizes Hermes lifecycle callback arguments for the shared Telegram scripts.
 
 ## Usage
 

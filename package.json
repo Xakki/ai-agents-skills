@@ -1,6 +1,6 @@
 {
   "name": "ai-agents-skills",
-  "version": "0.2.14",
+  "version": "0.2.15",
   "description": "Reusable Agent Skills, prompt templates, and optional Telegram lifecycle hooks for Prime Agent.",
   "license": "MIT",
   "keywords": [

@@ -1,7 +1,9 @@
 # ai-agents-skills installed
 
-The Hermes plugin is installed. It registers the repository's shared skills as
-read-only, namespaced plugin skills and maps the compatible lifecycle hooks.
+The Hermes plugin is installed. Its shared skills are read-only, namespaced
+plugin skills and appear in slash-command autocomplete. Start a new Hermes
+session (or run `/reload-skills`) and type `/` then Tab. Use `/ai-kanban` for
+the plugin's kanban workflow because `/kanban` is a built-in Hermes command.
 
 Load a workflow explicitly:
 

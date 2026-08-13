@@ -17,8 +17,12 @@ class FakeContext:
         self.skills = {}
         self.hooks = {}
 
-    def register_skill(self, name, path, description=""):
-        self.skills[name] = {"path": Path(path), "description": description}
+    def register_skill(self, name, path, description="", **kwargs):
+        self.skills[name] = {
+            "path": Path(path),
+            "description": description,
+            **kwargs,
+        }
 
     def register_hook(self, name, callback):
         self.hooks[name] = callback
@@ -64,6 +68,8 @@ def test_register_exposes_all_shared_skills_and_agent_adapters(monkeypatch):
     assert set(ctx.skills) == expected_skills | expected_agents
     assert all(item["path"].is_file() for item in ctx.skills.values())
     assert all(item["description"] for item in ctx.skills.values())
+    assert all(ctx.skills[name]["expose_as_command"] for name in expected_skills)
+    assert ctx.skills["kanban"]["command_name"] == "ai-kanban"
     assert set(ctx.hooks) == {
         "pre_llm_call",
         "post_llm_call",
