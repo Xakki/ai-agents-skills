@@ -149,10 +149,12 @@ branch has been verified clean.
 An **epic** is a card whose body lists ordered subtask cards. Subtasks are normal
 cards; the epic is their parent and their integration point.
 
-- **Naming — shared ID.** The epic gets a normal `<PREFIX>-<NUM>` ID
-  (`kanban-new.sh --epic`); every subtask reuses that SAME ID plus a 2-digit
-  suffix in execution order (`kanban-new.sh --sub <EPIC-ID>`): e.g.
-  `K-042-billing-epic.md`, `K-042-01-db-schema.md`, `K-042-02-api-crud.md`…
+- **Naming — reserved shared ID.** The epic always gets an `EPIC-<NUM>` ID
+  (`kanban-new.sh --epic`), independently of the project's regular task prefix;
+  every subtask reuses that SAME ID plus a 2-digit suffix in execution order
+  (`kanban-new.sh --sub <EPIC-ID>`): e.g. `EPIC-042-billing-epic.md`,
+  `EPIC-042-01-db-schema.md`, `EPIC-042-02-api-crud.md`… Regular cards retain
+  their `<PREFIX>-<NUM>` IDs.
   Epic and subtasks share the leading `^[A-Za-z][A-Za-z0-9]*-[0-9]+` ID token —
   `schedule-tasks` groups them as one chain (related-card-first selection,
   dependency blocking) and the byobu window name stays inside its 10-char cap.

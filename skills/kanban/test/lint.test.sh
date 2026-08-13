@@ -8,7 +8,9 @@ KLINT="$HERE/../scripts/kanban-lint.sh"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 git_c() { git -c user.email=t@t -c user.name=t -c init.defaultBranch=main "$@"; }
 
-REPO="$TMP/myrepo"
+# The board may itself live beneath an unrelated ancestor directory named done.
+# Such active cards must not be treated as archived.
+REPO="$TMP/done/myrepo"
 mkdir -p "$REPO"; git_c -C "$REPO" init -q
 export KANBAN_PREFIX_REGISTRY="$TMP/registry.tsv"
 
@@ -16,6 +18,28 @@ export KANBAN_PREFIX_REGISTRY="$TMP/registry.tsv"
 bash "$KNEW" --repo "$REPO" --title "Well formed" --stage todo --prefix K >/dev/null
 OUT="$(bash "$KLINT" --repo "$REPO")"
 echo "$OUT" | grep -q '^ERROR' && { echo "FAIL: expected no errors on a well-formed card"; echo "$OUT"; exit 1; }
+
+# Archived done cards are intentionally excluded from linting.
+mkdir -p "$REPO/.claude/kanban/done"
+cat > "$REPO/.claude/kanban/done/K-002-archived-broken.md" <<'EOF'
+no title, no sections
+EOF
+OUT_DONE="$(bash "$KLINT" --repo "$REPO")"
+echo "$OUT_DONE" | grep -q '^ERROR' && { echo "FAIL: expected done/ cards to be excluded from linting"; echo "$OUT_DONE"; exit 1; }
+echo "$OUT_DONE" | grep -q '^kanban-lint: 1 card(s) checked' || { echo "FAIL: expected only active cards to be checked"; echo "$OUT_DONE"; exit 1; }
+OUT_DONE_EXPLICIT="$(bash "$KLINT" --repo "$REPO" "$REPO/.claude/kanban/done/K-002-archived-broken.md")"
+echo "$OUT_DONE_EXPLICIT" | grep -q '^ERROR' && { echo "FAIL: expected explicitly targeted done/ cards to be excluded from linting"; echo "$OUT_DONE_EXPLICIT"; exit 1; }
+echo "$OUT_DONE_EXPLICIT" | grep -q '^kanban-lint: 0 card(s) checked' || { echo "FAIL: expected no explicitly targeted done/ cards to be checked"; echo "$OUT_DONE_EXPLICIT"; exit 1; }
+
+# A bare basename must resolve the active card when an archived duplicate exists.
+cp "$REPO/.claude/kanban/todo/K-001-well-formed.md" "$REPO/.claude/kanban/todo/K-003-shared-card.md"
+cat > "$REPO/.claude/kanban/done/K-003-shared-card.md" <<'EOF'
+no title, no sections
+EOF
+OUT_ACTIVE_REF="$(bash "$KLINT" --repo "$REPO" K-003-shared-card)"
+echo "$OUT_ACTIVE_REF" | grep -q '^ERROR' && { echo "FAIL: expected bare reference to lint the active duplicate"; echo "$OUT_ACTIVE_REF"; exit 1; }
+echo "$OUT_ACTIVE_REF" | grep -q '^kanban-lint: 1 card(s) checked' || { echo "FAIL: expected bare reference to check the active duplicate"; echo "$OUT_ACTIVE_REF"; exit 1; }
+rm -f "$REPO/.claude/kanban/todo/K-003-shared-card.md" "$REPO/.claude/kanban/done/K-003-shared-card.md"
 
 # duplicate ID across stages: copy the same card basename into two stage dirs
 mkdir -p "$REPO/.claude/kanban/progress"

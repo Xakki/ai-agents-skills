@@ -19,6 +19,7 @@ All four integrations share the same `skills/` tree; see
 | Skill | What it does |
 |-------|--------------|
 | **kanban** | Manage a `.claude/kanban/` board in your project: create, start, review, and complete task cards across `grooming → todo → progress → test → ready → done`. |
+| **knbn** | Portable invocation alias for **kanban**. It loads the canonical Kanban workflow and adds no separate behavior. |
 | **schedule-tasks** | Schedule autonomous `claude` runs of `todo/` cards via `at`/tmux. Each card opens in its own byobu window and self-chains the next card on success. |
 | **tg-notify** | Send a Telegram notification with a short report to a **DM, group, or channel** (configurable). Ships hooks that also auto-notify on long task completion and on permission/idle prompts. |
 | **tg-notify-timers** | View/tune the tg-notify hook timers (thresholds, delays, debounce) via `TG_NOTIFY_*` env vars in `settings.json`. |
@@ -184,15 +185,15 @@ hermes plugins list --plain --no-bundled
 ```
 
 Hermes registers all `skills/*/SKILL.md` files read-only under
-`ai-agents-skills:<name>` and exposes them in the interactive slash-command
-autocomplete. Type `/` and press Tab in a new Hermes session (or run
-`/reload-skills` in an existing one) to invoke workflows such as `/qa-check`.
-The `kanban` skill uses `/ai-kanban` because Hermes reserves `/kanban` for its
-built-in board command. All `agents/*.md` prompts remain namespaced as
-`ai-agents-skills:agent-<name>`. You can also load skills explicitly, for
-example:
+`ai-agents-skills:<name>`. Plugin skills are explicit loads rather than
+slash-command registrations: use `skill_view("ai-agents-skills:knbn")` (or
+`skill_view("ai-agents-skills:kanban")`) when you want the workflow. The
+built-in `/kanban` board command remains separate. All `agents/*.md` prompts
+remain namespaced as `ai-agents-skills:agent-<name>`. You can also load skills
+explicitly, for example:
 
 ```text
+skill_view("ai-agents-skills:knbn")
 skill_view("ai-agents-skills:qa-check")
 skill_view("ai-agents-skills:agent-db-schema")
 ```
@@ -308,8 +309,33 @@ way Claude Code does (default folder-based discovery), and declares `hooks`
 explicitly (same posture as Codex) pointing at `./hooks/cursor-hooks.json` —
 the adapted event map that routes through `hooks/cursor-adapter.sh`.
 Hermes loads the root `plugin.yaml` and `__init__.py`; the adapter registers the
-same skill files without copying them, opts them into slash autocomplete, and
-normalizes Hermes lifecycle callback arguments for the shared Telegram scripts.
+same skill files without copying them for namespaced explicit discovery and
+loading via `skill_view("ai-agents-skills:<name>")`, and normalizes Hermes
+lifecycle callback arguments for the shared Telegram scripts.
+
+### Kanban alias: `knbn`
+
+`knbn` is a second, portable skill name for the canonical `kanban` workflow. It
+is a small real `skills/knbn/SKILL.md` forwarding skill—not a symlink—and adds
+no independent lifecycle or scripts. The real directory is intentional: Codex
+documents linked skill folders, but reliable symlink traversal is not a shared
+contract for every supported discovery surface (notably Cursor). Keeping both
+names as ordinary skill directories makes plugin installation and discovery
+portable across all five integrations.
+
+After installing or updating the plugin, start a fresh session (or use the
+runtime's reload action) and use the alias as follows:
+
+| Runtime | Discover / invoke `knbn` |
+|---|---|
+| Claude Code | Plugin folder discovery exposes the `skills/knbn/` directory; invoke `/knbn` or ask for `knbn`. |
+| Codex | The manifest exposes `./skills/`; start a new session and mention `$knbn` (or ask for `knbn`). |
+| Cursor | Plugin folder discovery exposes the `skills/knbn/` directory; start a fresh session and invoke or mention `knbn`. |
+| Hermes | The adapter registers `ai-agents-skills:knbn`; load it with `skill_view("ai-agents-skills:knbn")`. The built-in `/kanban` board command remains separate. |
+| Prime Agent | Its package scanner finds `skills/knbn/SKILL.md`; start a fresh session and use `/skill:knbn` (or ask for `knbn`). |
+
+Do not create downstream symlinks for this alias. Install the plugin normally;
+the included real alias directory is the compatible mechanism.
 
 ## Usage
 

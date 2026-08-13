@@ -9,7 +9,7 @@ usage() {
   cat <<'EOF'
 Usage:
   kanban-id.sh [--repo P] next  [<PREFIX>]      allocate+persist a new ID, e.g. K-043
-  kanban-id.sh [--repo P] epic  [<PREFIX>]      alias of next (epic ID; subtasks reuse it)
+  kanban-id.sh [--repo P] epic  [<PREFIX>]      allocate a new EPIC ID, e.g. EPIC-043
   kanban-id.sh [--repo P] sub   <EPIC-ID>       next free subtask number, e.g. K-043-02
   kanban-id.sh [--repo P] peek  [<PREFIX>]      last used ID; allocates nothing
   kanban-id.sh [--repo P] prefix                print the default prefix (confirmation required
@@ -30,7 +30,7 @@ REPO="$(kanban::repo_root)"
 LOCKFILE="$(kanban::lock_file "$REPO")"
 
 case "$cmd" in
-  next|epic)
+  next)
     prefix="${1:-}"
     if [ -n "$prefix" ]; then
       # An explicit --prefix IS the confirmation — persist it as the
@@ -41,6 +41,13 @@ case "$cmd" in
       prefix="$(kanban::resolve_and_reserve_prefix "$REPO")"
     fi
     kanban::allocate_next_id "$REPO" "$prefix"
+    ;;
+
+  epic)
+    # Keep accepting the historical optional prefix argument for CLI
+    # compatibility; epic IDs always occupy the reserved EPIC namespace.
+    [ $# -le 1 ] || kanban::die "kanban-id.sh epic: at most one legacy prefix argument is allowed" 1
+    kanban::allocate_next_id "$REPO" "EPIC"
     ;;
 
   sub)

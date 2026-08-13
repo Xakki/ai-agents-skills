@@ -36,7 +36,7 @@ PERF=7
 - `prefix=` — the project's default prefix (used when a script isn't given
   `--prefix`/`PREFIX` explicitly).
 - Every other `KEY=value` line is the last-used number for that prefix
-  (multi-prefix repos are supported — e.g. a `PERF` epic living alongside the
+  (multi-prefix repos are supported — e.g. a `PERF` task living alongside the
   default `AVF` cards).
 - **Allocation is `flock`-guarded.** The actual OS lock is a stable companion
   file, `.claude/kanban.lock.flock` — NOT `kanban.lock` itself, which is
@@ -107,7 +107,7 @@ Every script still works with only `.claude/kanban.lock` present.
 
 ```bash
 kanban-id.sh next [PREFIX]         # allocate + consume the next plain ID: PREFIX-NUM
-kanban-id.sh epic [PREFIX]         # same allocation, semantically an epic ID
+kanban-id.sh epic [PREFIX]         # allocate + consume the next epic ID: EPIC-NUM (PREFIX ignored)
 kanban-id.sh sub <EPIC-ID>         # next subtask number under EPIC-ID: EPIC-ID-NN (2-digit)
 kanban-id.sh peek [PREFIX]         # print the last-used number — NO allocation, no lock write
 kanban-id.sh prefix                # print the default prefix — confirmation required on first use
@@ -117,9 +117,10 @@ kanban-id.sh set-prefix <PREFIX>   # confirm+persist the project's default prefi
 - `PREFIX` defaults to the project's default prefix (`.claude/kanban.lock`
   `prefix=` line) when omitted — see [Prefix reservation](#prefix-reservation)
   for what happens when there isn't one yet.
-- `next` and `epic` allocate identically — `epic` exists so call sites read as
-  intent, not mechanism; both consume the counter and reconcile against the
-  board.
+- `next` allocates from the requested/default regular task prefix. `epic`
+  allocates from the reserved `EPIC` prefix (its optional historical `PREFIX`
+  argument is accepted but ignored), independently of the default task prefix;
+  both consume their respective counters and reconcile against the board.
 - `sub <EPIC-ID>` looks at existing `<EPIC-ID>-NN-*.md` cards across all stage
   dirs plus the lock file, returns the next unused `NN`, zero-padded to 2
   digits. Does not require `<EPIC-ID>` itself to exist yet as a card.
@@ -150,7 +151,10 @@ kanban-new.sh --title "…" [--stage todo|grooming] [--prefix P] \
 
 - `--title` required; everything else optional.
 - `--stage` default `todo`; use `grooming` when scope isn't settled yet.
-- `--epic` — allocate via `kanban-id.sh epic`, filename `<PREFIX>-<NUM>-<slug>.md`.
+- `--epic` — allocate from the reserved `EPIC` namespace, filename
+  `EPIC-<NUM>-<slug>.md`. Its `--prefix` never changes the epic ID, but on a
+  board without `prefix=` it persists that ordinary-task default for later
+  plain cards.
 - `--sub <EPIC-ID>` — allocate via `kanban-id.sh sub <EPIC-ID>`, filename
   `<EPIC-ID>-<NN>-<slug>.md`. Mutually exclusive with `--epic`.
 - Neither `--epic` nor `--sub` → plain task, `kanban-id.sh next`, filename
@@ -207,8 +211,10 @@ kanban-status.sh [--stage todo|grooming|progress|test|ready|done] [--epic <EPIC-
 kanban-lint.sh [<ID|path>…]
 ```
 
-- No args → lints every card on the board; args restrict to specific
-  cards/IDs.
+- No args → lints every **active** card on the board; `done/` cards are
+  archived and excluded. Args restrict to specific cards/IDs, but an explicit
+  or implicit `done/` reference remains excluded; an implicit ID/basename
+  prefers an active match when both active and archived cards match.
 - Checks:
   - filename/ID shape (`<PREFIX>-<NUM>[-<NN>]-<slug>.md`, prefix matches the
     project's reserved prefix or an existing multi-prefix entry in the lock
@@ -262,11 +268,11 @@ kanban-lint.sh [<ID|path>…]
 ```bash
 S=skills/kanban/scripts
 "$ROOT"/$S/kanban-new.sh --title "Billing rewrite" --epic --stage todo
-# .claude/kanban/todo/AVF-44-billing-rewrite.md   (epic ID = AVF-44)
-"$ROOT"/$S/kanban-new.sh --title "DB schema" --sub AVF-44
-# .claude/kanban/todo/AVF-44-01-db-schema.md
-"$ROOT"/$S/kanban-new.sh --title "API CRUD" --sub AVF-44
-# .claude/kanban/todo/AVF-44-02-api-crud.md
+# .claude/kanban/todo/EPIC-001-billing-rewrite.md (epic ID = EPIC-001)
+"$ROOT"/$S/kanban-new.sh --title "DB schema" --sub EPIC-001
+# .claude/kanban/todo/EPIC-001-01-db-schema.md
+"$ROOT"/$S/kanban-new.sh --title "API CRUD" --sub EPIC-001
+# .claude/kanban/todo/EPIC-001-02-api-crud.md
 ```
 
 **Move a card and commit:**

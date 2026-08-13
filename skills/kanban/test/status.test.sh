@@ -16,11 +16,11 @@ OUT="$(bash "$KSTATUS" --repo "$REPO")"
 [ "$OUT" = "no cards" ] || { echo "FAIL: expected 'no cards' on an empty board, got: $OUT"; exit 1; }
 
 bash "$KNEW" --repo "$REPO" --title "Parent epic" --stage todo --prefix K --epic >/dev/null
-bash "$KNEW" --repo "$REPO" --title "First subtask" --stage todo --sub K-001 >/dev/null
+bash "$KNEW" --repo "$REPO" --title "First subtask" --stage todo --sub EPIC-001 >/dev/null
 
 OUT2="$(bash "$KSTATUS" --repo "$REPO")"
 echo "$OUT2" | grep -q '^todo (2)$' || { echo "FAIL: expected todo (2) header"; echo "$OUT2"; exit 1; }
 echo "$OUT2" | grep -q '\[epic\]' || { echo "FAIL: epic marker missing"; echo "$OUT2"; exit 1; }
-echo "$OUT2" | grep -q '^    K-001-01  First subtask$' || { echo "FAIL: subtask not indented under epic"; echo "$OUT2"; exit 1; }
+echo "$OUT2" | grep -q '^    EPIC-001-01  First subtask$' || { echo "FAIL: subtask not indented under epic"; echo "$OUT2"; exit 1; }
 
 echo "PASS status"

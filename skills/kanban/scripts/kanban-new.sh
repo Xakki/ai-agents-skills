@@ -72,15 +72,25 @@ if [ -n "$SUB_EPIC" ]; then
   [ "$nextsub" -le 99 ] || kanban::die "kanban-new.sh: subtask numbers exhausted (>99) for '$SUB_EPIC'" 2
   ID="$(printf '%s-%02d' "$SUB_EPIC" "$nextsub")"
 else
-  if [ -n "$PREFIX_OVERRIDE" ]; then
-    PFX="$PREFIX_OVERRIDE"
-    # An explicit --prefix IS the confirmation — persist it as the project
-    # default only if none is recorded yet.
-    kanban::persist_prefix_if_unset "$REPO" "$PFX"
+  if [ "$IS_EPIC" -eq 1 ]; then
+    # Epic cards allocate in the reserved EPIC namespace. A supplied legacy
+    # --prefix still confirms the ordinary-task default on a fresh board, so
+    # the first subsequent plain task cannot infer EPIC as its board prefix.
+    if [ -n "$PREFIX_OVERRIDE" ]; then
+      kanban::persist_prefix_if_unset "$REPO" "$PREFIX_OVERRIDE" "explicit --prefix with epic, first use"
+    fi
+    ID="$(kanban::allocate_next_id "$REPO" "EPIC")"
   else
-    PFX="$(kanban::resolve_and_reserve_prefix "$REPO")"
+    if [ -n "$PREFIX_OVERRIDE" ]; then
+      PFX="$PREFIX_OVERRIDE"
+      # An explicit --prefix IS the confirmation — persist it as the project
+      # default only if none is recorded yet.
+      kanban::persist_prefix_if_unset "$REPO" "$PFX"
+    else
+      PFX="$(kanban::resolve_and_reserve_prefix "$REPO")"
+    fi
+    ID="$(kanban::allocate_next_id "$REPO" "$PFX")"
   fi
-  ID="$(kanban::allocate_next_id "$REPO" "$PFX")"
 fi
 
 # --- slug --------------------------------------------------------------------

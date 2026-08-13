@@ -28,8 +28,16 @@ err()  { echo "ERROR $1: $2"; ERRORS=$((ERRORS + 1)); }
 warn() { echo "WARN $1: $2"; WARNINGS=$((WARNINGS + 1)); }
 
 shopt -s nullglob
-ALL_CARDS=("$BOARD"/*/*.md)
+BOARD_CARDS=("$BOARD"/*/*.md)
 shopt -u nullglob
+DONE_DIR="$BOARD/done"
+is_archived() {
+  [[ "$1" == "$DONE_DIR"/* ]]
+}
+ALL_CARDS=()
+for card in "${BOARD_CARDS[@]}"; do
+  is_archived "$card" || ALL_CARDS+=("$card")
+done
 
 # --- resolve target cards ------------------------------------------------
 
@@ -44,6 +52,8 @@ else
       TARGETS+=("$REPO/$ref")
     else
       found=""
+      # Prefer an active card for an implicit reference; only fall back to an
+      # archived match so it can be excluded by the archive filter below.
       for f in "${ALL_CARDS[@]}"; do
         bmd="$(basename "$f")"
         base="$(basename "$f" .md)"
@@ -52,6 +62,16 @@ else
           break
         fi
       done
+      if [ -z "$found" ]; then
+        for f in "${BOARD_CARDS[@]}"; do
+          bmd="$(basename "$f")"
+          base="$(basename "$f" .md)"
+          if [ "$bmd" = "$ref" ] || [ "$base" = "$ref" ]; then
+            found="$f"
+            break
+          fi
+        done
+      fi
       if [ -n "$found" ]; then
         TARGETS+=("$found")
       else
@@ -60,6 +80,13 @@ else
     fi
   done
 fi
+
+# Done cards are archived and excluded even when passed as explicit paths.
+ACTIVE_TARGETS=()
+for f in "${TARGETS[@]}"; do
+  is_archived "$f" || ACTIVE_TARGETS+=("$f")
+done
+TARGETS=("${ACTIVE_TARGETS[@]}")
 
 # --- known prefixes from the lock file -----------------------------------
 

@@ -192,8 +192,6 @@ def register(ctx: Any) -> None:
             name,
             skill_md,
             description=_frontmatter_description(skill_md),
-            expose_as_command=True,
-            command_name="ai-kanban" if name == "kanban" else name,
         )
     for agent_md in sorted((_ROOT / "agents").glob("*.md")):
         ctx.register_skill(

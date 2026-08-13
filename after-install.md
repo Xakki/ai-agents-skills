@@ -1,9 +1,10 @@
 # ai-agents-skills installed
 
 The Hermes plugin is installed. Its shared skills are read-only, namespaced
-plugin skills and appear in slash-command autocomplete. Start a new Hermes
-session (or run `/reload-skills`) and type `/` then Tab. Use `/ai-kanban` for
-the plugin's kanban workflow because `/kanban` is a built-in Hermes command.
+plugin skills and can be loaded by their namespace. Start a new Hermes session
+(or run `/reload-skills`) and call `skill_view("ai-agents-skills:kanban")` for
+the plugin's Kanban workflow or `skill_view("ai-agents-skills:knbn")` for its
+portable alias. The built-in `/kanban` board command remains separate.
 
 Load a workflow explicitly:
 
