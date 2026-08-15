@@ -10,7 +10,9 @@ ROOT="${AI_AGENTS_SKILLS_ROOT:-${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-${CURSOR_PLU
 ```
 
 The portable root chain prefers Hermes' `AI_AGENTS_SKILLS_ROOT`, then the
-Claude/Codex/Cursor runtime-specific plugin roots. `--repo <path>` is optional
+Claude/Codex/Cursor runtime-specific plugin roots. Usage synopses below omit
+the `"$S"/` prefix (`S="$ROOT/skills/kanban/scripts"`, see [SKILL.md](SKILL.md))
+for brevity — prepend it when invoking. `--repo <path>` is optional
 on every script; default is the
 git toplevel of the CWD. Every script prints its result value on **stdout**
 and human-readable notices on **stderr** — safe to capture stdout into a

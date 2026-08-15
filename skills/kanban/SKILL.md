@@ -36,16 +36,17 @@ retry silently. Full mechanics, lock format, prefix registry →
 
 ## Scripts
 
-Set `ROOT="${AI_AGENTS_SKILLS_ROOT:-${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-${CURSOR_PLUGIN_ROOT:-}}}}"`, then invoke as `"$ROOT"/skills/kanban/scripts/<name>`
+Set `ROOT="${AI_AGENTS_SKILLS_ROOT:-${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-${CURSOR_PLUGIN_ROOT:-}}}}"` and
+`S="$ROOT/skills/kanban/scripts"`, then invoke every script below as `"$S"/<name>` — never by bare name
 (optional leading `--repo <path>`, default git toplevel):
 
 | Script | Purpose | Key flag |
 |---|---|---|
-| `kanban-id.sh` | allocate/inspect IDs (`next`\|`epic`\|`sub`\|`peek`\|`prefix`) | `sub <EPIC-ID>` |
-| `kanban-new.sh` | allocate ID + render template + stage card | `--epic`\|`--sub <EPIC-ID>` |
-| `kanban-move.sh` | validated stage transition (wraps [git-move](../git-move/SKILL.md)) | `--approved` (required for `→done`) |
-| `kanban-status.sh` | board overview, subtasks grouped under their epic | `--epic ID` |
-| `kanban-lint.sh` | card validation (shape, template, dupes, counter drift) | — |
+| `"$S"/kanban-id.sh` | allocate/inspect IDs (`next`\|`epic`\|`sub`\|`peek`\|`prefix`) | `sub <EPIC-ID>` |
+| `"$S"/kanban-new.sh` | allocate ID + render template + stage card | `--epic`\|`--sub <EPIC-ID>` |
+| `"$S"/kanban-move.sh` | validated stage transition (wraps [git-move](../git-move/SKILL.md)) | `--approved` (required for `→done`) |
+| `"$S"/kanban-status.sh` | board overview, subtasks grouped under their epic | `--epic ID` |
+| `"$S"/kanban-lint.sh` | card validation (shape, template, dupes, counter drift) | — |
 
 Full CLI, flags, exit codes, worked examples → [scripts.md](scripts.md). Manual
 fallback (hand-written card + [git-move](../git-move/SKILL.md) directly) still
@@ -55,7 +56,7 @@ works if a script is unavailable.
 
 ### 1. Create
 
-- **Default:** `"$ROOT"/skills/kanban/scripts/kanban-new.sh --title "…" --stage todo` (or `--stage grooming` when scope isn't settled) — allocates the ID, renders [task template](task-template.md), stages the card, prints its path.
+- **Default:** `"$S"/kanban-new.sh --title "…" --stage todo` (or `--stage grooming` when scope isn't settled) — allocates the ID, renders [task template](task-template.md), stages the card, prints its path.
 - **Manual fallback:** allocate the next ID by hand against `.claude/kanban.lock`, fill in [task template](task-template.md), `git add`.
 - **Scope clear** (AC, files, approach all settled) → `todo/`.
 - **Open questions remain** → `grooming/`; list them in `**Open questions:**`.
