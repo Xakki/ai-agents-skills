@@ -157,11 +157,15 @@
 2	sh -c "rm -rf /var/x"	executor running a real rm
 2	xargs sh -c "rm -rf /x"	nested executor: xargs runs sh -c
 0	xargs -I{} grep -c "rm -rf" f	grep's -c inside an xargs segment is still not a payload
-# KNOWN GAP, deliberately not covered: `ssh host "rm -rf /x"` passes through.
-# ssh's payload is a bare argument after the host, not -c/NAME=, and the shapes
-# that would catch it (`ssh -p 22022 host "..."`, options with values) need a
-# fragile host-vs-flag regex. The file is a guardrail against local slips, not
-# a remote-execution boundary. Revisit only with a real case.
+# DECIDED 2026-08-15 (user): ssh payloads are ALLOWED, not a gap to close.
+# ssh's payload is a bare argument after the host, not -c/NAME=, so catching it
+# needs a host-vs-flag regex that breaks on the everyday `ssh -p 22022 host
+# "..."` form. This file guards local slips; it is not a remote-execution
+# boundary. Asserted as must-ALLOW below so the decision is tested, not merely
+# commented — if someone later extends check_payloads to cover ssh, this case
+# fails and forces the conversation instead of silently changing policy.
+0	ssh host "rm -rf /x"	remote payload: allowed by decision, not by oversight
+0	ssh -p 22022 host "systemctl restart nginx"	remote service control is the user's call
 
 # --- plain shell is NOT in scope: make is for services/containers/runtimes only
 0	sed -n 1,20p app/main.py
