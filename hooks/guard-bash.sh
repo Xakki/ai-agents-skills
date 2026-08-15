@@ -61,43 +61,172 @@ CMD='(^|[;&|()]|'$'\n'')[[:space:]]*((env|time|nohup|exec|sudo)[[:space:]]+)?([A
 # Local binary dirs: ./vendor/bin/phpunit, node_modules/.bin/jest, .venv/bin/pytest
 BIN='((\./)?[A-Za-z0-9_./-]*(vendor/bin|node_modules/\.bin|\.venv/bin|venv/bin)/)?'
 
-# --- 1. Destructive filesystem ----------------------------------------------
-if [[ "$cmd" =~ (^|[[:space:];&|])rm[[:space:]]+(-[a-zA-Z]*[rR][a-zA-Z]*f|-[a-zA-Z]*f[a-zA-Z]*[rR]|-r[[:space:]]+-f|-f[[:space:]]+-r) ]] \
-	&& [[ ! "$cmd" =~ /tmp/backup/ ]]; then
-	block "recursive force-delete" \
+# --- Quote-aware routing scan (sections 3/4/5 ONLY — never sections 1/2) ----
+# `make -C docker run CMD="pytest tests/ && ruff check"` must be ALLOWED: the
+# `&&` and `pytest`/`ruff` text live inside a quoted VALUE handed to make, not
+# a command position in the agent's own shell. Routing rules (docker/toolchain/
+# webserver, sections 3-5) must not treat a separator or tool name inside
+# quotes as real. Safety rules (sections 1-2) are the opposite on purpose —
+# they scan $cmd raw, below — because a destructive command hidden inside a
+# quoted make argument (`make run CMD="rm -rf /x"`) is still a real rm once
+# whatever consumes CMD runs it, and must block regardless of make.
+#
+# neutralize_quotes replaces the CONTENTS of every '...'/"..." span with '#',
+# keeping the quote characters and the string length, so CMD's positional
+# anchors still line up outside quotes while nothing inside a quote can ever
+# look like a separator or a tool name to sections 3-5. Backslash-escaped
+# characters inside double quotes are neutralised too without toggling the
+# quote state on them.
+neutralize_quotes() {
+	local s=$1 out='' c i=0 len=${#1} insq=0 indq=0
+	while (( i < len )); do
+		c=${s:i:1}
+		if (( insq )); then
+			[[ "$c" == "'" ]] && { insq=0; out+="$c"; } || out+='#'
+		elif (( indq )); then
+			if [[ "$c" == '\' && $((i + 1)) -lt $len ]]; then
+				out+='##'; (( i++ ))
+			elif [[ "$c" == '"' ]]; then
+				indq=0; out+="$c"
+			else
+				out+='#'
+			fi
+		elif [[ "$c" == "'" ]]; then
+			insq=1; out+="$c"
+		elif [[ "$c" == '"' ]]; then
+			indq=1; out+="$c"
+		else
+			out+="$c"
+		fi
+		(( i++ ))
+	done
+	printf '%s' "$out"
+}
+scan_cmd=$(neutralize_quotes "$cmd")
+
+# --- 1-2. Destructive filesystem / git — executor-aware safety scan ---------
+# check_destructive scans ONE command string with ONE anchor pair; called
+# twice below, never merged into one over-permissive pass:
+#
+#   1) default pass — $scan_cmd (quotes neutralised) with the ORIGINAL,
+#      narrow anchors. This is what blocks a bare `rm -rf /var/lib/x` or a
+#      real `git push --force origin main`, and — because it scans the
+#      neutralised copy — does NOT block `grep -rn "rm -rf" .`,
+#      `git commit -m "docs: explain rm -rf policy"`, `rg "git push -f" ...`,
+#      `jq '.cmd = "rm -rf /x"' a.json`, etc. Those only CONTAIN the text as
+#      quoted data; once neutralised it reads as harmless '#' filler.
+#   2) payload pass — see check_payloads below. For a segment whose command is
+#      an executor, the quoted argument it will RUN is re-checked as a command
+#      in its own right, with these same anchors.
+#
+# Widening the anchors so a quote counts as a word boundary was tried and
+# reverted: it turns "quoted text mentioning rm/git" into a false block for
+# every command that merely contains that text as data — `grep -rn "rm -rf" .`,
+# `rg "git push -f"`, `echo`, `jq`, a commit message. Measured: 5 new false
+# positives for 1 extra catch. Recursion gets the catch without the cost.
+ORIG_LEAD='(^|[[:space:];&|])'
+ORIG_BOUNDARY='([[:space:]]|$)'
+
+check_destructive() {
+	local c=$1 lead=$2 bound=$3
+	if [[ "$c" =~ ${lead}rm[[:space:]]+(-[a-zA-Z]*[rR][a-zA-Z]*f|-[a-zA-Z]*f[a-zA-Z]*[rR]|-r[[:space:]]+-f|-f[[:space:]]+-r) ]] \
+		&& [[ ! "$c" =~ /tmp/backup/ ]]; then
+		block "recursive force-delete" \
 "Never delete files — rename with a 'backup_' prefix into /tmp/backup/<project>/.
 A real deletion needs an explicit 'yes' from the user first."
-fi
+	fi
 
-# --- 2. Git history / working-tree destruction ------------------------------
-if [[ "$cmd" =~ git[[:space:]].*push.*(--force([^-]|$)|[[:space:]]-f([[:space:]]|$)) ]]; then
-	block "git push --force" \
+	if [[ "$c" =~ git[[:space:]].*push.*(--force([^-]|$)|[[:space:]]-f${bound}) ]]; then
+		block "git push --force" \
 "Force-push rewrites published history. Use --force-with-lease and get explicit
 user approval first (skill git-flow)."
-fi
+	fi
 
-# reset --hard, clean -fd, restore, stash drop/clear, and the two discard forms
-# of checkout. Branch switching ('checkout main', 'checkout -b feat') stays allowed.
-if [[ "$cmd" =~ git[[:space:]]+(reset[[:space:]]+--hard|clean[[:space:]]+-[a-zA-Z]*[dfx]|restore([[:space:]]|$)|stash[[:space:]]+(drop|clear)) ]] \
-	|| [[ "$cmd" =~ git[[:space:]]+checkout[[:space:]]+\.([[:space:]]|$) ]] \
-	|| [[ "$cmd" =~ git[[:space:]]+checkout([[:space:]]+[^[:space:]-][^[:space:]]*)*[[:space:]]+--([[:space:]]|$) ]]; then
-	block "git working-tree rollback" \
+	# reset --hard, clean -fd, restore, stash drop/clear, and the two discard
+	# forms of checkout. Branch switching ('checkout main', 'checkout -b feat')
+	# stays allowed.
+	if [[ "$c" =~ git[[:space:]]+(reset[[:space:]]+--hard|clean[[:space:]]+-[a-zA-Z]*[dfx]|restore${bound}|stash[[:space:]]+(drop|clear)) ]] \
+		|| [[ "$c" =~ git[[:space:]]+checkout[[:space:]]+\.${bound} ]] \
+		|| [[ "$c" =~ git[[:space:]]+checkout([[:space:]]+[^[:space:]-][^[:space:]]*)*[[:space:]]+--${bound} ]]; then
+		block "git working-tree rollback" \
 "Rollbacks require an explicit 'yes' from the user. Default is to COMMIT what
 exists, even if the diff looks trivial. Ask before discarding."
-fi
+	fi
 
-if [[ "$cmd" =~ git[[:space:]]+worktree[[:space:]]+remove.*--force ]]; then
-	block "git worktree remove --force" \
+	if [[ "$c" =~ git[[:space:]]+worktree[[:space:]]+remove.*--force ]]; then
+		block "git worktree remove --force" \
 "This is an rm -rf of the worktree and destroys untracked files. Run
 'git status --porcelain' on it first and move anything untracked to /tmp/backup/."
-fi
+	fi
+}
+
+check_destructive "$scan_cmd" "$ORIG_LEAD" "$ORIG_BOUNDARY"
+
+# Executors: things that run a quoted argument as a real command.
+EXEC_RE="${CMD}"'(make([[:space:]]|$)|(sh|bash|zsh)[[:space:]]+-c([[:space:]]|$)|eval([[:space:]]|$)|docker[[:space:]]+exec([[:space:]]|$)|docker[[:space:]]+compose[[:space:]]+(run|exec)([[:space:]]|$))'
+
+# check_payloads recurses ONE level: it pulls the quoted argument an executor
+# will run and re-checks it AS A COMMAND, with the ordinary anchors. That is
+# why no widened, quote-inclusive anchor is needed anywhere — inside a payload
+# the destructive verb sits at position 0, which the original anchors already
+# match.
+#
+# Only two shapes are treated as a payload, because everything else quoted in
+# an executor's argv belongs to some INNER tool, not to the executor:
+#   -c "<payload>"    sh/bash/zsh -c, and
+#   NAME="<payload>"  a make/docker variable assignment.
+# `xargs grep "rm -rf"` is deliberately NOT a payload: the quoted text is
+# grep's pattern, and the default neutralised pass already reads it as inert.
+#
+# The payload's own inner quotes are neutralised before the check, so
+# `sh -c "grep -rn 'rm -rf' ."` recurses to `grep -rn '######' .` and stays
+# allowed, while `make run CMD="rm -rf /x"` recurses to a bare `rm -rf /x`
+# and blocks.
+check_payloads() {
+	local s=$1 len=${#1} i=0 c q start content pre
+	while (( i < len )); do
+		c=${s:i:1}
+		if [[ "$c" == "'" || "$c" == '"' ]]; then
+			q=$c; start=$((i + 1)); (( i++ ))
+			while (( i < len )) && [[ "${s:i:1}" != "$q" ]]; do
+				[[ "$q" == '"' && "${s:i:1}" == '\' ]] && (( i++ ))
+				(( i++ ))
+			done
+			content=${s:start:i-start}
+			pre=${s:0:start-1}
+			if [[ "$pre" =~ (^|[[:space:]])-c[[:space:]]*$ ]] \
+				|| [[ "$pre" =~ [A-Za-z_][A-Za-z0-9_]*=$ ]]; then
+				check_destructive "$(neutralize_quotes "$content")" \
+					"$ORIG_LEAD" "$ORIG_BOUNDARY"
+			fi
+		fi
+		(( i++ ))
+	done
+}
+
+# Payload extraction runs PER SEGMENT, and only for a segment whose own command
+# is an executor. Segment-wide would false-positive on `make help | grep -c
+# "rm -rf"`: the `-c` there is grep's count flag in a different segment, and
+# only the segment boundary tells the two apart. Splitting uses $scan_cmd
+# offsets — neutralize_quotes preserves length, so a separator surviving in the
+# neutralised copy is a real, unquoted one at the same index in $cmd.
+seg_start=0
+for (( p = 0; p <= ${#scan_cmd}; p++ )); do
+	sep=${scan_cmd:p:1}
+	if (( p == ${#scan_cmd} )) || [[ "$sep" == [';&|'] || "$sep" == $'\n' ]]; then
+		seg_scan=${scan_cmd:seg_start:p-seg_start}
+		[[ "$seg_scan" =~ $EXEC_RE ]] && check_payloads "${cmd:seg_start:p-seg_start}"
+		seg_start=$((p + 1))
+	fi
+done
 
 # --- 3. Docker driven directly ----------------------------------------------
 # Blocked: lifecycle verbs. Allowed: config, ps, port, logs, top, images, inspect,
 # version, stats — read-only inspection needs no target.
-if [[ "$cmd" =~ ${CMD}docker[-[:space:]]+compose[[:space:]]+(up|down|build|create|start|stop|restart|kill|rm|run|exec|cp|pull|push|scale|watch|wait) ]] \
-	|| [[ "$cmd" =~ ${CMD}docker[[:space:]]+(run|exec|build|create|start|stop|restart|kill|rm|rmi|cp|commit|push|update|prune)([[:space:]]|$) ]] \
-	|| [[ "$cmd" =~ ${CMD}docker[[:space:]]+(volume|network|system|image|container|builder)[[:space:]]+(rm|prune|create) ]]; then
+# Scans $scan_cmd (quote-neutralised), NOT $cmd — see the note above CMD/BIN.
+if [[ "$scan_cmd" =~ ${CMD}docker[-[:space:]]+compose[[:space:]]+(up|down|build|create|start|stop|restart|kill|rm|run|exec|cp|pull|push|scale|watch|wait) ]] \
+	|| [[ "$scan_cmd" =~ ${CMD}docker[[:space:]]+(run|exec|build|create|start|stop|restart|kill|rm|rmi|cp|commit|push|update|prune)([[:space:]]|$) ]] \
+	|| [[ "$scan_cmd" =~ ${CMD}docker[[:space:]]+(volume|network|system|image|container|builder)[[:space:]]+(rm|prune|create) ]]; then
 	block "direct docker / docker compose command" \
 "The stack is never driven by docker directly. $via_make
 Read-only 'docker ps|logs|inspect|stats' and 'docker compose config|ps|port|logs'
@@ -107,21 +236,22 @@ fi
 # --- 4. Host toolchain instead of the container -----------------------------
 # Global rule: Docker only, never a bare host toolchain. Each stack's entry point
 # is a make target that runs the tool inside the project's image.
-if [[ "$cmd" =~ ${CMD}(pip|pip3|uv|poetry|pdm)[[:space:]]+(pip[[:space:]]+)?(install|add|remove|sync|lock|run|venv) ]] \
-	|| [[ "$cmd" =~ ${CMD}(npm|yarn|pnpm|bun)[[:space:]]+(install|i|ci|add|remove|update|run|build|start|test|exec) ]] \
-	|| [[ "$cmd" =~ ${CMD}npx[[:space:]] ]] \
-	|| [[ "$cmd" =~ ${CMD}composer[[:space:]]+(install|update|require|remove|dump-autoload) ]]; then
+# Scans $scan_cmd (quote-neutralised), NOT $cmd — see the note above CMD/BIN.
+if [[ "$scan_cmd" =~ ${CMD}(pip|pip3|uv|poetry|pdm)[[:space:]]+(pip[[:space:]]+)?(install|add|remove|sync|lock|run|venv) ]] \
+	|| [[ "$scan_cmd" =~ ${CMD}(npm|yarn|pnpm|bun)[[:space:]]+(install|i|ci|add|remove|update|run|build|start|test|exec) ]] \
+	|| [[ "$scan_cmd" =~ ${CMD}npx[[:space:]] ]] \
+	|| [[ "$scan_cmd" =~ ${CMD}composer[[:space:]]+(install|update|require|remove|dump-autoload) ]]; then
 	block "direct dependency install / package-manager run" \
 "Dependencies belong in the container image, not on the host. $via_make"
 fi
 
-if [[ "$cmd" =~ ${CMD}${BIN}(pytest|tox|nox|ruff|mypy|black|isort|flake8|pylint|alembic|uvicorn|gunicorn|celery)([[:space:]]|$) ]] \
-	|| [[ "$cmd" =~ ${CMD}python3?[[:space:]]+-m[[:space:]]+(pytest|ruff|mypy|black|flake8|alembic|uvicorn|celery|http\.server) ]] \
-	|| [[ "$cmd" =~ ${CMD}${BIN}(phpunit|pest|phpstan|psalm|php-cs-fixer|rector)([[:space:]]|$) ]] \
-	|| [[ "$cmd" =~ ${CMD}php[[:space:]]+(artisan|-S)([[:space:]]|$) ]] \
-	|| [[ "$cmd" =~ ${CMD}${BIN}(jest|vitest|eslint|prettier|tsc|vite|webpack|nest)([[:space:]]|$) ]] \
-	|| [[ "$cmd" =~ ${CMD}go[[:space:]]+(build|run|test|install|generate|mod)([[:space:]]|$) ]] \
-	|| [[ "$cmd" =~ ${CMD}(mysql|mariadb|psql|mongosh|redis-cli|keydb-cli)([[:space:]]|$) ]]; then
+if [[ "$scan_cmd" =~ ${CMD}${BIN}(pytest|tox|nox|ruff|mypy|black|isort|flake8|pylint|alembic|uvicorn|gunicorn|celery)([[:space:]]|$) ]] \
+	|| [[ "$scan_cmd" =~ ${CMD}python3?[[:space:]]+-m[[:space:]]+(pytest|ruff|mypy|black|flake8|alembic|uvicorn|celery|http\.server) ]] \
+	|| [[ "$scan_cmd" =~ ${CMD}${BIN}(phpunit|pest|phpstan|psalm|php-cs-fixer|rector)([[:space:]]|$) ]] \
+	|| [[ "$scan_cmd" =~ ${CMD}php[[:space:]]+(artisan|-S)([[:space:]]|$) ]] \
+	|| [[ "$scan_cmd" =~ ${CMD}${BIN}(jest|vitest|eslint|prettier|tsc|vite|webpack|nest)([[:space:]]|$) ]] \
+	|| [[ "$scan_cmd" =~ ${CMD}go[[:space:]]+(build|run|test|install|generate|mod)([[:space:]]|$) ]] \
+	|| [[ "$scan_cmd" =~ ${CMD}(mysql|mariadb|psql|mongosh|redis-cli|keydb-cli)([[:space:]]|$) ]]; then
 	block "bare host toolchain call" \
 "This runs on the host, against the wrong environment — wrong interpreter
 version, missing extensions, no service network. $via_make"
@@ -130,9 +260,10 @@ fi
 # --- 5. Web servers and process supervisors ---------------------------------
 # `nginx -v/-V` is a version print and stays allowed; everything else drives a
 # running service. Read-only `systemctl status|list-units` stays allowed too.
-if { [[ "$cmd" =~ ${CMD}(nginx|apache2ctl|apachectl|httpd|php-fpm|supervisorctl|certbot)([[:space:]]|$) ]] \
-	&& [[ ! "$cmd" =~ ${CMD}nginx[[:space:]]+-[vV]([[:space:]]|$) ]]; } \
-	|| [[ "$cmd" =~ ${CMD}systemctl[[:space:]]+(start|stop|restart|reload|enable|disable|mask) ]]; then
+# Scans $scan_cmd (quote-neutralised), NOT $cmd — see the note above CMD/BIN.
+if { [[ "$scan_cmd" =~ ${CMD}(nginx|apache2ctl|apachectl|httpd|php-fpm|supervisorctl|certbot)([[:space:]]|$) ]] \
+	&& [[ ! "$scan_cmd" =~ ${CMD}nginx[[:space:]]+-[vV]([[:space:]]|$) ]]; } \
+	|| [[ "$scan_cmd" =~ ${CMD}systemctl[[:space:]]+(start|stop|restart|reload|enable|disable|mask) ]]; then
 	block "web server / service control from the host" \
 "Services here are containers, not host daemons — a host nginx/php-fpm/systemctl
 call hits the wrong thing or nothing at all. $via_make

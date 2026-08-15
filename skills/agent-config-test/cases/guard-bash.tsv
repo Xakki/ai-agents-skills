@@ -113,6 +113,49 @@
 0	npm --version
 0	rm -rf /tmp/backup/proj/x	sanctioned scratch dir
 
+# --- safety must stay quote-aware for NON-executors: these only CONTAIN the
+# destructive text as quoted DATA (grep pattern, echo string, commit message,
+# jq expression) — widening the safety anchors to see through quotes once
+# regressed all six of these into false blocks. Regression tests for that.
+0	grep -rn "rm -rf" .	searching for the literal text
+0	grep -rn 'git checkout .' docs/	searching for git text
+0	echo "rm -rf /tmp/x is dangerous"	echoing the text
+0	rg "git push -f" --glob '*.md'	ripgrep for the text
+0	git commit -m "docs: explain rm -rf policy"	commit message mentioning it
+0	jq '.cmd = "rm -rf /x"' a.json	json value containing it
+
+# --- make-wrapped calls: a shell separator INSIDE a quoted make arg is text
+# handed to make, not a command position in the agent's own shell — routing
+# must not fire on it. Safety (rm/git checks) still scans raw text regardless.
+0	make -C docker sh -c "cd /app && php artisan migrate"	quoted separator then php: routing must not fire
+0	make -C docker run CMD="pytest tests/ && ruff check"	quoted separator then linter: routing must not fire
+2	make run CMD="rm -rf /x"	quoted rm is still a real rm: safety must still block
+
+# --- executor payloads: the quoted arg of `sh -c` / `NAME=` is re-checked as a
+# command in its own right (one level). The must-ALLOW half is what keeps the
+# recursion honest — an executor merely CO-OCCURRING with quoted destructive
+# text is not an execution of it, and an earlier "executor anywhere => scan raw"
+# shape blocked all four of these.
+0	make help | grep "rm -rf"	executor + pipe into a benign grep
+0	sh -c "grep -rn 'rm -rf' ."	executor running a benign grep
+0	make -C docker logs | grep "git checkout ."	executor piped to grep for git text
+0	xargs grep "rm -rf" < files.txt	xargs runs grep; the quote is grep's pattern
+0	grep -c "rm -rf" file.txt	grep -c is a count flag, not sh -c
+0	make help | grep -c "rm -rf"	the -c lives in a DIFFERENT segment than the executor
+0	echo "rm -rf /x	unterminated quote must not hang or block
+0	make run CMD="git status"	harmless payload
+0	sh -c "echo done"	harmless payload
+0	make lint	plain executor, nothing destructive
+0	ssh host "uptime"	remote payload, harmless
+0	make -C docker sh -c "cd /app && python3 manage.py migrate"	python via make, quoted separator
+0	make -C docker mysql -e "select 1"	sql via make
+0	make -C docker php artisan migrate	php via make
+2	sh -c "git checkout ."	payload discards the working tree
+2	bash -c "rm -rf /var/x"	payload is a real rm
+2	make deploy CMD="git push --force origin main"	payload force-pushes
+2	sh -c "cd /x && rm -rf /y"	payload with its own separator
+2	sh -c "rm -rf /var/x"	executor running a real rm
+
 # --- plain shell is NOT in scope: make is for services/containers/runtimes only
 0	sed -n 1,20p app/main.py
 0	awk {print $1} access.log
