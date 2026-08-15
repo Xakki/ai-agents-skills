@@ -1,6 +1,6 @@
 {
   "name": "ai-agents-skills",
-  "version": "0.2.15",
+  "version": "0.2.16",
   "description": "Reusable Codex skills and lifecycle hooks for task planning, Git workflows, optional Telegram notifications, project scaffolding, artifact publishing, logging, and skill import.",
   "author": {
     "name": "Xakki"
