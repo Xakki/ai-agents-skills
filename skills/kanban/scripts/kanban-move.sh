@@ -115,7 +115,7 @@ if [ "$step_ok" -ne 1 ] && [ "$FORCE" -ne 1 ]; then
 fi
 
 if [ "$TO_STAGE" = done ] && [ "$APPROVED" -ne 1 ]; then
-  kanban::die "kanban-move.sh: moving to done/ requires --approved (user-only stage)" 2
+  kanban::die "kanban-move.sh: moving to done/ requires --approved (caller must hold explicit user approval at hand-off or recorded EPIC-scoped upfront autonomous authorization)" 2
 fi
 
 BASE_NOEXT="$(basename "$CARD_PATH" .md)"

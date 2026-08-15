@@ -177,10 +177,12 @@ kanban-move.sh <ID|path> <stage> [--force] [--approved]
   dirs for a matching filename — or a full/relative path.
 - `<stage>` is one of `grooming|todo|progress|test|ready|done`.
 - Validates the transition before moving anything:
-  - `→ done` requires `--approved`; it mechanically asserts that the caller has
-    either current final user approval or recorded EPIC-scoped upfront autonomous
-    authorization as defined in `SKILL.md`. Without it, exits with an error and
-    no file move. The script cannot validate the authorization record itself.
+  - `→ done` requires `--approved`, which is a caller attestation. The script
+    checks only that the flag is present; it does not validate authorization
+    evidence. Before using it, the orchestrator must already hold explicit user
+    approval at hand-off or recorded EPIC-scoped upfront autonomous authorization
+    and record the chosen form in the parent EPIC Execution Log. Without the flag,
+    the script exits with an error and makes no move.
   - A subtask (`<EPIC-ID>-NN-*`) cannot reach `done/` before its epic
     (`<EPIC-ID>-*`) is already in `done/`.
   - Leaving `grooming/` is blocked while the card still has a

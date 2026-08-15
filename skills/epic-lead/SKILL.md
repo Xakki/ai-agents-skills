@@ -18,10 +18,10 @@ adds only the EPIC orchestration delta.
 - Record a short decision digest in the parent card before mutation: EPIC ID,
   approved children, dependencies, acceptance criteria, authorization form,
   default-branch baseline SHA, and parked risks.
-- Accepted finalization authorization is either explicit final user approval or
-  explicit, recorded, EPIC-scoped upfront autonomous authorization. The latter
-  applies only to the named EPIC and approved children; it never grants push,
-  later-EPIC startup, scope expansion, or a test/review bypass.
+- Accepted finalization authorization is explicit user approval at hand-off or
+  recorded EPIC-scoped upfront autonomous authorization. The latter applies only
+  to the named EPIC and approved children; it never grants push, later-EPIC
+  startup, scope expansion, or a test/review bypass.
 
 ## Prepare
 

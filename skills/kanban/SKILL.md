@@ -17,8 +17,8 @@ description: Use when managing tasks — creating, grooming/refining draft tasks
 Lifecycle: `grooming → todo → progress → test → ready → done`.
 
 `grooming/` and `ready/` are agent-boundary stages: autonomous runs never enter `grooming/`
-and never advance past `ready/`, except an EPIC with recorded upfront autonomous
-authorization as defined in Done below.
+and never advance past `ready/`, except an EPIC with recorded EPIC-scoped upfront
+autonomous authorization as defined in Done below.
 
 ## IDs & Prefix
 
@@ -135,11 +135,10 @@ Auto-review passed + AC met + tests green → move to `ready/`. If review finds 
 
 ### 6. Done (ready → done) — authorized finalization
 
-An authorization record is required. It is either explicit final user approval,
-or, only for one named EPIC and its approved child cards, explicit recorded
-upfront autonomous authorization. The latter never authorizes push, a later
-EPIC, scope expansion, or bypassing tests/review. Order matters — card first,
-merge last:
+Authorization is exactly one of: `explicit user approval at hand-off`; or, only
+for one named EPIC and its approved child cards, `recorded EPIC-scoped upfront
+autonomous authorization`. The latter never authorizes push, a later EPIC, scope
+expansion, or bypassing tests/review. Order matters — card first, merge last:
 
 1. Move the card `ready/ → done/` (`kanban-move.sh <ID> done --approved` or git-move manually).
 2. Verify the task branch is clean (`git status --short` empty — everything
@@ -147,8 +146,9 @@ merge last:
 3. Only then squash-merge the branch into the default branch (see Git Commits
    below).
 
-Outside an authorized EPIC, only the user moves `ready/ → done/`. Never merge
-before the card is in `done/` and the branch has been verified clean.
+Outside an EPIC with recorded EPIC-scoped upfront autonomous authorization,
+`ready/ → done/` requires explicit user approval at hand-off. Never merge before
+the card is in `done/` and the branch has been verified clean.
 
 ## Epics
 
@@ -171,8 +171,8 @@ cards; the epic is their parent and their integration point.
   its own — the epic gates that.
 - **Integration.** When the last subtask reaches `ready/`: restart the project,
   refresh all data (re-run imports/migrations), and run the full test suite.
-- **Hand-off.** Only then move the epic card to `ready/` and obtain an accepted
-  authorization form from Done above.
+- **Hand-off.** Only then move the epic card to `ready/` and obtain explicit user
+  approval at hand-off or recorded EPIC-scoped upfront autonomous authorization.
   Move the parent to `done/`, then its subtasks as the script permits; verify
   `epic/<ID>` is clean; squash-merge once; then rename the archive to `done/<ID>`
   (`git branch -m epic/<ID> done/<ID>`). Never delete that archive branch.
@@ -205,7 +205,8 @@ See [reference.md](reference.md) for the autonomous-run commit contract.
 ## Stop Conditions
 
 - Do NOT skip planning.
-- Do NOT move to `done/` without an accepted authorization record.
+- Do NOT move to `done/` without explicit user approval at hand-off or recorded
+  EPIC-scoped upfront autonomous authorization.
 - Do NOT start a card from `grooming/` — resolve open questions, move to `todo/` first.
 - Do NOT silently resolve `grooming/` questions — ask the user; record in `**Decisions:**`.
 - Do NOT move to `ready/` while tests are red.

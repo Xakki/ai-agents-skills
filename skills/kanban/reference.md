@@ -43,9 +43,8 @@ move to `done/` is rejected until its epic is already in `done/`. Full CLI →
 **Subtask flow inside an epic.** Each subtask card walks
 `todo/ → progress/ → test/ → ready/` normally. It stops at `ready/`:
 - Do NOT move a subtask to `done/`. `done/` for a subtask is granted only when
-  the parent EPIC receives an accepted authorization: an immediate approval
-  explicitly given by the user, or explicit recorded upfront autonomous
-  authorization scoped to that EPIC and its approved children.
+  the parent EPIC has explicit user approval at hand-off or recorded EPIC-scoped
+  upfront autonomous authorization for that EPIC and its approved children.
 - Do NOT merge the epic branch when a subtask finishes. The branch merges once,
   after the epic is approved.
 - If a subtask surfaces a new open question, park it in `grooming/` and raise it
@@ -61,8 +60,8 @@ move to `done/` is rejected until its epic is already in `done/`. Full CLI →
 
 **Hand-off.** Green gate → move the epic card to `ready/` and tell the user
 what to verify (concrete commands / URLs / expected output). Finalization needs
-either an immediate approval explicitly given by the user or explicit recorded
-upfront autonomous authorization scoped to that EPIC and approved children. It never grants push,
+explicit user approval at hand-off or recorded EPIC-scoped upfront autonomous
+authorization for that EPIC and approved children. The latter never grants push,
 later-EPIC startup, scope expansion, or a test/review bypass. The exact order is:
 parent `ready → done`, eligible subtasks to `done`, verify `epic/<ID>` clean,
 one squash merge, then `git branch -m epic/<ID> done/<ID>`. Keep the archive;

@@ -29,7 +29,7 @@ Proposed solution approach.
 - e.g. chose lib X over Y because Z — confirmed with @user
 
 **Execution Log:** *(add concise, secret-free evidence after work starts)*
-- Authorization: immediate approval given by the user or recorded EPIC-scoped upfront authorization
+- Authorization: explicit user approval at hand-off or recorded EPIC-scoped upfront autonomous authorization
 - Agent/zone: <owner and zone>; Gate: `<command>` → <result>
 - Reviewer: <verdict>; Commit: <SHA>
 - Prompt evidence (optional): <sanitized artifact ID / session ID / digest / checksum>
