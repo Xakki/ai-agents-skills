@@ -59,10 +59,31 @@ rc=$?
 set -e
 [ "$rc" -eq 2 ] || { echo "FAIL: expected exit 2 (validation) for ready->done without --approved, got $rc"; exit 1; }
 grep -qi "approved" /tmp/move-done-err.$$ || { echo "FAIL: done-approval message unclear"; cat /tmp/move-done-err.$$; exit 1; }
+grep -Fq "explicit user approval at hand-off" /tmp/move-done-err.$$ || { echo "FAIL: missing-flag error omits user approval form"; cat /tmp/move-done-err.$$; exit 1; }
+grep -Fq "recorded EPIC-scoped upfront autonomous authorization" /tmp/move-done-err.$$ || { echo "FAIL: missing-flag error omits autonomous authorization form"; cat /tmp/move-done-err.$$; exit 1; }
+[ -f "$REPO/.claude/kanban/ready/K-001-move-me.md" ] || { echo "FAIL: missing --approved moved the card"; exit 1; }
 rm -f /tmp/move-done-err.$$
 
 bash "$KMOVE" --repo "$REPO" K-001 done --approved >/dev/null
 [ -f "$REPO/.claude/kanban/done/K-001-move-me.md" ] || { echo "FAIL: approved done move did not happen"; exit 1; }
+
+# --- subtasks wait for their parent epic -------------------------------------
+
+mkdir -p "$REPO/.claude/kanban/ready"
+printf '# Parent epic\n' >"$REPO/.claude/kanban/ready/EPIC-001-parent.md"
+printf '# Child card\n' >"$REPO/.claude/kanban/ready/EPIC-001-01-child.md"
+set +e
+bash "$KMOVE" --repo "$REPO" EPIC-001-01 done --approved >/dev/null 2>/tmp/move-parent-err.$$
+rc=$?
+set -e
+[ "$rc" -eq 2 ] || { echo "FAIL: expected exit 2 when child precedes parent, got $rc"; exit 1; }
+grep -qi "parent epic" /tmp/move-parent-err.$$ || { echo "FAIL: parent-before-child error unclear"; cat /tmp/move-parent-err.$$; exit 1; }
+[ -f "$REPO/.claude/kanban/ready/EPIC-001-01-child.md" ] || { echo "FAIL: child moved before parent was done"; exit 1; }
+rm -f /tmp/move-parent-err.$$
+
+bash "$KMOVE" --repo "$REPO" "$REPO/.claude/kanban/ready/EPIC-001-parent.md" done --approved >/dev/null
+bash "$KMOVE" --repo "$REPO" EPIC-001-01 done --approved >/dev/null
+[ -f "$REPO/.claude/kanban/done/EPIC-001-01-child.md" ] || { echo "FAIL: child did not move after parent was done"; exit 1; }
 
 # --- --force backward transition prints the "move" verb, not "back" --------
 

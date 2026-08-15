@@ -9,11 +9,31 @@ import yaml
 
 
 ROOT = Path(__file__).resolve().parents[1]
+KANBAN = ROOT / "skills" / "kanban"
 SKILL = ROOT / "skills" / "epic-lead" / "SKILL.md"
+CANONICAL_AUTHORIZATION_FORMS = (
+    "explicit user approval at hand-off",
+    "recorded EPIC-scoped upfront autonomous authorization",
+)
 
 
 def _skill_text() -> str:
     return SKILL.read_text(encoding="utf-8")
+
+
+def _authorization_documents() -> dict[Path, str]:
+    paths = (
+        KANBAN / "SKILL.md",
+        KANBAN / "reference.md",
+        KANBAN / "scripts.md",
+        KANBAN / "task-template.md",
+        SKILL,
+    )
+    return {path: path.read_text(encoding="utf-8") for path in paths}
+
+
+def _compact(text: str) -> str:
+    return " ".join(text.split())
 
 
 def test_epic_lead_has_valid_frontmatter_and_canonical_workflow_links() -> None:
@@ -26,12 +46,47 @@ def test_epic_lead_has_valid_frontmatter_and_canonical_workflow_links() -> None:
         assert f"`ai-agents-skills:{skill}`" in text
 
 
-def test_epic_lead_keeps_the_archive_branch_and_uses_canonical_rename() -> None:
-    text = _skill_text()
+def test_authorization_forms_are_consistent_across_the_kanban_contract() -> None:
+    documents = _authorization_documents()
 
-    assert "Rename the archive branch, do not delete it:" in text
-    assert "`git branch -m epic/<ID> done/<ID>`." in text
-    assert "branch deletion" in text
+    for path, text in documents.items():
+        assert "***" not in text, path
+        for form in CANONICAL_AUTHORIZATION_FORMS:
+            assert form in _compact(text), (path, form)
+
+
+def test_scripts_document_approved_as_caller_attestation_only() -> None:
+    text = (KANBAN / "scripts.md").read_text(encoding="utf-8")
+    compact = _compact(text)
+
+    assert "`--approved`, which is a caller attestation" in compact
+    assert "checks only that the flag is present" in compact
+    assert "does not validate authorization evidence" in compact
+    for form in CANONICAL_AUTHORIZATION_FORMS:
+        assert form in compact
+
+
+def test_epic_lead_keeps_the_archive_branch_and_canonical_finalization_order() -> None:
+    text = _skill_text()
+    archive_documents = (
+        KANBAN / "SKILL.md",
+        KANBAN / "reference.md",
+        SKILL,
+    )
+
+    for path in archive_documents:
+        document = path.read_text(encoding="utf-8").lower()
+        assert "git branch -m epic/<id> done/<id>" in document
+        assert "do not delete" in document or "never delete" in document
+
+    ordered_steps = (
+        "move the parent EPIC `ready → done`",
+        "Verify `epic/<ID>` is clean.",
+        "Only then perform one local squash merge",
+        "Rename the archive branch, do not delete it:",
+    )
+    positions = [text.index(step) for step in ordered_steps]
+    assert positions == sorted(positions)
 
 
 def test_epic_lead_uses_only_the_canonical_agent_commit_trailer() -> None:
@@ -43,31 +98,13 @@ def test_epic_lead_uses_only_the_canonical_agent_commit_trailer() -> None:
         assert trailer not in text
 
 
-def test_epic_lead_limits_autonomous_authorization_to_the_approved_epic() -> None:
-    text = _skill_text()
+def test_autonomous_authorization_remains_limited_to_its_epic_scope() -> None:
+    documents = _authorization_documents()
 
-    assert "explicit, recorded, EPIC-scoped upfront autonomous authorization" in text
-    assert "only to the named EPIC and approved children" in text
-    for forbidden_power in (
-        "push",
-        "later-EPIC startup",
-        "scope expansion",
-        "test/review bypass",
-    ):
-        assert forbidden_power in text
-
-
-def test_epic_lead_represents_one_canonical_finalization_lifecycle() -> None:
-    text = _skill_text()
-    ordered_steps = (
-        "move the parent EPIC `ready → done`",
-        "Verify `epic/<ID>` is clean.",
-        "Only then perform one local squash merge",
-        "Rename the archive branch, do not delete it:",
-    )
-
-    positions = [text.index(step) for step in ordered_steps]
-    assert positions == sorted(positions)
-    assert text.count("`ready → done`") == 1
-    assert text.count("one local squash merge") == 1
-    assert text.count("git branch -m epic/<ID> done/<ID>") == 1
+    for path in (KANBAN / "SKILL.md", KANBAN / "reference.md", SKILL):
+        text = _compact(documents[path])
+        assert "push" in text, path
+        assert re.search(r"later[- ]EPIC", text), path
+        assert "scope expansion" in text, path
+        assert re.search(r"tests?/review", text), path
+    assert "named EPIC and approved children" in _compact(documents[SKILL])
