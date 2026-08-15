@@ -1,0 +1,137 @@
+# Cases for hooks/guard-bash.sh — <expected-exit>TAB<command>[TAB<label>]
+# 2 = must block, 0 = must allow. \n is decoded to a real newline.
+#
+# The must-ALLOW half is not optional. A guard with only block-cases certifies
+# a regex that also eats `grep -rn pytest tests/`.
+
+# --- bypass classes: every guard must survive these ---------------------------
+2	cd /x && docker compose down	separator: &&
+2	cd /x\ndocker compose up -d	separator: newline (bash ^ is string-start)
+2	set -e\npytest tests/unit	newline + toolchain
+2	COMPOSE_PROJECT_NAME=gw docker compose up	VAR=val prefix
+2	env FOO=1 pytest tests/unit	env prefix
+2	sudo docker compose up	sudo prefix
+2	(cd /x; docker compose up)	subshell + ;
+
+# --- docker driven directly ---------------------------------------------------
+2	docker compose up -d
+2	docker-compose up -d	legacy hyphen form
+2	docker compose stop
+2	docker compose pull
+2	docker compose restart api
+2	docker compose run --rm api sh
+2	docker exec -it api sh
+2	docker build .
+2	docker run --rm alpine
+2	docker rm -f api
+2	docker volume rm proj_data
+2	docker system prune -f
+
+# --- dependency managers ------------------------------------------------------
+2	pip install httpx
+2	uv pip install httpx
+2	poetry add httpx
+2	npm install
+2	npm ci
+2	npm run build
+2	yarn add lodash
+2	pnpm install
+2	npx create-react-app x
+2	composer install
+2	composer require guzzlehttp/guzzle
+
+# --- host toolchains ----------------------------------------------------------
+2	pytest tests/unit
+2	python3 -m pytest
+2	.venv/bin/pytest tests/
+2	ruff check .
+2	mypy .
+2	black .
+2	alembic upgrade head
+2	uvicorn app.main:app
+2	./vendor/bin/phpunit
+2	vendor/bin/phpstan analyse
+2	php artisan migrate
+2	php -S localhost:8000
+2	node_modules/.bin/jest
+2	eslint src/
+2	tsc --noEmit
+2	vite build
+2	go test ./...
+2	go build -o bin/app
+2	mysql -u root
+2	psql -U postgres
+2	redis-cli ping
+
+# --- web servers / service control --------------------------------------------
+2	nginx -s reload
+2	nginx -t
+2	php-fpm -t
+2	supervisorctl restart worker
+2	systemctl restart nginx
+2	certbot renew
+
+# --- destructive fs / git -----------------------------------------------------
+2	rm -rf ./build
+2	git push --force origin main
+2	git reset --hard
+2	git checkout .
+2	git restore app/main.py
+2	git stash drop
+2	git worktree remove --force ../wt
+
+# --- must stay ALLOWED --------------------------------------------------------
+0	make up
+0	make test
+0	make -C soft up
+0	make migrate
+0	docker ps
+0	docker ps -a --format {{.Names}}
+0	docker logs -f api
+0	docker inspect api
+0	docker stats --no-stream
+0	docker compose config
+0	docker compose ps
+0	docker compose port api 8000
+0	docker compose logs -f api
+0	git status
+0	git log --oneline -5
+0	git diff HEAD~1
+0	git add .
+0	git commit -m "add ruff config"	'ruff' inside a commit message
+0	git checkout -b feat/x	branch creation, not discard
+0	git switch main
+0	ls -la
+0	find . -name *.go
+0	grep -rn pytest tests/	'pytest' as an argument
+0	grep -rn "docker compose" Makefile
+0	echo "docker compose up"	quoted, not executed
+0	cat composer.json	'composer' as a filename prefix
+0	head -20 package.json
+0	python3 -c print(1)
+0	go version	no build/run/test subcommand
+0	npm --version
+0	rm -rf /tmp/backup/proj/x	sanctioned scratch dir
+
+# --- plain shell is NOT in scope: make is for services/containers/runtimes only
+0	sed -n 1,20p app/main.py
+0	awk {print $1} access.log
+0	jq .scripts package.json
+0	sort -u hosts.txt
+0	xargs -I{} echo {}
+0	cp config.yaml config.yaml.bak
+0	mv old.txt new.txt
+0	mkdir -p build/out
+0	touch .gitkeep
+0	chmod +x deploy.sh
+0	ln -s ../shared vendor-link
+0	diff -u a.txt b.txt
+0	tar -czf dist.tgz dist/
+0	curl -s http://127.0.0.1:8080/health
+0	df -h
+0	ps aux
+0	which python3
+0	date +%F
+0	tee /tmp/out.log
+0	nginx -v	version print, not service control
+0	systemctl status nginx	read-only status

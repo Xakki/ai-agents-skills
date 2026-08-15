@@ -1,0 +1,32 @@
+# Cases for a file-path lint-gate hook — <expected-exit>TAB<path>[TAB<label>]
+# 2 = must block, 0 = must allow. Run with:
+#   test-hooks.sh  <hook>  cases/check-file.tsv  --event PostToolUse --tool Edit
+# (--tool Edit maps the payload into tool_input.file_path — see test-hooks.sh
+# header. Use --tool Write too if the hook also matches Write.)
+#
+# Paths below are PLACEHOLDERS. Substitute your own project's paths:
+#   OUTSIDE   a path that is not under the project root at all
+#   IN-REPO   a path inside the repo but outside the linted subtree
+#   GREEN     a real file inside the linted subtree that is clean at baseline
+#   VIOLATION a real file inside the linted subtree with an actual new violation
+#
+# The must-ALLOW cases for GREEN are not optional, and GREEN must be verified
+# clean at baseline BEFORE it goes in this file: run the lint tool on it
+# directly first. A must-allow case that targets an already-red file proves
+# nothing in an already-red repo — it would "pass" even if the hook never ran.
+
+# --- outside the project entirely: must always be allowed ---------------------
+0	/tmp/scratch/notes.txt	path outside project root
+0	/etc/hosts	unrelated absolute path
+
+# --- inside the repo, but outside the linted subtree: must be allowed ---------
+0	README.md	repo file, not in linted subtree
+0	docs/architecture.md	repo file, not in linted subtree
+
+# --- inside the linted subtree: baseline-green file must be allowed -----------
+# Verify with the real linter first (e.g. `ruff check src/app/utils.py`) —
+# it must exit clean BEFORE this line is trusted as a must-allow case.
+0	src/app/utils.py	GREEN at baseline — verified clean before adding this case
+
+# --- inside the linted subtree: a real new violation must be blocked ----------
+2	src/app/broken.py	VIOLATION — introduces an actual lint error
