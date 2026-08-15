@@ -68,7 +68,7 @@ for stage in "${all_dirs[@]}"; do
   if [ -n "$FILTER_EPIC" ]; then
     filtered=()
     for f in "${cards[@]}"; do
-      base="$(basename "$f" .md)"
+      base="${f##*/}"; base="${base%.md}"
       case "$base" in
         "$FILTER_EPIC"|"$FILTER_EPIC"-*) filtered+=("$f") ;;
       esac
@@ -78,39 +78,56 @@ for stage in "${all_dirs[@]}"; do
 
   n="${#cards[@]}"
   GRAND_TOTAL=$((GRAND_TOTAL + n))
-  OUT+=("$(printf '%s (%d)' "$stage" "$n")")
+  printf -v out_line '%s (%d)' "$stage" "$n"
+  OUT+=("$out_line")
 
   sorted=()
   if [ "$n" -gt 0 ]; then
     while IFS= read -r line; do sorted+=("$line"); done < <(printf '%s\n' "${cards[@]}" | sort)
   fi
 
+  # Precompute each card's basename once per stage (parallel array to
+  # $sorted) instead of forking `basename` inside the O(n^2) scan below —
+  # this is the hot path on boards with hundreds of cards per stage.
+  declare -a base_of=()
+  scount="${#sorted[@]}"
+  for ((si = 0; si < scount; si++)); do
+    bn="${sorted[$si]##*/}"
+    base_of[si]="${bn%.md}"
+  done
+
   declare -A shown=()
-  for f in "${sorted[@]}"; do
-    base="$(basename "$f" .md)"
+  for ((oi = 0; oi < scount; oi++)); do
+    f="${sorted[$oi]}"
+    base="${base_of[$oi]}"
     [[ "$base" =~ ^[A-Za-z][A-Za-z0-9]*-[0-9]+-[0-9]{2}-.+$ ]] && continue
     id="$(kanban::extract_id "$base")"
     title="$(card_title "$f")"
     marker=""
     grep -q '^\*\*Subtasks:\*\*' "$f" 2>/dev/null && marker=" [epic]"
-    OUT+=("$(printf '  %s  %s%s' "$id" "$title" "$marker")")
+    printf -v out_line '  %s  %s%s' "$id" "$title" "$marker"
+    OUT+=("$out_line")
     shown["$base"]=1
-    for g in "${sorted[@]}"; do
-      gbase="$(basename "$g" .md)"
+    for ((ii = 0; ii < scount; ii++)); do
+      gbase="${base_of[$ii]}"
       if [[ "$gbase" =~ ^${id}-[0-9]{2}-.+$ ]]; then
+        g="${sorted[$ii]}"
         gid="$(kanban::extract_id "$gbase")"
         gtitle="$(card_title "$g")"
-        OUT+=("$(printf '    %s  %s' "$gid" "$gtitle")")
+        printf -v out_line '    %s  %s' "$gid" "$gtitle"
+        OUT+=("$out_line")
         shown["$gbase"]=1
       fi
     done
   done
-  for f in "${sorted[@]}"; do
-    base="$(basename "$f" .md)"
+  for ((oi = 0; oi < scount; oi++)); do
+    base="${base_of[$oi]}"
     [ -n "${shown[$base]:-}" ] && continue
+    f="${sorted[$oi]}"
     id="$(kanban::extract_id "$base")"
     title="$(card_title "$f")"
-    OUT+=("$(printf '  %s  %s' "$id" "$title")")
+    printf -v out_line '  %s  %s' "$id" "$title"
+    OUT+=("$out_line")
   done
   unset shown
 done
