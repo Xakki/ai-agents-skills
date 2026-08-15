@@ -68,6 +68,7 @@ def test_register_exposes_all_shared_skills_and_agent_adapters(monkeypatch):
     assert set(ctx.skills) == expected_skills | expected_agents
     assert all(item["path"].is_file() for item in ctx.skills.values())
     assert all(item["description"] for item in ctx.skills.values())
+    assert "epic-lead" in ctx.skills
     assert "expose_as_command" not in ctx.skills["kanban"]["frontmatter"]
     assert "command_name" not in ctx.skills["kanban"]["frontmatter"]
     assert set(ctx.hooks) == {
