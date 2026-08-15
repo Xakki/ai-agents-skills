@@ -296,8 +296,20 @@ you want it there too.
 │   ├── setup-claude/
 │   ├── new-project-docker/
 │   └── fluent-logging/
+├── statusline/            # opt-in status-line renderers (see statusline/README.md)
+│   ├── statusline-command.sh
+│   └── subagent-statusline-command.sh
 └── scripts/               # runners used by schedule-tasks (run from the plugin cache)
 ```
+
+## Status line (opt-in)
+
+`statusline/` ships two `bash` + `jq` renderers: a lead row
+(`model · launch dir · branch · dirty · ctx% · session tokens · pwd`, where `pwd`
+appears only when it differs from the launch dir) and a compact teammate row for
+the agent panel. They are **not** auto-registered — copy them to `~/.claude/bin/`
+and point `statusLine` / `subagentStatusLine` in `settings.json` at the absolute
+path. Full install and verification steps: [statusline/README.md](statusline/README.md).
 
 For Claude Code, the skills are auto-discovered from `skills/`, and the hooks
 from `hooks/hooks.json` — no `skills` or `hooks` field in
