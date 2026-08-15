@@ -163,7 +163,7 @@ exists, even if the diff looks trivial. Ask before discarding."
 check_destructive "$scan_cmd" "$ORIG_LEAD" "$ORIG_BOUNDARY"
 
 # Executors: things that run a quoted argument as a real command.
-EXEC_RE="${CMD}"'(make([[:space:]]|$)|(sh|bash|zsh)[[:space:]]+-c([[:space:]]|$)|eval([[:space:]]|$)|docker[[:space:]]+exec([[:space:]]|$)|docker[[:space:]]+compose[[:space:]]+(run|exec)([[:space:]]|$))'
+EXEC_RE="${CMD}"'(make([[:space:]]|$)|(sh|bash|zsh)[[:space:]]+-c([[:space:]]|$)|eval([[:space:]]|$)|xargs([[:space:]]|$)|docker[[:space:]]+exec([[:space:]]|$)|docker[[:space:]]+compose[[:space:]]+(run|exec)([[:space:]]|$))'
 
 # check_payloads recurses ONE level: it pulls the quoted argument an executor
 # will run and re-checks it AS A COMMAND, with the ordinary anchors. That is
@@ -194,7 +194,10 @@ check_payloads() {
 			done
 			content=${s:start:i-start}
 			pre=${s:0:start-1}
-			if [[ "$pre" =~ (^|[[:space:]])-c[[:space:]]*$ ]] \
+			# The -c must belong to a SHELL. A bare `-c` test would collide with
+			# `grep -c "rm -rf" f`, where -c is grep's count flag and the quote
+			# is its pattern — data, not a payload.
+			if [[ "$pre" =~ (^|[[:space:]])(sh|bash|zsh)[[:space:]]+-c[[:space:]]*$ ]] \
 				|| [[ "$pre" =~ [A-Za-z_][A-Za-z0-9_]*=$ ]]; then
 				check_destructive "$(neutralize_quotes "$content")" \
 					"$ORIG_LEAD" "$ORIG_BOUNDARY"

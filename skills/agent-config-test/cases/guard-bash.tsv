@@ -155,6 +155,13 @@
 2	make deploy CMD="git push --force origin main"	payload force-pushes
 2	sh -c "cd /x && rm -rf /y"	payload with its own separator
 2	sh -c "rm -rf /var/x"	executor running a real rm
+2	xargs sh -c "rm -rf /x"	nested executor: xargs runs sh -c
+0	xargs -I{} grep -c "rm -rf" f	grep's -c inside an xargs segment is still not a payload
+# KNOWN GAP, deliberately not covered: `ssh host "rm -rf /x"` passes through.
+# ssh's payload is a bare argument after the host, not -c/NAME=, and the shapes
+# that would catch it (`ssh -p 22022 host "..."`, options with values) need a
+# fragile host-vs-flag regex. The file is a guardrail against local slips, not
+# a remote-execution boundary. Revisit only with a real case.
 
 # --- plain shell is NOT in scope: make is for services/containers/runtimes only
 0	sed -n 1,20p app/main.py
