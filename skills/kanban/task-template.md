@@ -27,3 +27,10 @@ Proposed solution approach.
 
 **Decisions:** *(resolved grooming questions — keep on the card after `todo/` so the rationale survives)*
 - e.g. chose lib X over Y because Z — confirmed with @user
+
+**Execution Log:** *(add concise, secret-free evidence after work starts)*
+- Authorization: immediate approval given by the user or recorded EPIC-scoped upfront authorization
+- Agent/zone: <owner and zone>; Gate: `<command>` → <result>
+- Reviewer: <verdict>; Commit: <SHA>
+- Prompt evidence (optional): <sanitized artifact ID / session ID / digest / checksum>
+- Never record full prompts, credentials, tokens, or other secrets.

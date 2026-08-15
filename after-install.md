@@ -11,6 +11,7 @@ Load a workflow explicitly:
 ```text
 skill_view("ai-agents-skills:qa-check")
 skill_view("ai-agents-skills:git-flow")
+skill_view("ai-agents-skills:epic-lead")
 ```
 
 The prompts from `agents/` are exposed as skills too:

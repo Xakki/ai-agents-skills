@@ -20,6 +20,7 @@ All four integrations share the same `skills/` tree; see
 |-------|--------------|
 | **kanban** | Manage a `.claude/kanban/` board in your project: create, start, review, and complete task cards across `grooming → todo → progress → test → ready → done`. |
 | **knbn** | Portable invocation alias for **kanban**. It loads the canonical Kanban workflow and adds no separate behavior. |
+| **epic-lead** | Lead one approved Kanban EPIC through governed integration, review, authorized finalization, and handoff. |
 | **schedule-tasks** | Schedule autonomous `claude` runs of `todo/` cards via `at`/tmux. Each card opens in its own byobu window and self-chains the next card on success. |
 | **tg-notify** | Send a Telegram notification with a short report to a **DM, group, or channel** (configurable). Ships hooks that also auto-notify on long task completion and on permission/idle prompts. |
 | **tg-notify-timers** | View/tune the tg-notify hook timers (thresholds, delays, debounce) via `TG_NOTIFY_*` env vars in `settings.json`. |
@@ -195,6 +196,7 @@ explicitly, for example:
 ```text
 skill_view("ai-agents-skills:knbn")
 skill_view("ai-agents-skills:qa-check")
+skill_view("ai-agents-skills:epic-lead")
 skill_view("ai-agents-skills:agent-db-schema")
 ```
 

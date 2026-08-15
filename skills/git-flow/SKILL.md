@@ -23,7 +23,8 @@ examples → [reference.md](reference.md).
    it finishes that zone. End every commit message with a footer line naming the
    zone: `Agent: <zone>` (e.g. `Agent: backend`). This `Agent: <zone>` marker is
    the ONLY allowed trailer — do NOT add `Co-Authored-By:`, `Generated with …`,
-   or any other signature.
+   or any other signature. Prompt and execution evidence belongs in Kanban
+   records, never extra Git trailers.
 4. **Commit message format.** `<scope>: <imperative summary>`. Subject ≤72 chars,
    imperative mood. Body optional (may be in Russian) — include it only when it
    adds meaning not visible from the diff. Keep the whole message readable.

@@ -22,7 +22,8 @@ one at a time would leave the project in a broken intermediate state.
 **Epic card body** must carry, beyond the normal template:
 - `**Subtasks:**` — an ordered list of subtask IDs with a one-line purpose each.
   Order is execution order; note explicitly where two subtasks may run in
-  parallel and where one hard-blocks the next.
+  parallel and where one hard-blocks the next. Parallel work is allowed only
+  when dependencies permit it and the declared zones/allowed paths do not overlap.
 - `**Integration checklist:**` — what must pass before the epic leaves `progress/`.
 
 **Branch.** One branch `epic/<ID>` for the entire epic, created when the epic
@@ -42,7 +43,9 @@ move to `done/` is rejected until its epic is already in `done/`. Full CLI →
 **Subtask flow inside an epic.** Each subtask card walks
 `todo/ → progress/ → test/ → ready/` normally. It stops at `ready/`:
 - Do NOT move a subtask to `done/`. `done/` for a subtask is granted only when
-  the user approves the parent epic.
+  the parent EPIC receives an accepted authorization: an immediate approval
+  explicitly given by the user, or explicit recorded upfront autonomous
+  authorization scoped to that EPIC and its approved children.
 - Do NOT merge the epic branch when a subtask finishes. The branch merges once,
   after the epic is approved.
 - If a subtask surfaces a new open question, park it in `grooming/` and raise it
@@ -57,10 +60,13 @@ move to `done/` is rejected until its epic is already in `done/`. Full CLI →
    subtask. Never advance an epic on a red suite.
 
 **Hand-off.** Green gate → move the epic card to `ready/` and tell the user
-what to verify (concrete commands / URLs / expected output). The user moves
-`ready/ → done/`; then the subtask cards follow to `done/`, the branch is
-verified clean, squash-merged, and renamed `done/<ID>` (strip the `epic/`
-prefix — archive is `done/<ID>`, NOT `done/epic/<ID>`).
+what to verify (concrete commands / URLs / expected output). Finalization needs
+either an immediate approval explicitly given by the user or explicit recorded
+upfront autonomous authorization scoped to that EPIC and approved children. It never grants push,
+later-EPIC startup, scope expansion, or a test/review bypass. The exact order is:
+parent `ready → done`, eligible subtasks to `done`, verify `epic/<ID>` clean,
+one squash merge, then `git branch -m epic/<ID> done/<ID>`. Keep the archive;
+do not delete it.
 
 ## Autonomous-Run Commit Contract
 
