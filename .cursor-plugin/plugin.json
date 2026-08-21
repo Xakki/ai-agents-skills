@@ -1,6 +1,6 @@
 {
   "name": "ai-agents-skills",
-  "version": "0.2.16",
+  "version": "0.2.17",
   "description": "Skills + hooks for Cursor Agent CLI/IDE: teamlead (main thread as team-lead: delegate code work to subagents, surface only decisions), roadmap (plan & autonomously build a whole app phase-by-phase), kanban (manage a .claude/kanban board), schedule-tasks (auto-pilot todo cards via `at`/tmux), git-flow (shared git core: commits, branches, PRs), tg-notify (Telegram notifications to a DM/group/channel, plus auto task-finished hook -- no permission/idle hook under Cursor, see README) and tg-notify-timers, tg-report (completion/task reports to configurable topics), git-move (git-aware file ops), publish-artifact (self-hosted HTML artifact publishing via a project `make publish-artifact` target), setup-claude (repo bootstrap template), new-project-docker (Dockerized project scaffold), fluent-logging (structured-logging standard), skill-import (discover & import skills from external git repos into a project, matched by a subagent, with updates).",
   "author": {
     "name": "Xakki"
