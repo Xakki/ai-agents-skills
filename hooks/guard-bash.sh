@@ -130,9 +130,9 @@ ORIG_BOUNDARY='([[:space:]]|$)'
 check_destructive() {
 	local c=$1 lead=$2 bound=$3
 	if [[ "$c" =~ ${lead}rm[[:space:]]+(-[a-zA-Z]*[rR][a-zA-Z]*f|-[a-zA-Z]*f[a-zA-Z]*[rR]|-r[[:space:]]+-f|-f[[:space:]]+-r) ]] \
-		&& [[ ! "$c" =~ /tmp/backup/ ]]; then
+		&& [[ ! "$c" =~ /(var/)?tmp/backup/ ]]; then
 		block "recursive force-delete" \
-"Never delete files — rename with a 'backup_' prefix into /tmp/backup/<project>/.
+"Never delete files — rename with a 'backup_' prefix into /var/tmp/backup/<project>/.
 A real deletion needs an explicit 'yes' from the user first."
 	fi
 
@@ -156,7 +156,7 @@ exists, even if the diff looks trivial. Ask before discarding."
 	if [[ "$c" =~ git[[:space:]]+worktree[[:space:]]+remove.*--force ]]; then
 		block "git worktree remove --force" \
 "This is an rm -rf of the worktree and destroys untracked files. Run
-'git status --porcelain' on it first and move anything untracked to /tmp/backup/."
+'git status --porcelain' on it first and move anything untracked to /var/tmp/backup/."
 	fi
 }
 

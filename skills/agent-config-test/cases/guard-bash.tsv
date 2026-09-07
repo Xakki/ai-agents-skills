@@ -111,7 +111,8 @@
 0	python3 -c print(1)
 0	go version	no build/run/test subcommand
 0	npm --version
-0	rm -rf /tmp/backup/proj/x	sanctioned scratch dir
+0	rm -rf /var/tmp/backup/proj/x	sanctioned scratch dir
+0	rm -rf /tmp/backup/proj/x	sanctioned scratch dir (compat symlink path)
 
 # --- safety must stay quote-aware for NON-executors: these only CONTAIN the
 # destructive text as quoted DATA (grep pattern, echo string, commit message,
