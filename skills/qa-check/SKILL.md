@@ -38,7 +38,7 @@ adds the gate behaviour below.
 
 On the first run in a project you don't know its commands. **Ask the user** (don't
 guess) and offer to save the answers to the project's `.claude/` (a line in
-`<project>/CLAUDE.md` or a config file) so later runs skip the questions:
+the project's `CLAUDE.md` or a config file) so later runs skip the questions:
 
 1. **Path/module → make targets** mapping (which lint + test targets cover which
    areas, e.g. backend vs frontend).

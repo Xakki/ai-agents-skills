@@ -38,7 +38,7 @@ hard: every lookup degrades to empty and every `git` call is capped with
    ```
 
 2. Wire them into `~/.claude/settings.json` (project-scoped works too, in
-   `<project>/.claude/settings.json`) — use an **absolute path**, `settings.json`
+   the project's `.claude/settings.json`) — use an **absolute path**, `settings.json`
    does not expand `~` or plugin root variables:
 
    ```json

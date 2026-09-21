@@ -40,8 +40,8 @@ fi
 block() {
 	# The allowlist is optional, so the hint has to say "create" when it is absent
 	# — pointing at a path that does not exist reads as a broken config.
-	local hint="Legitimate host call? Add a narrow ERE to $allow_file"
-	[[ -f "$allow_file" ]] || hint="Legitimate host call? The optional allowlist $allow_file
+	local hint="Legitimate call to the host? Add a narrow ERE to $allow_file"
+	[[ -f "$allow_file" ]] || hint="Legitimate call to the host? The optional allowlist $allow_file
 does not exist yet — create it and put a narrow ERE in it."
 	printf 'BLOCKED by the global guard-bash hook: %s\n\n%s\n\n%s\n' "$1" "$2" "$hint" >&2
 	exit 2
@@ -68,7 +68,7 @@ BIN='((\./)?[A-Za-z0-9_./-]*(vendor/bin|node_modules/\.bin|\.venv/bin|venv/bin)/
 # webserver, sections 3-5) must not treat a separator or tool name inside
 # quotes as real. Safety rules (sections 1-2) are the opposite on purpose —
 # they scan $cmd raw, below — because a destructive command hidden inside a
-# quoted make argument (`make run CMD="rm -rf /x"`) is still a real rm once
+# quoted make argument (`make run CMD="rm -rf ./x"`) is still a real rm once
 # whatever consumes CMD runs it, and must block regardless of make.
 #
 # neutralize_quotes replaces the CONTENTS of every '...'/"..." span with '#',
@@ -109,11 +109,11 @@ scan_cmd=$(neutralize_quotes "$cmd")
 # twice below, never merged into one over-permissive pass:
 #
 #   1) default pass — $scan_cmd (quotes neutralised) with the ORIGINAL,
-#      narrow anchors. This is what blocks a bare `rm -rf /var/lib/x` or a
+#      narrow anchors. This is what blocks a bare `rm -rf ./var/lib/x` or a
 #      real `git push --force origin main`, and — because it scans the
 #      neutralised copy — does NOT block `grep -rn "rm -rf" .`,
 #      `git commit -m "docs: explain rm -rf policy"`, `rg "git push -f" ...`,
-#      `jq '.cmd = "rm -rf /x"' a.json`, etc. Those only CONTAIN the text as
+#      `jq '.cmd = "rm -rf ./x"' a.json`, etc. Those only CONTAIN the text as
 #      quoted data; once neutralised it reads as harmless '#' filler.
 #   2) payload pass — see check_payloads below. For a segment whose command is
 #      an executor, the quoted argument it will RUN is re-checked as a command
@@ -180,7 +180,7 @@ EXEC_RE="${CMD}"'(make([[:space:]]|$)|(sh|bash|zsh)[[:space:]]+-c([[:space:]]|$)
 #
 # The payload's own inner quotes are neutralised before the check, so
 # `sh -c "grep -rn 'rm -rf' ."` recurses to `grep -rn '######' .` and stays
-# allowed, while `make run CMD="rm -rf /x"` recurses to a bare `rm -rf /x`
+# allowed, while `make run CMD="rm -rf ./x"` recurses to a bare `rm -rf ./x`
 # and blocks.
 check_payloads() {
 	local s=$1 len=${#1} i=0 c q start content pre

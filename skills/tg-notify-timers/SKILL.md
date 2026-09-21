@@ -47,13 +47,15 @@ Edit `env` in `~/.claude/settings.json` (directly via Edit / skill `update-confi
 or the jq below). One timer:
 
 ```bash
-jq '.env.TG_NOTIFY_STOP_THRESHOLD = "1800"' ~/.claude/settings.json > /tmp/s.json && mv /tmp/s.json ~/.claude/settings.json
+SETTINGS=~/.claude/settings.json
+jq '.env.TG_NOTIFY_STOP_THRESHOLD = "1800"' "$SETTINGS" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
 ```
 
 Reset to default (remove all 7 → built-in defaults):
 
 ```bash
-jq 'del(.env.TG_NOTIFY_PERM_THRESHOLD, .env.TG_NOTIFY_IDLE_THRESHOLD, .env.TG_NOTIFY_DELAY, .env.TG_NOTIFY_DEBOUNCE, .env.TG_NOTIFY_STOP_THRESHOLD, .env.TG_NOTIFY_STOP_DELAY, .env.TG_NOTIFY_STOP_DEBOUNCE)' ~/.claude/settings.json > /tmp/s.json && mv /tmp/s.json ~/.claude/settings.json
+SETTINGS=~/.claude/settings.json
+jq 'del(.env.TG_NOTIFY_PERM_THRESHOLD, .env.TG_NOTIFY_IDLE_THRESHOLD, .env.TG_NOTIFY_DELAY, .env.TG_NOTIFY_DEBOUNCE, .env.TG_NOTIFY_STOP_THRESHOLD, .env.TG_NOTIFY_STOP_DELAY, .env.TG_NOTIFY_STOP_DEBOUNCE)' "$SETTINGS" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
 ```
 
 After any change — restart Claude Code so the hooks see the new env.
@@ -64,17 +66,20 @@ Apply with a single jq merge into `.env`.
 
 ### quieter
 ```bash
-jq '.env += {TG_NOTIFY_PERM_THRESHOLD:"1800",TG_NOTIFY_IDLE_THRESHOLD:"1200",TG_NOTIFY_DELAY:"600",TG_NOTIFY_DEBOUNCE:"600",TG_NOTIFY_STOP_THRESHOLD:"1800",TG_NOTIFY_STOP_DELAY:"900",TG_NOTIFY_STOP_DEBOUNCE:"600"}' ~/.claude/settings.json > /tmp/s.json && mv /tmp/s.json ~/.claude/settings.json
+SETTINGS=~/.claude/settings.json
+jq '.env += {TG_NOTIFY_PERM_THRESHOLD:"1800",TG_NOTIFY_IDLE_THRESHOLD:"1200",TG_NOTIFY_DELAY:"600",TG_NOTIFY_DEBOUNCE:"600",TG_NOTIFY_STOP_THRESHOLD:"1800",TG_NOTIFY_STOP_DELAY:"900",TG_NOTIFY_STOP_DEBOUNCE:"600"}' "$SETTINGS" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
 ```
 
 ### more sensitive
 ```bash
-jq '.env += {TG_NOTIFY_PERM_THRESHOLD:"600",TG_NOTIFY_IDLE_THRESHOLD:"300",TG_NOTIFY_DELAY:"180",TG_NOTIFY_DEBOUNCE:"180",TG_NOTIFY_STOP_THRESHOLD:"600",TG_NOTIFY_STOP_DELAY:"300",TG_NOTIFY_STOP_DEBOUNCE:"180"}' ~/.claude/settings.json > /tmp/s.json && mv /tmp/s.json ~/.claude/settings.json
+SETTINGS=~/.claude/settings.json
+jq '.env += {TG_NOTIFY_PERM_THRESHOLD:"600",TG_NOTIFY_IDLE_THRESHOLD:"300",TG_NOTIFY_DELAY:"180",TG_NOTIFY_DEBOUNCE:"180",TG_NOTIFY_STOP_THRESHOLD:"600",TG_NOTIFY_STOP_DELAY:"300",TG_NOTIFY_STOP_DEBOUNCE:"180"}' "$SETTINGS" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
 ```
 
 ### disable (thresholds set unreachable)
 ```bash
-jq '.env += {TG_NOTIFY_PERM_THRESHOLD:"99999999",TG_NOTIFY_IDLE_THRESHOLD:"99999999",TG_NOTIFY_STOP_THRESHOLD:"99999999"}' ~/.claude/settings.json > /tmp/s.json && mv /tmp/s.json ~/.claude/settings.json
+SETTINGS=~/.claude/settings.json
+jq '.env += {TG_NOTIFY_PERM_THRESHOLD:"99999999",TG_NOTIFY_IDLE_THRESHOLD:"99999999",TG_NOTIFY_STOP_THRESHOLD:"99999999"}' "$SETTINGS" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
 ```
 
 ## Verification

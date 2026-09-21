@@ -83,8 +83,8 @@ Highest wins; `deny` beats everything at every level.
 
 1. enterprise policy
 2. command line
-3. `<project>/.claude/settings.local.json`
-4. `<project>/.claude/settings.json`
+3. project `.claude/settings.local.json`
+4. project `.claude/settings.json`
 5. `~/.claude/settings.json`
 
 `~/.claude/settings.local.json` sits at user scope alongside (5). Because (3)

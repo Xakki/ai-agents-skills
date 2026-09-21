@@ -19,19 +19,19 @@ jq '.env | {
 Merge into `env` without clobbering other keys:
 
 ```bash
+SETTINGS=~/.claude/settings.json
 jq '.env += {
   "AI_MODEL_CHEAP": "haiku",
   "AI_MODEL_STANDARD": "sonnet",
   "AI_MODEL_JUDGMENT": "opus"
-}' ~/.claude/settings.json > ~/.claude/settings.json.tmp \
-  && mv ~/.claude/settings.json.tmp ~/.claude/settings.json
+}' "$SETTINGS" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
 ```
 
 Remove a single override (fall back to plugin defaults):
 
 ```bash
-jq 'del(.env.AI_MODEL_CHEAP)' ~/.claude/settings.json > ~/.claude/settings.json.tmp \
-  && mv ~/.claude/settings.json.tmp ~/.claude/settings.json
+SETTINGS=~/.claude/settings.json
+jq 'del(.env.AI_MODEL_CHEAP)' "$SETTINGS" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
 ```
 
 ## Cursor / Codex

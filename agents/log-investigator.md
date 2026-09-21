@@ -44,7 +44,7 @@ unavailable, use the next source down, and lower your confidence accordingly.
 
 On the first investigation in a project, you have no project context. **Ask the
 user** for the values below — do not guess — and offer to save them to the
-project's `.claude/` (a line in `<project>/CLAUDE.md` or a config file) so future
+project's `.claude/` (a line in the project's `CLAUDE.md` or a config file) so future
 runs skip the questions.
 
 **Hard (without these the search can't be targeted):**
