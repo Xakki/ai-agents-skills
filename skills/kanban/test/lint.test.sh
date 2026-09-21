@@ -31,6 +31,42 @@ OUT_DONE_EXPLICIT="$(bash "$KLINT" --repo "$REPO" "$REPO/.claude/kanban/done/K-0
 echo "$OUT_DONE_EXPLICIT" | grep -q '^ERROR' && { echo "FAIL: expected explicitly targeted done/ cards to be excluded from linting"; echo "$OUT_DONE_EXPLICIT"; exit 1; }
 echo "$OUT_DONE_EXPLICIT" | grep -q '^kanban-lint: 0 card(s) checked' || { echo "FAIL: expected no explicitly targeted done/ cards to be checked"; echo "$OUT_DONE_EXPLICIT"; exit 1; }
 
+# Frozen (parked) cards are excluded from linting the same way.
+mkdir -p "$REPO/.claude/kanban/freeze"
+cat > "$REPO/.claude/kanban/freeze/K-004-frozen-broken.md" <<'EOF'
+no title, no sections
+EOF
+OUT_FREEZE="$(bash "$KLINT" --repo "$REPO")"
+echo "$OUT_FREEZE" | grep -q '^ERROR' && { echo "FAIL: expected freeze/ cards to be excluded from linting"; echo "$OUT_FREEZE"; exit 1; }
+echo "$OUT_FREEZE" | grep -q '^kanban-lint: 1 card(s) checked' || { echo "FAIL: expected only active cards to be checked with freeze/ present"; echo "$OUT_FREEZE"; exit 1; }
+OUT_FREEZE_EXPLICIT="$(bash "$KLINT" --repo "$REPO" K-004-frozen-broken)"
+echo "$OUT_FREEZE_EXPLICIT" | grep -q '^ERROR' && { echo "FAIL: expected explicitly targeted freeze/ cards to be excluded from linting"; echo "$OUT_FREEZE_EXPLICIT"; exit 1; }
+echo "$OUT_FREEZE_EXPLICIT" | grep -q '^kanban-lint: 0 card(s) checked' || { echo "FAIL: expected no explicitly targeted freeze/ cards to be checked"; echo "$OUT_FREEZE_EXPLICIT"; exit 1; }
+
+# A relative explicit path to an excluded card is excluded too.
+for stage in done freeze; do
+  cp "$REPO/.claude/kanban/done/K-002-archived-broken.md" "$REPO/.claude/kanban/$stage/K-005-rel-broken.md"
+  OUT_REL="$(cd "$REPO" && bash "$KLINT" --repo "$REPO" ".claude/kanban/$stage/K-005-rel-broken.md" || true)"
+  echo "$OUT_REL" | grep -q '^kanban-lint: 0 card(s) checked' || { echo "FAIL: expected relative $stage/ path to be excluded"; echo "$OUT_REL"; exit 1; }
+  rm -f "$REPO/.claude/kanban/$stage/K-005-rel-broken.md"
+done
+rm -f "$REPO/.claude/kanban/freeze/K-004-frozen-broken.md"
+
+# The nits dump grooming/TODO.md is not a card; a TODO.md elsewhere still is.
+mkdir -p "$REPO/.claude/kanban/grooming"
+printf -- '- nit one\n' > "$REPO/.claude/kanban/grooming/TODO.md"
+OUT_NITS="$(bash "$KLINT" --repo "$REPO" || true)"
+echo "$OUT_NITS" | grep -q '^kanban-lint: 1 card(s) checked' || { echo "FAIL: expected grooming/TODO.md to be skipped"; echo "$OUT_NITS"; exit 1; }
+OUT_NITS_EXPLICIT="$(bash "$KLINT" --repo "$REPO" "$REPO/.claude/kanban/grooming/TODO.md" || true)"
+echo "$OUT_NITS_EXPLICIT" | grep -q '^kanban-lint: 0 card(s) checked' || { echo "FAIL: expected explicit grooming/TODO.md to be skipped"; echo "$OUT_NITS_EXPLICIT"; exit 1; }
+rm -f "$REPO/.claude/kanban/grooming/TODO.md"
+printf -- '- not a nits dump\n' > "$REPO/.claude/kanban/todo/TODO.md"
+set +e
+OUT_TODO_STAGE="$(bash "$KLINT" --repo "$REPO")"
+set -e
+echo "$OUT_TODO_STAGE" | grep -q '^ERROR .*todo/TODO.md' || { echo "FAIL: expected todo/TODO.md to be linted"; echo "$OUT_TODO_STAGE"; exit 1; }
+rm -f "$REPO/.claude/kanban/todo/TODO.md"
+
 # A bare basename must resolve the active card when an archived duplicate exists.
 cp "$REPO/.claude/kanban/todo/K-001-well-formed.md" "$REPO/.claude/kanban/todo/K-003-shared-card.md"
 cat > "$REPO/.claude/kanban/done/K-003-shared-card.md" <<'EOF'

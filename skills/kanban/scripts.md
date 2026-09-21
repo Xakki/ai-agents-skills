@@ -217,10 +217,13 @@ kanban-status.sh [--stage todo|grooming|progress|test|ready|done] [--epic <EPIC-
 kanban-lint.sh [<ID|path>…]
 ```
 
-- No args → lints every **active** card on the board; `done/` cards are
-  archived and excluded. Args restrict to specific cards/IDs, but an explicit
-  or implicit `done/` reference remains excluded; an implicit ID/basename
-  prefers an active match when both active and archived cards match.
+- No args → lints every **active** card on the board; `done/` (archived) and
+  `freeze/` (parked) cards are excluded. The nits dump
+  `.claude/kanban/grooming/TODO.md` is not a card and is skipped by that exact
+  path only; any other Markdown file stays a lint target. Args restrict to
+  specific cards/IDs, but an explicit (absolute or relative) or implicit
+  `done/`/`freeze/` reference remains excluded; an implicit ID/basename prefers
+  an active match when both an active and an excluded card match.
 - Checks:
   - filename/ID shape (`<PREFIX>-<NUM>[-<NN>]-<slug>.md`, prefix matches the
     project's reserved prefix or an existing multi-prefix entry in the lock

@@ -28,11 +28,25 @@ err()  { echo "ERROR $1: $2"; ERRORS=$((ERRORS + 1)); }
 warn() { echo "WARN $1: $2"; WARNINGS=$((WARNINGS + 1)); }
 
 shopt -s nullglob
-BOARD_CARDS=("$BOARD"/*/*.md)
+# The nits dump is a running scratch list of small findings, not a card (see
+# SKILL.md). Only this exact path is skipped; any other .md stays a target.
+NITS_DUMP="$BOARD/grooming/TODO.md"
+is_nits_dump() {
+  [[ "$1" == "$NITS_DUMP" ]]
+}
+BOARD_CARDS=()
+for card in "$BOARD"/*/*.md; do
+  is_nits_dump "$card" || BOARD_CARDS+=("$card")
+done
 shopt -u nullglob
-DONE_DIR="$BOARD/done"
+# done/ is archived and freeze/ is parked: neither is linted.
+SKIP_DIRS=("$BOARD/done" "$BOARD/freeze")
 is_archived() {
-  [[ "$1" == "$DONE_DIR"/* ]]
+  local d
+  for d in "${SKIP_DIRS[@]}"; do
+    [[ "$1" == "$d"/* ]] && return 0
+  done
+  return 1
 }
 ALL_CARDS=()
 for card in "${BOARD_CARDS[@]}"; do
@@ -47,7 +61,8 @@ if [ $# -eq 0 ]; then
 else
   for ref in "$@"; do
     if [ -f "$ref" ]; then
-      TARGETS+=("$ref")
+      # Absolute, so the done/freeze/nits-dump prefix checks below match.
+      TARGETS+=("$(cd "$(dirname "$ref")" && pwd)/$(basename "$ref")")
     elif [ -f "$REPO/$ref" ]; then
       TARGETS+=("$REPO/$ref")
     else
@@ -81,10 +96,11 @@ else
   done
 fi
 
-# Done cards are archived and excluded even when passed as explicit paths.
+# done/ and freeze/ cards and the nits dump are excluded even when passed as
+# explicit paths.
 ACTIVE_TARGETS=()
 for f in "${TARGETS[@]}"; do
-  is_archived "$f" || ACTIVE_TARGETS+=("$f")
+  is_archived "$f" || is_nits_dump "$f" || ACTIVE_TARGETS+=("$f")
 done
 TARGETS=("${ACTIVE_TARGETS[@]}")
 
