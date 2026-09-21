@@ -28,7 +28,10 @@ mechanisms to your runtime; the rules below are universal.
    asking the user each time — not silently.
 4. **Review separately.** Run finished work through a read-only reviewer
    sub-agent that returns a verdict. Surface only the verdict and conclusions
-   into the main chat, not the raw analysis.
+   into the main chat, not the raw analysis. A finding outside the reviewed
+   scope is not silently fixed, filed to grooming, or carried into another
+   task: ask the user first, with its blocking severity, concise evidence, and
+   estimated repair cplx. In-scope defects go through the normal repair flow.
 5. **Context hygiene before each task.** Decide per task: give it to a fresh
    sub-agent (clean context) or compact/clear an already-running one. No junk
    piles up in the implementer's context.
