@@ -13,9 +13,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class FakeContext:
-    def __init__(self):
+    def __init__(self, settings=None):
         self.skills = {}
         self.hooks = {}
+        self.settings = dict(settings or {})
 
     def register_skill(self, name, path, description="", frontmatter=None):
         self.skills[name] = {
@@ -26,6 +27,9 @@ class FakeContext:
 
     def register_hook(self, name, callback):
         self.hooks[name] = callback
+
+    def get_config(self, key, default=None):
+        return self.settings.get(key, default)
 
 
 def _load_plugin_module():
@@ -207,6 +211,34 @@ def test_finalize_and_reset_cancel_pending_notification(monkeypatch):
             },
         ),
     ]
+
+
+def test_telegram_hooks_setting_false_skips_every_tg_script(monkeypatch):
+    module = _load_plugin_module()
+    calls = []
+    monkeypatch.setattr(module, "_run_script", lambda name, payload: calls.append((name, payload)))
+    monkeypatch.setattr(module, "_resolve_cwd", lambda: Path("/tmp/project"))
+    module.register(FakeContext(settings={"telegram_hooks": False}))
+
+    result = module._on_pre_llm_call(session_id="s", user_message="x", is_first_turn=True)
+    module._on_post_llm_call(session_id="s", user_message="x", assistant_response="y")
+    module._on_session_finalize(session_id="s")
+    module._on_session_reset(session_id="s")
+
+    assert calls == []
+    assert result is not None and "Abbreviations" in result["context"]
+
+
+def test_telegram_hooks_stay_on_unless_setting_is_false(monkeypatch):
+    for settings in ({}, {"telegram_hooks": True}, {"telegram_hooks": "no"}):
+        module = _load_plugin_module()
+        calls = []
+        monkeypatch.setattr(module, "_run_script", lambda name, payload: calls.append(name))
+        module.register(FakeContext(settings=settings))
+
+        module._on_session_finalize(session_id="s")
+
+        assert calls == ["tg-cancel-pending.sh"], settings
 
 
 def test_unsafe_session_ids_are_encoded_before_real_shell_hook(monkeypatch, tmp_path):

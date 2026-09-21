@@ -29,6 +29,11 @@ hermes plugins list --plain --no-bundled
 
 Telegram hooks are optional and remain no-ops until `tg-notify` is configured.
 Hermes has no permission/idle plugin event, so only prompt-start, task-finished,
-and stale-notification cancellation hooks are mapped.
+and stale-notification cancellation hooks are mapped. To turn them off for
+Hermes only, keeping `tg-notify` for other runtimes:
+
+```bash
+hermes config set plugins.entries.ai-agents-skills.settings.telegram_hooks false
+```
 
 See the "Install (Hermes)" section in `README.md` for compatibility notes.

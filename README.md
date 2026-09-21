@@ -203,7 +203,10 @@ skill_view("ai-agents-skills:agent-db-schema")
 The Hermes adapter maps `pre_llm_call`, `post_llm_call`, session-finalize, and
 session-reset events to the shared abbreviation and Telegram hook behavior.
 Hermes does not expose a plugin hook for permission/idle notifications, so that
-specific Telegram ping is not wired. `schedule-tasks` and `setup-claude` remain
+specific Telegram ping is not wired. Setting
+`plugins.entries.ai-agents-skills.settings.telegram_hooks: false` in the Hermes
+config turns the Telegram hooks off for Hermes only (absent = on); the
+abbreviation context is still injected. `schedule-tasks` and `setup-claude` remain
 Claude-specific workflows; `model-tiers` is informational under Hermes because
 Hermes subagents inherit the active model rather than accepting a per-call tier.
 The mempalace dependency in the Claude manifest is not installed by Hermes.

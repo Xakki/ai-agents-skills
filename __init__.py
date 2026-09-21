@@ -14,6 +14,7 @@ from typing import Any
 _ROOT = Path(__file__).resolve().parent
 _HOOKS = _ROOT / "hooks"
 _LOG = logging.getLogger(__name__)
+_CTX: Any = None
 
 
 def plugin_root() -> Path:
@@ -51,6 +52,18 @@ def _safe_session_id(session_id: Any) -> str:
     raw = session_id if isinstance(session_id, str) and session_id else "unknown"
     digest = hashlib.sha256(raw.encode("utf-8", errors="surrogatepass")).hexdigest()
     return f"sid-{digest}"
+
+
+def _telegram_hooks_enabled() -> bool:
+    """Read plugins.entries.ai-agents-skills.settings.telegram_hooks; absent means on."""
+    get_config = getattr(_CTX, "get_config", None)
+    if get_config is None:
+        return True
+    try:
+        value = get_config("telegram_hooks", True)
+    except Exception:
+        return True
+    return value if isinstance(value, bool) else True
 
 
 def _run_script(name: str, payload: dict[str, Any]) -> None:
@@ -130,15 +143,16 @@ def _on_pre_llm_call(
     platform: str = "",
     **_: Any,
 ) -> dict[str, str] | None:
-    _run_script(
-        "tg-prompt-start.sh",
-        {
-            "session_id": _safe_session_id(session_id),
-            "prompt": user_message,
-            "cwd": str(_resolve_cwd()),
-            "platform": platform,
-        },
-    )
+    if _telegram_hooks_enabled():
+        _run_script(
+            "tg-prompt-start.sh",
+            {
+                "session_id": _safe_session_id(session_id),
+                "prompt": user_message,
+                "cwd": str(_resolve_cwd()),
+                "platform": platform,
+            },
+        )
     if is_first_turn:
         return {"context": _abbreviations_context()}
     return None
@@ -151,24 +165,26 @@ def _on_post_llm_call(
     platform: str = "",
     **_: Any,
 ) -> None:
-    _run_script(
-        "tg-on-stop.sh",
-        {
-            "session_id": _safe_session_id(session_id),
-            "prompt": user_message,
-            "assistant_response": assistant_response,
-            "transcript_path": "",
-            "cwd": str(_resolve_cwd()),
-            "platform": platform,
-        },
-    )
+    if _telegram_hooks_enabled():
+        _run_script(
+            "tg-on-stop.sh",
+            {
+                "session_id": _safe_session_id(session_id),
+                "prompt": user_message,
+                "assistant_response": assistant_response,
+                "transcript_path": "",
+                "cwd": str(_resolve_cwd()),
+                "platform": platform,
+            },
+        )
 
 
 def _cancel(session_id: str = "", platform: str = "") -> None:
-    _run_script(
-        "tg-cancel-pending.sh",
-        {"session_id": _safe_session_id(session_id), "platform": platform},
-    )
+    if _telegram_hooks_enabled():
+        _run_script(
+            "tg-cancel-pending.sh",
+            {"session_id": _safe_session_id(session_id), "platform": platform},
+        )
 
 
 def _on_session_finalize(session_id: str = "", platform: str = "", **_: Any) -> None:
@@ -181,6 +197,8 @@ def _on_session_reset(session_id: str = "", platform: str = "", **_: Any) -> Non
 
 def register(ctx: Any) -> None:
     """Register shared skills, agent prompt adapters, and compatible hooks."""
+    global _CTX
+    _CTX = ctx
     # The installed location is authoritative. An inherited value may point to
     # another checkout or an older plugin version and must not redirect bundled
     # skill commands away from the code Hermes actually loaded.
