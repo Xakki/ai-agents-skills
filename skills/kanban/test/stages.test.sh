@@ -36,6 +36,14 @@ expect_rejected() {
   set -e
   [ "$rc" -eq 2 ] || fail "$label should be rejected with exit 2, got $rc: $output"
 }
+assert_freeze_entry() {
+  local stage="$1" id="$2" title="$3" moved expected
+  new_card "$stage" "$id" "$title" > /dev/null
+  moved="$(bash "$KMOVE" --repo "$REPO" "$id" freeze)"
+  expected="$REPO/.agents/kanban/freeze/$id-$title.md"
+  [ "$moved" = "$expected" ] || fail "$stage card did not enter freeze: $moved"
+  rm -f "$moved"
+}
 
 PAUSE="$(new_card todo K-001 pause)"
 MOVED="$(bash "$KMOVE" --repo "$REPO" K-001 freeze)"
@@ -47,11 +55,18 @@ expect_rejected "resume without --resume" K-001 progress
 MOVED="$(bash "$KMOVE" --repo "$REPO" K-001 progress --resume)"
 [ "$MOVED" = "$REPO/.agents/kanban/progress/K-001-pause.md" ] \
   || fail "--resume did not return the card to progress"
+assert_freeze_entry grooming K-010 pause-grooming
+assert_freeze_entry progress K-011 pause-progress
+assert_freeze_entry test K-012 pause-test
+assert_freeze_entry ready K-013 pause-ready
 
 CLOSE="$(new_card todo K-002 cancel)"
 expect_rejected "close without --approved" K-002 closed
 [ -f "$CLOSE" ] || fail "unapproved close moved the card"
 bash "$KMOVE" --repo "$REPO" K-002 closed --approved >/dev/null
+expect_rejected "closed terminal stage cannot re-enter freeze" K-002 freeze --force
+[ -f "$REPO/.agents/kanban/closed/K-002-cancel.md" ] \
+  || fail "--force moved a cancelled card into freeze"
 printf 'incomplete archived note\n' > "$REPO/.agents/kanban/closed/K-002-cancel.md"
 expect_rejected "closed terminal stage" K-002 progress --force
 [ -f "$REPO/.agents/kanban/closed/K-002-cancel.md" ] \
@@ -73,6 +88,9 @@ expect_rejected "unknown source stage must not bypass freeze rules" K-008 freeze
 rm -f "$REPO/.agents/kanban/custom/K-008-unknown-stage.md"
 
 new_card freeze K-005 parked > /dev/null
+expect_rejected "frozen card cannot be moved back into freeze" K-005 freeze --resume
+[ -f "$REPO/.agents/kanban/freeze/K-005-parked.md" ] \
+  || fail "invalid freeze-to-freeze resume moved the card"
 printf 'incomplete parked note\n' > "$REPO/.agents/kanban/freeze/K-005-parked.md"
 new_card freeze K-006 resume-todo > /dev/null
 bash "$KMOVE" --repo "$REPO" K-006 todo --resume >/dev/null
