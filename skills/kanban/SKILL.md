@@ -33,9 +33,12 @@ it from any nonterminal stage, including `freeze/`, requires `--approved`.
 `closed/` is terminal even with `--force`; future work gets a new linked card.
 Both stages participate in board-wide ID uniqueness checks.
 
-`grooming/` and `ready/` are agent-boundary stages: autonomous runs never enter `grooming/`
-and never advance past `ready/`, except an EPIC with recorded EPIC-scoped upfront
-autonomous authorization as defined in Done below.
+`grooming/` and `ready/` are agent-boundary stages: autonomous runs never enter
+`grooming/`. The narrow `schedule-tasks` merge-at-ready exception permits merging
+in-scope code after green QA and independent review while the card remains in
+`ready/`; it never moves that card to `done/`. Any automated `ready/ → done/`
+transition must independently satisfy the authorization rules in Done below; the
+scheduler scope manifest does not authorize it.
 
 ## IDs & Prefix
 
@@ -166,7 +169,8 @@ Auto-review passed + AC met + tests green → move to `ready/`. If review finds 
 Authorization is exactly one of: `explicit user approval at hand-off`; or, only
 for one named EPIC and its approved child cards, `recorded EPIC-scoped upfront
 autonomous authorization`. The latter never authorizes push, a later EPIC, scope
-expansion, or bypassing tests/review. Order matters — card first, merge last:
+expansion, or bypassing tests/review. Normal/manual finalization order is card
+first, merge last:
 
 1. Move the card `ready/ → done/` (`kanban-move.sh <ID> done --approved` or git-move manually).
 2. Verify the task branch is clean (`git status --short` empty — everything
@@ -175,8 +179,16 @@ expansion, or bypassing tests/review. Order matters — card first, merge last:
    below).
 
 Outside an EPIC with recorded EPIC-scoped upfront autonomous authorization,
-`ready/ → done/` requires explicit user approval at hand-off. Never merge before
-the card is in `done/` and the branch has been verified clean.
+`ready/ → done/` requires explicit user approval at hand-off. For normal/manual
+work, never merge before the card is in `done/` and the branch has been verified
+clean.
+
+**Narrow `schedule-tasks` exception:** a task may be squash-merged from `ready/`
+while its card remains in `ready/` only when a valid hash-verified scope manifest
+lists that exact card, the scope was approved before scheduling, and QA plus an
+independent review passed. This exception permits merge-at-ready and chaining only
+inside the manifest. It never moves the card to `done/`, authorizes push/deploy,
+or overrides project-local rules. The user still performs `ready/ → done/` later.
 
 ### Freeze and closed
 

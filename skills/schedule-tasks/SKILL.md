@@ -1,20 +1,26 @@
 ---
 name: schedule-tasks
-description: Schedule autonomous claude runs for kanban cards, each in its own byobu/tmux window. Triggers — RU "запланируй задачи", "запусти задачи по таймеру", "поставь в крон задачи из todo"; EN "schedule tasks", "run tasks on a timer", "auto-run kanban". Chain self-arms on ok/park/skip (+20 min); stops only on no-eligible-card or atd-off; never moves a card to done/. Escalation parks on a branch non-blocking; resume with /schedule-tasks resume.
+description: Schedule autonomous claude runs for Kanban cards within a user-approved, hash-verified card allowlist. A scoped run may merge after green QA/review while leaving the card in ready/; done/ remains user-only. Chain advances only inside that allowlist and never pushes or deploys.
 ---
 
 ## Purpose
 
 Schedule one-shot autonomous `claude` runs for cards in `.claude/kanban/todo/`. Each job opens
-a byobu window in session `1`, walks one card `todo→progress→test→ready`, then self-chains the
-next card at **+20 min** on `ok`, `park`, or `skip`. Chain **STOPS** only when atd is inactive
-or the backlog has no eligible card.
-Final hop `ready→done` is **user-only**. Escalation parks non-blocking on a `task/*` branch;
-resume via `/schedule-tasks resume`.
+a byobu window in session `1`, walks one card `todo→progress→test→ready`, then may self-chain
+at **+20 min** only through the exact, previously approved scope manifest. The selected card is
+the default single-card scope; every additional card requires explicit approval of its exact
+basename and order. A recorded EPIC authorization may supply that list only after the caller
+verifies the parent record and approved children.
+
+Narrow scheduler exception: after green QA and independent review, an in-scope task may merge
+to its recorded base while the card remains in `ready/`. This does not authorize `ready→done`,
+push, or deploy. The final hop `ready→done` is always **user-only**. Escalation parks on a
+`task/*` branch; resume via `/schedule-tasks resume`.
 
 Git mechanics follow the [git-flow](../git-flow/SKILL.md) core. The autonomous
-**per-task branch + park-commit + bulk-stage-on-resume** model below is this
-skill's documented exception to that core.
+per-task branch + park-commit model and the scoped merge-at-ready exception below
+are this skill's documented deltas. The manifest never authorizes bulk staging,
+push, deploy, or a `done/` move.
 
 Commit shape + lifecycle → `lifecycle.md`. Script internals, session IDs, log paths, edge
 cases → `reference.md`.
@@ -39,15 +45,22 @@ Defaults (do NOT ask):
   3. `task: review <ID> (progress→test)` — git mv only, own commit;
   4. `task: ready <ID> (test→ready)` — git mv only, own commit.
   Full details → `lifecycle.md`.
-- **Order** = chain picks the next card itself (related-first, then lex-oldest — see `lifecycle.md`).
+- **Scope** = exactly the initially selected card. No other `todo/` card is implicitly included.
+- **Order** = exact order of the approved card list in the scope manifest.
 
 Ask only for:
 - **Ambiguous date/time** — "через час" (in an hour) / "вечером" (in the evening) when already
   past that. Skip if user gave `at -t YYYYMMDDhhmm`-style precision.
+- **Scope expansion** — if more than the selected card should run, show the exact ordered
+  basenames (or verify a named EPIC's recorded approved children) and obtain explicit approval
+  before creating the manifest. Do not infer a batch from the backlog.
 - **User-stated constraints** that need confirmation ("только front-* задачи" (only front-* tasks),
   "не трогай DB" (don't touch DB), "после каждой задачи e2e" (e2e after each task) — confirm prefix / scope / command).
 
-Capture any constraints verbatim — they go into `.chain-conditions` (step 3).
+Capture exact authorized card basenames in the scope manifest. Free-form `.chain-conditions`
+are a separate mechanism and are not injected into the current runner prompt; do not rely on
+them to enforce task scope or operational constraints. If a required constraint cannot be
+enforced or safely followed, do not schedule the run.
 
 ### 2. Verify pre-conditions
 
@@ -58,58 +71,64 @@ ls .claude/kanban/todo/                            # confirm at least one card
 which claude                                       # ~/.local/bin/claude expected
 test -x "${CLAUDE_PLUGIN_ROOT}/scripts/run-claude-task.sh"
 test -x "${CLAUDE_PLUGIN_ROOT}/scripts/run-claude-task-inner.sh"
+test -x "${CLAUDE_PLUGIN_ROOT}/scripts/create-task-scope.sh"
+test -x "${CLAUDE_PLUGIN_ROOT}/scripts/chain-next-task.sh"
 ```
 
 > `${CLAUDE_PLUGIN_ROOT}` is inlined by Claude Code — not a real shell env var; don't `echo` it.
 
-### 3. Conditions propagation (if user gave constraints)
+### 3. Scope authorization
 
-Write user constraints to a single file all chain links read:
+Before calling the helper, obtain explicit user approval for the exact ordered card basenames.
+The helper records the canonical repository, current base branch, approval source, fixed allowed
+effects, and card allowlist in a SHA-256-named manifest under the per-project run-state directory.
+The one-card default requires approval for that selected card; extending the chain requires
+additional exact cards or a verified recorded EPIC authorization.
 
 ```bash
 REPO="$(git rev-parse --show-toplevel)"
 PROJECT_NAME="$(basename "$REPO")"
-COND_FILE="$HOME/.local/state/claude-auto-runs/$PROJECT_NAME/.chain-conditions"
-mkdir -p "$(dirname "$COND_FILE")"
-cat > "$COND_FILE" <<'EOF'
-- Do not push or open a PR.
-- Use standard tier for implementation (pass resolved `AI_MODEL_STANDARD` slug).
-EOF
+TASK_DIR="$REPO/.claude/kanban/todo"
+FIRST="$(ls "$TASK_DIR" | sort | head -1)"
+SCOPE_OUTPUT="$("${CLAUDE_PLUGIN_ROOT}/scripts/create-task-scope.sh" --repo "$REPO" --approved --approval-source explicit-user --card "$TASK_DIR/$FIRST")"
+SCOPE_ID="${SCOPE_OUTPUT#scope-id=}"
 ```
 
-Replace example lines with actual constraints. Skip if no constraints.
-Full propagation lifecycle → `reference.md`.
+Repeat `--card "$TASK_DIR/<approved-basename>.md"` only for each additional card the user
+approved, in the desired order. Do not use a wildcard or include all of `todo/`.
 
-### 4. Schedule first card only
+### 4. Schedule the first in-scope card
 
 > Always use `at -t CCYYMMDDhhmm` (never `at HH:MM` — midnight ambiguity; never `tomorrow` —
-> drifts). Schedule **only the first card** — chain self-arms the rest.
+> drifts). Schedule only the first card from the approved manifest. Every chained job reuses
+> the same scope ID.
 
 ```bash
-REPO="$(git rev-parse --show-toplevel)"
-TASK_DIR="$REPO/.claude/kanban/todo"
 RUNNER="${CLAUDE_PLUGIN_ROOT}/scripts/run-claude-task.sh"
-FIRST="$(ls "$TASK_DIR" | sort | head -1)"
-echo "$RUNNER $TASK_DIR/$FIRST" | at -t 202605260330
+source "${CLAUDE_PLUGIN_ROOT}/scripts/task-scope.sh"
+AT_COMMAND="exec $(task_scope_shell_quote "$RUNNER") $(task_scope_shell_quote "$TASK_DIR/$FIRST") $(task_scope_shell_quote "$SCOPE_ID")"
+printf '%s\n' "$AT_COMMAND" | at -t 202605260330
 ```
 
 ### 5. Verify
 
 ```bash
-atq | sort -k 4      # one job expected (chain takes over)
-at -c <N> | tail -3  # confirm what will run
+atq | sort -k 4      # one initial job expected
+at -c <N>            # verify task path and scope ID in the queued command
 ```
 
-Tell user: `<time> → <first task>`; "chain arms next card automatically; cancel with `atrm <N>`".
-If `.chain-conditions` was written, show its path and content.
+Tell user: `<time> → <first task>`; show the scope ID and exact authorized card list; explain
+that the chain stops when that list is exhausted. Cancel with `atrm <N>`.
 
 ## Self-chaining
 
-On **ok**, **park**, or **skip**: agent calls `select-next-task.sh` to pick the next unblocked
-card from `todo/` and enqueues it via `at -t +20min`. Cards that depend on a currently-parked
-task are skipped automatically. Chain **STOPS** only on: atd inactive, no eligible next card,
-or new uncommitted paths on base beyond the pre-run baseline. At most one chained job is ever
-queued. Kill in-flight: `atq` → `atrm <N>`. Full chain mechanics → `reference.md`.
+On **ok**, **park**, or **skip**, the prompt calls `chain-next-task.sh` once. The helper validates
+the same scope ID, checks the baseline, asks `select-next-task.sh` for the next unblocked card in
+the manifest's exact order, and queues one `at -t +20min` job with that scope ID. It never falls
+back to another `todo/` card. The chain stops on: atd inactive, exhausted scope, no eligible
+in-scope card, invalid/tampered scope, changed base branch, or new uncommitted paths beyond the
+pre-run baseline. The manifest is retained as an audit record. Kill an in-flight queued job:
+`atq` → `atrm <N>`. Full chain mechanics → `reference.md`.
 
 ## Escalation = park & advance (non-blocking)
 
@@ -118,7 +137,7 @@ On a blocker, arch/logic decision, qa-fail, review-fail, or merge-conflict, the 
 2. Annotates the card with `## ⏸ Parked — <REASON>` (branch, problem, proposed options/default).
 3. Calls `park-task.sh` — stages extra WIP (baseline-aware), commits `wip(park): <NAME> (<REASON>)`, returns to base, writes `.parked/<NAME>` index.
 4. Sends **tg-notify**: task name, branch, problem summary + options, how to resume.
-5. Runs the **chain step** (step 9 via `select-next-task.sh`) → next unblocked card at +20 min.
+5. Runs the **chain step** (step 9 via `chain-next-task.sh`) → next unblocked in-scope card at +20 min.
 6. Exits with `AUTO-RUN-RESULT: park: <NAME>: parked (<REASON>)`.
 
 `AskUserQuestion` is **never** used in the autonomous flow. Full detail → `reference.md`.
@@ -142,11 +161,11 @@ Run `/schedule-tasks resume [<NAME>]` in the main thread (interactive, not sched
      - Then `git switch task/<NAME>`.
 3. **Resume work**: read the card's `## ⏸ Parked` section, apply the user's answer, continue
    implementation, run qa-check, then `progress→test→ready` on the branch.
-4. **Merge**: when the task lands in `ready/` on the branch, merge to base:
-   `git switch <BASE_BRANCH>` → `git merge --squash "task/<NAME>"` → `git commit -m "task: <NAME> done"` (one squash commit) → `git branch -m "task/<NAME>" "done/<NAME>"` (archive, do not delete).
+4. **Merge**: after QA/review pass, when the task lands in `ready/` on the branch, merge to base:
+   `git switch <BASE_BRANCH>` → `git merge --squash "task/<NAME>"` → `git commit -m "task: <NAME> merged (ready)"` (one squash commit) → `git branch -m "task/<NAME>" "done/<NAME>"` (archive, do not delete). The card remains in `ready/`.
    On merge conflict → resolve manually; do NOT auto-park from resume (interactive, user present).
 5. **Cleanup**: after the merge, delete `$LOG_DIR/.parked/<NAME>`.
-6. **Done**: `ready→done` is **user-only** — do not perform it autonomously.
+6. **Done**: `ready→done` is **user-only** — do not perform it in the scheduled prompt or resume flow.
 
 ## Cancellation
 
@@ -159,9 +178,11 @@ atq | awk '{print $1}' | xargs -r atrm      # cancel ALL — warn user first
 ## Stop conditions (do NOT)
 
 - DO NOT schedule without confirming date/time if ambiguous
-- DO NOT queue a task not in `todo/`
+- DO NOT queue a task not in `todo/` or outside the hash-verified scope manifest
 - DO NOT use `cron` for one-shot — use `at`
-- DO NOT push / merge / open PRs from the autonomous prompt
+- DO NOT push, deploy, or open PRs from the autonomous prompt
+- In the scheduled prompt, DO NOT merge without a valid scope manifest and green QA + independent review; merge is allowed only in step 8 and the card stays in `ready/`. Interactive resume uses its own reviewed merge step.
+- DO NOT extend the manifest or advance to an unlisted task
 - DO NOT put `--debug-file` inside the repo (ENOENT risk; see `reference.md`)
 - DO commit `task: start <ID> (todo→progress)` as its OWN commit — never bundle the start mv with implementation
 - DO NOT instruct the prompt to move a card into `done/` — user-only step

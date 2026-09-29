@@ -1,8 +1,11 @@
 # Kanban lifecycle (autonomous run contract)
 
-The autonomous prompt walks one card through `todo → progress → test → ready`
-on a dedicated `task/<NAME>` branch, merging to base on success. The
-final hop `ready → done` is the user's manual step.
+The autonomous prompt walks one approved card through `todo → progress → test → ready`
+on a dedicated `task/<NAME>` branch. A valid per-chain scope manifest permits a
+narrow merge-at-ready exception after green QA and independent review. The card
+remains in `ready/`; the final hop `ready → done` is always the user's manual step.
+The manifest authorizes only its exact ordered card list, merge-at-ready, and
+chaining within that list; it never authorizes `done/`, push, or deploy.
 
 ## Branch model
 
@@ -10,7 +13,7 @@ final hop `ready → done` is the user's manual step.
 |-------|--------|--------------|
 | Start | **base** | `git mv todo→progress` + commit; then `git switch -c "task/<NAME>"` |
 | Impl / qa / review | `task/<NAME>` | all work + commits |
-| Finalize (ok) | `task/<NAME>` → **base** | `git mv test→ready` + commit; `git switch base`; `git merge --squash "task/<NAME>"` + one `git commit`; `git branch -m "task/<NAME>" "done/<NAME>"` (archive, not deleted) |
+| Finalize (ok, in scope) | `task/<NAME>` → **base** | `git mv test→ready` + commit; green QA + independent review; `git switch base`; `git merge --squash "task/<NAME>"` + `task: <NAME> merged (ready)` commit; card stays in `ready/`; archive branch as `done/<NAME>` |
 | Park (any failure) | `task/<NAME>` | `wip(park): <NAME> (<REASON>)` via `park-task.sh`; branch stays; base stays clean |
 
 ## Commit shape per card
@@ -23,7 +26,7 @@ Happy path — 4+ commits on branch (except the start commit which lands on base
 | 2+ | task/*  | `<scope>: <short description>` (one or more)| Code + Execution Log; scope: `api\|db\|infra\|docs\|task` (per git-flow)|
 | 3  | task/*  | `task: review <NAME> (progress→test)`       | `git mv progress→test` only                                            |
 | 4  | task/*  | `task: ready <NAME> (test→ready)`           | `git mv test→ready` only                                               |
-| — merge — | base | one squash commit `task: <NAME> done`    | lands all branch commits on base as ONE commit; branch renamed to `done/<NAME>` |
+| — scoped merge — | base | one squash commit `task: <NAME> merged (ready)` | lands all branch commits on base as ONE commit; card remains in `ready/`; branch renamed to `done/<NAME>` |
 
 Park-path commit (on `task/<NAME>` branch only — via `park-task.sh`):
 
@@ -35,8 +38,9 @@ Park-path commit (on `task/<NAME>` branch only — via `park-task.sh`):
 | question       | `wip(park): <NAME> (question)`                  |
 | merge-conflict | `wip(park): <NAME> (merge-conflict)`            |
 
-The chain **never** writes anything that lands the card in `done/` — that's
-the user's manual step (`ready→done`, after their final approval).
+The chain **never** moves the card into `done/` — that's the user's manual step
+(`ready→done`, after their final approval). The branch archive name `done/<NAME>`
+means merged branch only; it does not change the card's Kanban stage.
 
 The `progress/`, `test/`, and `ready/` directories may not exist in fresh repos — the
 agent runs `mkdir -p .claude/kanban/{progress,test,ready}` once before the first
@@ -49,21 +53,21 @@ every failure becomes a `park`.
 
 | Final location | `AUTO-RUN-RESULT` | Chain    | Cause                                                              |
 |----------------|-------------------|----------|--------------------------------------------------------------------|
-| `ready/` (merged to base) | `ok` | **advances** | Implementation green, review green, merged to base   |
+| `ready/` (merged to base; card still ready) | `ok` | **advances within scope** | Implementation green, review green, approved merge to base |
 | `progress/` or `test/` + branch `task/<NAME>` | `park` | **advances** | Task parked: qa-fail, review-fail, blocker, question, or merge-conflict |
 | `todo/`        | `skip`            | **advances** | Step-2 sanity: card not in `todo/` (already moved or wrong stage) |
 | `grooming/`    | `skip`            | **advances** | Card was parked for clarification — chain skips and moves on      |
 
-The inner script uses this mapping as a **fallback** when the agent's final
-`AUTO-RUN-RESULT:` line is missing or garbled — the kanban stage is the source
-of truth.
+The current inner script reads `AUTO-RUN-RESULT:` from the session JSONL. If the
+marker is missing or garbled, it sets the result to `unknown`, cancels any queued
+continuation for that scope, and stops. Kanban-stage fallback is not implemented.
 
 ## Implementation step (project-agnostic)
 
 The agent reads the card and implements it. For subagent / test-command
 selection it inspects the **host project's** `CLAUDE.md`:
 
-- If the project documents named subagents (e.g. under a "Сабагенты" / "Subagents" / "Specialised agents" section), the agent picks the one whose description matches the touched module. If none match, it implements directly.
+- If the project documents named subagents (e.g. under a "Сабагенты" / "Subagents" / "Specialised agents" section), the agent picks the one whose description matches the touched module. If none match, it implements directly. Before merge-at-ready, a separate fresh read-only reviewer must approve the diff; self-review or an unavailable reviewer is not approval and requires parking.
 - For QA the agent runs the project's standard lint/test (commonly `make test` + `make lint`, otherwise whatever `CLAUDE.md` documents). If the project has no such command, the agent runs targeted tests for the touched files (e.g. `pytest <path>`, `npm test -- <pattern>`, `go test ./<pkg>`).
 - The Execution Log section in the card is updated during implementation — those edits land in commit 1 alongside the code changes.
 
@@ -71,32 +75,38 @@ No project-specific agent names or skill names are hard-coded in the prompt.
 
 ## Next-task selection (for self-chain step)
 
-Step 9 runs on **every** outcome (ok/park/skip) via `select-next-task.sh`. The script
-picks one next card from `.claude/kanban/todo/` (NOT from `grooming/`):
+Step 9 runs on **every** outcome (ok/park/skip) via `chain-next-task.sh`, which passes
+the same SHA-256 scope ID to `select-next-task.sh`. The selector considers only exact
+card basenames in the approved manifest that currently exist in `.claude/kanban/todo/`
+(NOT `grooming/`), and it preserves manifest order:
 
-1. **Skip blocked cards.** A card is **blocked** if it contains a `depends on` /
+1. **Move forward only.** After a run finishes, selection starts strictly after
+   that card in the manifest and never wraps around. A card skipped earlier
+   because it was blocked or absent is not reconsidered if its state later changes.
+2. **Skip blocked cards.** A card is **blocked** if it contains a `depends on` /
    `blocked by` / `зависит от` / `блокируется` line (case-insensitive) referencing
    a task ID that currently has an entry in `.parked/`. Blocked cards are skipped;
    the chain picks the next unblocked candidate.
-2. **Related card first.** Among unblocked cards, prefer a card that:
-   - shares an ID prefix with the just-finished card (e.g. both start `K-`, `STORY-`), OR
-   - mentions the finished card's ID in its body.
-   If multiple match, take the **lexicographically smallest filename**.
-3. **Otherwise lexicographic.** Lex-smallest unblocked card in `todo/`.
-4. **All blocked / empty** → `AUTO-RUN-NEXT: none`, do NOT call `at`.
+3. **Manifest order.** Preserve the exact recorded order; do not reorder the list
+   using task relationships or lexical sorting, and never add a card absent from it.
+4. **No eligible later card remains** → `AUTO-RUN-NEXT: none`,
+   do NOT call `at`.
 
-The selection logic lives in `scripts/select-next-task.sh` (args: `<REPO> <PARKED_DIR> [<JUST_FINISHED_NAME>]`).
-No exclusion lists, no roadmap parsing. To keep a card out of the chain: move it to `grooming/`.
+The selection logic lives in `scripts/select-next-task.sh` (args:
+`<REPO> <PARKED_DIR> <JUST_FINISHED_NAME> <SCOPE_ID>`). Missing, malformed,
+tampered, wrong-repository, or wrong-base manifests fail closed. To keep a card
+out of the chain, do not include it in the approved list.
 
 ## Chain stops cleanly when
 
-- No eligible next card (`AUTO-RUN-NEXT: none`) → inner script removes
-  `.chain-conditions` file as cleanup.
+- No eligible next in-scope card (`AUTO-RUN-NEXT: none`) → chain ends. The
+  scope manifest is retained as an audit record.
 - Working tree (base) has **new** uncommitted paths at chain step (baseline-aware `comm -23`
   check — pre-existing dirt is fine). After ok (merge) or park (base stays clean) this
   should not apply; after skip (no branch created) also fine.
 - `atd` is inactive (`systemctl is-active atd` ≠ `active`).
-- All remaining `todo/` cards are blocked (each depends-on a currently-parked task).
+- All remaining approved `todo/` cards are blocked (each depends-on a currently-parked task).
+- Scope validation fails, the base branch changed, or a continuation is outside the manifest.
 
 A stopped chain is **never** auto-restarted — the user re-arms via
 `/schedule-tasks`.

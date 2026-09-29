@@ -76,5 +76,8 @@ Manual/orchestrated work uses the per-task branch model in `SKILL.md` (own
 `done/task/<ID>`), following the [git-flow](../git-flow/SKILL.md) core.
 
 Autonomous (`schedule-tasks`) runs also use a `task/<ID>` branch but with their
-own commit shape and merge/park mechanics — `schedule-tasks` owns that contract.
-See `schedule-tasks/lifecycle.md` for its full commit table.
+own commit shape and park mechanics. A valid, user-approved scope manifest is a
+narrow exception: after green QA and independent review, an in-scope task may be
+merged while its card remains in `ready/`. It never authorizes `done/`, push, or
+deploy; the user moves the card to `done/` separately. See
+`schedule-tasks/lifecycle.md` for the full contract.

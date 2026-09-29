@@ -10,10 +10,33 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-TASK_FILE="${1:?usage: $0 <absolute-path-to-task.md>}"
-TASK_NAME="$(basename "$TASK_FILE" .md)"
-PROJECT_DIR="$(cd "$(dirname "$TASK_FILE")/../../.." && pwd)"
+TASK_FILE="${1:?usage: $0 <absolute-path-to-task.md> <scope-id>}"
+SCOPE_ID="${2:?usage: $0 <absolute-path-to-task.md> <scope-id>}"
+TASK_FILE="$(realpath -e -- "$TASK_FILE")" || {
+    printf 'ERROR: task file does not exist\n' >&2
+    exit 1
+}
+TASK_BASENAME="$(basename -- "$TASK_FILE")"
+TASK_NAME="$(basename -- "$TASK_FILE" .md)"
+PROJECT_DIR="$(git -C "$(dirname -- "$TASK_FILE")" rev-parse --show-toplevel 2>/dev/null)" || {
+    printf 'ERROR: task file is not inside a Git repository\n' >&2
+    exit 1
+}
+PROJECT_DIR="$(realpath -e -- "$PROJECT_DIR")"
 PROJECT_NAME="$(basename "$PROJECT_DIR")"
+
+# shellcheck source=task-scope.sh
+source "$SCRIPT_DIR/task-scope.sh"
+LOG_DIR="${HOME:-/home/coder}/.local/state/claude-auto-runs/${PROJECT_NAME}"
+task_scope_load "$PROJECT_DIR" "$LOG_DIR" "$SCOPE_ID" || exit 1
+task_scope_contains "$TASK_BASENAME" || {
+    printf 'ERROR: task is outside the approved scope: %s\n' "$TASK_BASENAME" >&2
+    exit 1
+}
+task_scope_card_is_todo "$PROJECT_DIR" "$TASK_FILE" || {
+    printf 'ERROR: scheduled task is no longer in todo/: %s\n' "$TASK_BASENAME" >&2
+    exit 1
+}
 
 SOCKET="/tmp/tmux-1000/default"
 SESSION="1"
@@ -36,4 +59,4 @@ CARD_ID="$(printf '%s' "$TASK_NAME" | grep -oE '^[A-Za-z]+-[0-9]+' || printf '%s
 WIN_NAME="${PROJECT_NAME:0:2}:${CARD_ID}"
 WIN_NAME="${WIN_NAME:0:10}"
 tmux -S "$SOCKET" new-window -t "${SESSION}:" -n "$WIN_NAME" \
-    "exec '$INNER' '$TASK_FILE'"
+    "exec $(task_scope_shell_quote "$INNER") $(task_scope_shell_quote "$TASK_FILE") $(task_scope_shell_quote "$SCOPE_ID")"

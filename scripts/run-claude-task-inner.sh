@@ -10,9 +10,19 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-TASK_FILE="$1"
-TASK_NAME="$(basename "$TASK_FILE" .md)"
-PROJECT_DIR="$(cd "$(dirname "$TASK_FILE")/../../.." && pwd)"
+TASK_FILE="${1:?usage: $0 <absolute-path-to-task.md> <scope-id>}"
+SCOPE_ID="${2:?usage: $0 <absolute-path-to-task.md> <scope-id>}"
+TASK_FILE="$(realpath -e -- "$TASK_FILE")" || {
+    printf 'ERROR: task file does not exist\n' >&2
+    exit 1
+}
+TASK_BASENAME="$(basename -- "$TASK_FILE")"
+TASK_NAME="$(basename -- "$TASK_FILE" .md)"
+PROJECT_DIR="$(git -C "$(dirname -- "$TASK_FILE")" rev-parse --show-toplevel 2>/dev/null)" || {
+    printf 'ERROR: task file is not inside a Git repository\n' >&2
+    exit 1
+}
+PROJECT_DIR="$(realpath -e -- "$PROJECT_DIR")"
 PROJECT_NAME="$(basename "$PROJECT_DIR")"
 # Claude Code stores session JSONL under ~/.claude/projects/<encoded-path>/,
 # where <encoded-path> = absolute project dir with every '/' replaced by '-'.
@@ -25,11 +35,23 @@ case "$BASE_BRANCH" in
         exit 1
         ;;
 esac
+# shellcheck source=task-scope.sh
+source "$SCRIPT_DIR/task-scope.sh"
+LOG_DIR="${HOME:-/home/coder}/.local/state/claude-auto-runs/${PROJECT_NAME}"
+task_scope_load "$REPO" "$LOG_DIR" "$SCOPE_ID" || exit 1
+task_scope_contains "$TASK_BASENAME" || {
+    printf 'ERROR: task is outside the approved scope: %s\n' "$TASK_BASENAME" >&2
+    exit 1
+}
+task_scope_card_is_todo "$REPO" "$TASK_FILE" || {
+    printf 'ERROR: scheduled task is no longer in todo/: %s\n' "$TASK_BASENAME" >&2
+    exit 1
+}
+SCOPE_TEXT="$(printf '  - %s\n' "${SCOPE_CARDS[@]}")"
 TS="$(date +%Y%m%d_%H%M%S)"
 # Logs MUST live OUTSIDE the repo. The autonomous prompt previously ran
 # `git stash push -u`, which stashed the open --debug-file mid-write and
 # crashed claude with ENOENT (appendFileSync to a vanished file).
-LOG_DIR="${HOME:-/home/coder}/.local/state/claude-auto-runs/${PROJECT_NAME}"
 DEBUG_LOG="$LOG_DIR/${TS}_${TASK_NAME}.debug.log"
 META_LOG="$LOG_DIR/${TS}_${TASK_NAME}.meta.log"
 # Baseline dirty-set captured before claude runs; read by chain step 9 + end-of-run
@@ -39,11 +61,16 @@ BASELINE_FILE="$LOG_DIR/.baseline-dirty-${TS}"
 SESSION_ID="$(cat /proc/sys/kernel/random/uuid)"
 
 mkdir -p "$LOG_DIR"
+task_scope_acquire_lock "$REPO" "$LOG_DIR" "$SCOPE_ID" || exit 1
 cd "$REPO"
 git status --porcelain > "$BASELINE_FILE" 2>/dev/null || true
 
 PROMPT=$(cat <<PROMPT_EOF
 Выполни задачу из файла \`${TASK_FILE}\`. Автономный запуск — мелкие вопросы решай сам; останавливайся только через парковку (триггеры ниже).
+
+Approved scope ID: \`${SCOPE_ID}\`. Authorized card basenames, in order:
+${SCOPE_TEXT}
+Scope is immutable for this chain. Process/merge/chain only listed cards. Never infer permission from other \`todo/\` cards. The scope permits merge at \`ready/\` after green QA and independent review; it does NOT permit moving a card to \`done/\`, pushing, or deploying.
 
 Сабагенты и kanban-правила → CLAUDE.md + \`.claude/skills/kanban/SKILL.md\`.
 
@@ -70,7 +97,7 @@ PROMPT=$(cat <<PROMPT_EOF
    \`git switch -c "task/${TASK_NAME}"\`
    Далее вся работа — на ветке \`task/${TASK_NAME}\`.
 
-4. **Имплементация.** Делегируй сабагенту по CLAUDE.md (\`python-backend\`, \`go-client\`, \`browser-extension\`, \`frontend-spa\`, \`infra-devops\`; безопасность — \`security-auditor\` read-only). Каждое подзадание → Execution Log + path-scoped коммит: \`git add <явные пути>\` → \`git commit -m "<scope>: …"\` (scope: \`api|goclient|ext|infra|db|docs\`).
+4. **Имплементация.** Делегируй подходящему сабагенту, только если его роль явно описана в CLAUDE.md целевого проекта; иначе реализуй сам. Каждое подзадание → Execution Log + path-scoped коммит: git add <явные пути> → git commit -m "<scope>: …" (scope: api|goclient|ext|infra|db|docs).
 
 5. **qa-check** (skill qa-check). Красный → Execution Log + коммит \`task: ${TASK_NAME} qa-check failed\` → **парковка (qa-fail)**.
 
@@ -78,58 +105,22 @@ PROMPT=$(cat <<PROMPT_EOF
    \`git mv .claude/kanban/progress/\$(basename ${TASK_FILE}) .claude/kanban/test/\$(basename ${TASK_FILE})\`
    \`git commit -m "task: review ${TASK_NAME} (progress→test)"\`
 
-7. **Test** (делегируй \`test-engineer\`: AC + релевантные тесты). Execution Log — что проверял + результат. Нашёл проблемы → **парковка (review-fail)**.
+7. **Тесты и независимое ревью.** Проверь AC и релевантные тесты по CLAUDE.md (делегируй тестовую роль, если она объявлена). Затем передай diff отдельному свежему read-only reviewer-контексту; исполнитель не может сам одобрить свою работу. Запиши результаты в Execution Log. Замечания или отсутствие независимого reviewer → **парковка (review-fail)**.
 
-8. **Финализация (test → ready + merge):**
+8. **Финализация (test → ready + scoped merge exception):**
    \`git mv .claude/kanban/test/\$(basename ${TASK_FILE}) .claude/kanban/ready/\$(basename ${TASK_FILE})\`
    \`git commit -m "task: ready ${TASK_NAME} (test→ready)"\`
    \`git switch ${BASE_BRANCH}\`
    \`git merge --squash "task/${TASK_NAME}"\` — при неудаче: если \`MERGE_HEAD\` существует (конфликт, мерж начался) → \`git merge --abort\` → **парковка (merge-conflict)**; если \`MERGE_HEAD\` отсутствует (мерж отклонён до старта) → **парковка (merge-conflict)** напрямую без \`--abort\`.
-   \`git commit -m "task: ${TASK_NAME} done"\` — ОДИН squash-коммит ветки на базу.
+   \`git commit -m "task: ${TASK_NAME} merged (ready)"\` — ОДИН squash-коммит ветки на базу; карточка остаётся в \`ready/\`.
    \`git branch -m "task/${TASK_NAME}" "done/${TASK_NAME}"\` — переименовать ветку в архивную \`done/<NAME>\` (НЕ удалять).
    → **шаг 9**, затем **шаг 10** с \`AUTO-RUN-RESULT: ok: ${TASK_NAME}: completed\`.
 
-9. **Цепочка (при ЛЮБОМ результате: ok/park/skip).** ОБЯЗАТЕЛЬНО до шага 10. Один Bash-вызов:
+9. **Chain (for any result: ok/park/skip).** Required before step 10. Call this shell helper exactly once:
+   \`${SCRIPT_DIR}/chain-next-task.sh "${REPO}" "${LOG_DIR}/.parked" "${TASK_BASENAME}" "${SCOPE_ID}" "${BASELINE_FILE}"\`
+   The helper checks the baseline, selects only the next unblocked card from the approved allowlist, and queues one \`at\` job with the same scope ID. Do not run \`at\` or \`select-next-task.sh\` directly, and do not choose from the general \`todo/\` backlog.
 
-   \`\`\`bash
-   # НЕ ставь set -u (snapshot-caveat: Claude Code патчит grep(), обращаясь к \$ZSH_VERSION).
-   if ! systemctl is-active --quiet atd; then
-       echo "[chain] WARN: atd inactive — chain stops"
-       echo "AUTO-RUN-NEXT: none"
-       exit 0
-   fi
-   _cur_paths=\$(git status --porcelain 2>/dev/null | cut -c4- | sort -u)
-   _base_paths=\$(cut -c4- "${BASELINE_FILE}" 2>/dev/null | sort -u)
-   if [ -n "\$_cur_paths" ]; then
-       _new_dirt=\$(comm -23 <(printf '%s\n' "\$_cur_paths") <([ -n "\$_base_paths" ] && printf '%s\n' "\$_base_paths" || true))
-       if [ -n "\$_new_dirt" ]; then
-           echo "[chain] WARN: uncommitted task changes beyond baseline — chain stops"
-           printf '%s\n' "\$_new_dirt"
-           echo "AUTO-RUN-NEXT: none"
-           exit 0
-       fi
-   fi
-   NEXT=\$("${SCRIPT_DIR}/select-next-task.sh" "${REPO}" "${LOG_DIR}/.parked" "${TASK_NAME}")
-   if [ "\$NEXT" = "none" ]; then
-       echo "[chain] no eligible next card — chain ends"
-       echo "AUTO-RUN-NEXT: none"
-       exit 0
-   fi
-   AT_OUT=\$(echo "${SCRIPT_DIR}/run-claude-task.sh ${REPO}/.claude/kanban/todo/\$NEXT" \\
-       | at -t \$(date -d '+20 minutes' +%Y%m%d%H%M) 2>&1)
-   AT_RC=\$?
-   echo "\$AT_OUT"
-   if [ \$AT_RC -ne 0 ]; then
-       echo "[chain] WARN: at failed (rc=\$AT_RC) for \$NEXT"
-       echo "AUTO-RUN-NEXT: none"
-   else
-       echo "[chain] enqueued next at +20min: \$NEXT"
-       echo "AUTO-RUN-NEXT: \$NEXT"
-   fi
-   \`\`\`
-   Сразу к шагу 10. НЕ запускай \`at\` повторно.
-
-10. **Завершение.** НЕ пушить, НЕ PR, НЕ мержить вне шага 8. Последняя строка ответа:
+10. **Finish.** Do not push, open a PR, merge outside step 8, or move the card from \`ready/\` to \`done/\`. The final answer line must be:
     \`AUTO-RUN-RESULT: <ok|park|skip>: ${TASK_NAME}: <причина>\`
 
 Жёсткие запреты:
@@ -139,7 +130,7 @@ PROMPT=$(cat <<PROMPT_EOF
 - Один \`git mv\` = один коммит (не смешивать с контент-правками, кроме fail-коммитов).
 - \`--no-verify\`.
 - Карточку в \`done/\` — только пользователь.
-- Второй \`at\` за один запуск.
+- Direct \`at\` calls or scope expansion from the prompt; only \`chain-next-task.sh\` may enqueue the next card.
 - \`wip(park)\` коммит на базовой ветке — только через park-task.sh на \`task/*\`.
 - \`AskUserQuestion\` в автономном потоке.
 PROMPT_EOF
@@ -228,9 +219,34 @@ if [ -n "$DIRTY_PATHS" ]; then
     fi
 fi
 
-# === Chain verification (agent enqueues at-job in step 9 of the prompt) ===
-# Runs AFTER claude exits (i.e. after the user closes the interactive window).
-# Does NOT enqueue — chain ownership lives in the prompt (avoids double-booking).
+# Cancel only this scope's queued task, used if a prompt ever emits an invalid marker.
+cancel_scope_jobs() {
+    local expected_task="${1:-}" job job_command runner todo_dir expected_command
+    command -v atq >/dev/null 2>&1 || return 0
+    runner="$SCRIPT_DIR/run-claude-task.sh"
+    todo_dir="$(task_scope_todo_dir "$REPO" 2>/dev/null)" || return 0
+    for job in $(atq 2>/dev/null | awk '{print $1}'); do
+        job_command="$(at -c "$job" 2>/dev/null)"
+        if [ -n "$expected_task" ] && task_scope_valid_card_name "$expected_task"; then
+            expected_command="$(task_scope_job_command "$runner" "$todo_dir/$expected_task" "$SCOPE_ID")"
+            task_scope_job_matches "$job_command" "$expected_command" || continue
+        else
+            if [ "$SCOPE_VALID" != true ]; then
+                echo "[chain] WARN: cannot safely match queued jobs because scope validation failed"
+                return 0
+            fi
+            task_scope_job_scope_matches "$job_command" "$runner" "$SCOPE_ID" "$todo_dir" "${SCOPE_CARDS[@]}" || continue
+        fi
+        atrm "$job" 2>/dev/null || true
+        echo "[chain] cancelled at-job #$job for scope $SCOPE_ID"
+    done
+}
+
+SCOPE_VALID=true
+task_scope_load "$REPO" "$LOG_DIR" "$SCOPE_ID" || SCOPE_VALID=false
+
+# === Chain verification (the scope-aware helper enqueues at step 9) ===
+# Runs after claude exits, before the user closes the retained inspection window.
 {
     echo
     echo "================================================================"
@@ -245,55 +261,52 @@ fi
         NEXT_MARK=$(grep -hoE 'AUTO-RUN-NEXT: ([A-Za-z0-9._-]+|none)' "$JSONL" | tail -1 | sed -E 's/^AUTO-RUN-NEXT: //')
     fi
     case "$RESULT:$NEXT_MARK" in
-        ok:none|ok:)
-            if [ "$NEXT_MARK" = "none" ]; then
-                echo "[chain] result=ok, AUTO-RUN-NEXT=none — chain ended cleanly (no next card or atd off)"
-            else
-                echo "[chain] WARN: result=ok but no AUTO-RUN-NEXT marker — agent skipped step 9 of the prompt"
-            fi
+        ok:none|park:none|skip:none)
+            cancel_scope_jobs ""
+            echo "[chain] result=$RESULT, AUTO-RUN-NEXT=none — chain ended cleanly"
             ;;
-        park:none|park:)
-            if [ "$NEXT_MARK" = "none" ]; then
-                echo "[chain] result=park, AUTO-RUN-NEXT=none — parked last card; no eligible next (clean end)"
-            else
-                echo "[chain] ERROR: result=park but no AUTO-RUN-NEXT marker — agent skipped step 9; chain was NOT advanced"
-                echo "[chain]   re-arm manually:"
-                echo "[chain]     /schedule-tasks  (or: echo \"$SCRIPT_DIR/run-claude-task.sh $REPO/.claude/kanban/todo/<NEXT>.md\" | at -t \$(date -d '+20 minutes' +%Y%m%d%H%M))"
-            fi
-            ;;
-        skip:none|skip:)
-            if [ "$NEXT_MARK" = "none" ]; then
-                echo "[chain] result=skip, AUTO-RUN-NEXT=none — chain ended cleanly (no next card or atd off)"
-            else
-                echo "[chain] WARN: result=skip but no AUTO-RUN-NEXT marker — agent skipped step 9 of the prompt"
-            fi
+        ok:|park:|skip:)
+            cancel_scope_jobs ""
+            echo "[chain] ERROR: result=$RESULT but no AUTO-RUN-NEXT marker — chain was not advanced"
             ;;
         ok:*|park:*|skip:*)
-            # Agent claims it enqueued <NEXT_MARK>. Verify against atq.
-            FOUND=""
-            for j in $(atq 2>/dev/null | awk '{print $1}'); do
-                if at -c "$j" 2>/dev/null | grep -qF "$NEXT_MARK"; then
-                    FOUND="$j"
-                    break
-                fi
-            done
-            if [ -n "$FOUND" ]; then
-                echo "[chain] verified at-job #$FOUND for next card: $NEXT_MARK"
-                atq | sort -k 2
+            if [ "$SCOPE_VALID" != true ]; then
+                cancel_scope_jobs "$NEXT_MARK"
+                echo "[chain] ERROR: scope validation failed after run; queued continuation cancelled"
+            elif ! task_scope_contains "$NEXT_MARK"; then
+                cancel_scope_jobs "$NEXT_MARK"
+                echo "[chain] ERROR: next card is outside the approved scope; queued continuation cancelled"
             else
-                echo "[chain] WARN: agent printed AUTO-RUN-NEXT=$NEXT_MARK but no matching at-job in queue"
-                echo "[chain]       re-arm manually:"
-                echo "[chain]         echo \"$SCRIPT_DIR/run-claude-task.sh $REPO/.claude/kanban/todo/$NEXT_MARK\" | at -t \$(date -d '+20 minutes' +%Y%m%d%H%M)"
-                atq
+                FOUND=""
+                TODO_DIR="$(task_scope_todo_dir "$REPO" 2>/dev/null)"
+                EXPECTED_COMMAND="$(task_scope_job_command "$SCRIPT_DIR/run-claude-task.sh" "$TODO_DIR/$NEXT_MARK" "$SCOPE_ID")"
+                for j in $(atq 2>/dev/null | awk '{print $1}'); do
+                    JOB_COMMAND="$(at -c "$j" 2>/dev/null)"
+                    if task_scope_job_matches "$JOB_COMMAND" "$EXPECTED_COMMAND"; then
+                        FOUND="$j"
+                        break
+                    fi
+                done
+                if [ -n "$FOUND" ]; then
+                    echo "[chain] verified scoped at-job #$FOUND for next card: $NEXT_MARK"
+                    atq | sort -k 2
+                else
+                    echo "[chain] WARN: scoped helper reported $NEXT_MARK but no matching at-job is queued"
+                fi
             fi
             ;;
         *)
-            echo "[chain] result=$RESULT — chain stops (no enqueue expected)"
+            cancel_scope_jobs ""
+            echo "[chain] result=$RESULT — chain stops and scoped queue is cleared"
             ;;
     esac
 } | tee -a "$META_LOG"
 
 rm -f "$BASELINE_FILE"
+
+# The task and chain decision are finished. Do not hold the scheduler lock
+# while the user leaves this interactive window open for inspection.
+task_scope_release_lock
 
 echo
 echo ">>> Window kept open. Press Enter to close."
