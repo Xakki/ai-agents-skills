@@ -7,7 +7,7 @@ source "$HERE/kanban-lib.sh"
 
 usage() {
   cat <<'EOF'
-Usage: kanban-move.sh [--repo P] <ID | basename | path> <target-stage> [--force] [--approved]
+Usage: kanban-move.sh [--repo P] <ID | basename | path> <target-stage> [--force] [--approved] [--resume]
 EOF
 }
 
@@ -15,11 +15,12 @@ rest=()
 kanban::strip_repo_flag rest "$@"
 set -- "${rest[@]}"
 
-FORCE=0; APPROVED=0; REF=""; TARGET=""
+FORCE=0; APPROVED=0; RESUME=0; REF=""; TARGET=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --force) FORCE=1; shift ;;
     --approved) APPROVED=1; shift ;;
+    --resume) RESUME=1; shift ;;
     -h|--help) usage; exit 0 ;;
     -*) echo "kanban-move.sh: unknown flag: $1" >&2; usage >&2; exit 1 ;;
     *)
@@ -43,11 +44,11 @@ resolve_card() {
   board="$(kanban::board_dir "$repo")"
 
   if [ -f "$ref" ]; then
-    CARD_PATH="$(cd "$(dirname "$ref")" && pwd)/$(basename "$ref")"
+    CARD_PATH="$(cd "$(dirname "$ref")" && pwd -P)/$(basename "$ref")"
     return 0
   fi
   if [ -f "$repo/$ref" ]; then
-    CARD_PATH="$repo/$ref"
+    CARD_PATH="$(cd "$(dirname "$repo/$ref")" && pwd -P)/$(basename "$repo/$ref")"
     return 0
   fi
 
@@ -105,21 +106,57 @@ to_idx="$(kanban::stage_index "$TO_STAGE")" || true
 from_idx="$(kanban::stage_index "$FROM_STAGE")" || true
 
 step_ok=0
-if [ "$from_idx" -ge 0 ]; then
-  diff=$((to_idx - from_idx))
-  [ "$diff" -eq 1 ] && step_ok=1
+if [ "$FROM_STAGE" = closed ]; then
+  kanban::die "kanban-move.sh: closed/ is terminal; create a new linked card to resume cancelled work" 2
 fi
 
-if [ "$step_ok" -ne 1 ] && [ "$FORCE" -ne 1 ]; then
-  kanban::die "kanban-move.sh: '$FROM_STAGE -> $TO_STAGE' is not a single forward step; use --force to skip a stage or move backward" 2
+if [ "$RESUME" -eq 1 ] && { [ "$FROM_STAGE" != freeze ] || { [ "$TO_STAGE" != todo ] && [ "$TO_STAGE" != progress ]; }; }; then
+  kanban::die "kanban-move.sh: --resume is only valid from freeze/ to todo/ or progress/" 2
 fi
 
 if [ "$TO_STAGE" = done ] && [ "$APPROVED" -ne 1 ]; then
   kanban::die "kanban-move.sh: moving to done/ requires --approved (caller must hold explicit user approval at hand-off or recorded EPIC-scoped upfront autonomous authorization)" 2
 fi
 
+if [ "$TO_STAGE" = closed ] && [ "$APPROVED" -ne 1 ]; then
+  kanban::die "kanban-move.sh: moving to closed/ requires --approved (caller must hold explicit user approval to cancel the card)" 2
+fi
+
+if [ "$TO_STAGE" = closed ]; then
+  case "$FROM_STAGE" in
+    grooming|todo|progress|test|ready|freeze) step_ok=1 ;;
+    done) kanban::die "kanban-move.sh: successful done/ cards cannot be changed to cancelled closed/ cards" 2 ;;
+    *) kanban::die "kanban-move.sh: cannot close a card from unknown or terminal stage '$FROM_STAGE'" 2 ;;
+  esac
+elif [ "$TO_STAGE" = freeze ]; then
+  case "$FROM_STAGE" in
+    grooming|todo|progress|test|ready) step_ok=1 ;;
+    done|closed) kanban::die "kanban-move.sh: done/ and closed/ cards cannot be moved to freeze/" 2 ;;
+    *) kanban::die "kanban-move.sh: cannot park a card from unknown or non-active stage '$FROM_STAGE'" 2 ;;
+  esac
+fi
+
+if [ "$FROM_STAGE" = freeze ] && [ "$TO_STAGE" != closed ]; then
+  [ "$RESUME" -eq 1 ] \
+    || kanban::die "kanban-move.sh: leaving freeze/ requires --resume and target todo/ or progress/" 2
+  step_ok=1
+elif [ "$FROM_STAGE" != freeze ] && [ "$RESUME" -eq 1 ]; then
+  kanban::die "kanban-move.sh: --resume requires a card currently in freeze/" 2
+fi
+
+if [ "$step_ok" -ne 1 ]; then
+  if [ "$from_idx" -ge 0 ] && [ "$TO_STAGE" != freeze ] && [ "$TO_STAGE" != closed ]; then
+    diff=$((to_idx - from_idx))
+    [ "$diff" -eq 1 ] && step_ok=1
+  fi
+fi
+
+if [ "$step_ok" -ne 1 ] && [ "$FORCE" -ne 1 ]; then
+  kanban::die "kanban-move.sh: '$FROM_STAGE -> $TO_STAGE' is not a permitted transition; --force only bypasses the ordinary sequential-stage check" 2
+fi
+
 BASE_NOEXT="$(basename "$CARD_PATH" .md)"
-if [[ "$BASE_NOEXT" =~ ^([A-Za-z][A-Za-z0-9]*-[0-9]+)-([0-9]{2})-.+$ ]]; then
+if [[ "$BASE_NOEXT" =~ ^([A-Za-z][A-Za-z0-9]*-[0-9]+[A-Za-z]?)-([0-9]{2})-.+$ ]]; then
   EPIC_ID="${BASH_REMATCH[1]}"
   IS_SUBTASK=1
 else
@@ -158,7 +195,7 @@ DEST_PATH="$DEST_DIR/$(basename "$CARD_PATH")"
 GITMOVE="$HERE/../../git-move/git-move.sh"
 
 if [ -f "$GITMOVE" ]; then
-  bash "$GITMOVE" "$CARD_PATH" "$DEST_PATH" >/dev/null
+  (cd "$REPO" && bash "$GITMOVE" "$CARD_PATH" "$DEST_PATH") >/dev/null
 else
   echo "kanban-move.sh: warning: git-move.sh not found at $GITMOVE; falling back to plain mv" >&2
   mkdir -p "$DEST_DIR"

@@ -20,13 +20,28 @@ variable.
 
 **Manual fallback.** These scripts are the default path, not a hard
 requirement — if a script is unavailable, allocate the ID by hand against
-`.claude/kanban.lock` (format below), write the card from
+the lock beside the resolved board root (format below), write the card from
 [task-template.md](task-template.md), and move it with
 [git-move](../git-move/SKILL.md) directly.
 
-## `.claude/kanban.lock`
+## Board-root resolution
 
-Counter file, one per repo, **committed to git**:
+New boards default to `.agents/kanban`; existing `.claude/kanban` boards remain
+supported. If both paths resolve to the same physical directory (for example,
+`.claude` is a relative symlink to `.agents`), they are one board. If both
+directories exist but resolve differently, helpers fail closed rather than
+choosing or merging one. The committed `kanban.lock` is adjacent to the
+resolved board root. If no board directory exists yet, an existing single lock
+selects its legacy or canonical root; two distinct lock files are an error.
+
+The companion `.flock` coordinates only processes opening the same resolved
+lock path. Separate Git worktrees have independent tracked counters and flock
+markers. Until a shared allocator exists, one canonical board owner allocates
+IDs and moves cards from the canonical checkout; task worktrees do neither.
+
+## Board `kanban.lock`
+
+Counter file, one per physical board, **committed to git**:
 
 ```
 # kanban ID counters — managed by kanban-id.sh. Commit this file.
@@ -41,7 +56,7 @@ PERF=7
   (multi-prefix repos are supported — e.g. a `PERF` task living alongside the
   default `AVF` cards).
 - **Allocation is `flock`-guarded.** The actual OS lock is a stable companion
-  file, `.claude/kanban.lock.flock` — NOT `kanban.lock` itself, which is
+  file, `kanban.lock.flock` beside the resolved board root — NOT `kanban.lock` itself, which is
   replaced via `mktemp`+`mv` on every write and would make a direct `flock`
   on it a TOCTOU (a waiter that opened the pre-rename inode is silently
   disconnected from whoever opens the new one). The `.flock` file (and, on
@@ -60,12 +75,12 @@ PERF=7
 A script resolves which prefix to use for an allocation in this order:
 
 1. An explicit `PREFIX`/`--prefix` argument, if the caller passed one — used
-   for that call. If `.claude/kanban.lock` has **no `prefix=` line yet**,
+   for that call. If the resolved `kanban.lock` has **no `prefix=` line yet**,
    this explicit choice IS the first-use confirmation, so it's persisted as
    the project default too (with the same stderr notice as every other
    persist path below). It never *overrides* an already-recorded different
    default, though — pass it every time if that's what you want for one call.
-2. `prefix=` already in `.claude/kanban.lock` — nothing to resolve, no
+2. `prefix=` already in the resolved `kanban.lock` — nothing to resolve, no
    confirmation needed, read-only.
 3. **Otherwise, confirmation is required — nothing is ever auto-picked.**
    The board's dominant existing prefix (scan all cards, count per prefix,
@@ -79,6 +94,10 @@ A script resolves which prefix to use for an allocation in this order:
      Enter/`y` accepts the suggestion, `n` aborts (exit 2, nothing
      persisted), anything else is taken as a literal prefix to use instead
      (validated, then persisted).
+   Existing prefixes are inferred only from filename ID tokens matching
+   `<PREFIX>-<NUM>[<LETTER>][-<NN>]-<slug>.md`; words in a slug such as
+   `css-grid` are not prefixes. The full optional letter remains part of the
+   ID (`K-094a` differs from `K-094b`).
    - **Otherwise (the default — agents, CI, scheduled runs):** prints the
      candidate list (board prefixes with counts, most frequent first, plus
      the dir-derived fallback) and exactly how to confirm, to stderr, then
@@ -103,7 +122,8 @@ Format: `<PREFIX>\t<repo path>`, one row per reserved prefix. It is a
 a different repo path prints a stderr warning and proceeds anyway (your
 confirmed choice — or an existing board's own cards — always wins); a
 missing/unwritable registry is a soft warning too, never a hard failure.
-Every script still works with only `.claude/kanban.lock` present.
+Every script still works with a legacy-only `.claude/kanban.lock` when no board
+directory exists; the resolver keeps the board and counter on that legacy root.
 
 ## `kanban-id.sh` — allocate / inspect IDs
 
@@ -116,7 +136,7 @@ kanban-id.sh prefix                # print the default prefix — confirmation r
 kanban-id.sh set-prefix <PREFIX>   # confirm+persist the project's default prefix
 ```
 
-- `PREFIX` defaults to the project's default prefix (`.claude/kanban.lock`
+- `PREFIX` defaults to the project's default prefix (the resolved `kanban.lock`
   `prefix=` line) when omitted — see [Prefix reservation](#prefix-reservation)
   for what happens when there isn't one yet.
 - `next` allocates from the requested/default regular task prefix. `epic`
@@ -129,8 +149,8 @@ kanban-id.sh set-prefix <PREFIX>   # confirm+persist the project's default prefi
 - `peek` is read-only — use it to preview without consuming a number. When
   `PREFIX` is omitted and no `prefix=` is recorded yet, it still answers from
   the board's dominant existing prefix (see step 3 of
-  [Prefix reservation](#prefix-reservation)) without writing
-  `.claude/kanban.lock` or the registry — unaffected by the confirm-required
+  [Prefix reservation](#prefix-reservation)) without writing the resolved
+  `kanban.lock` or the registry — unaffected by the confirm-required
   contract, since it never persists anything.
 - `prefix` with no default recorded yet is where the confirm-required
   contract lives — see [Prefix reservation](#prefix-reservation). Exits 2
@@ -170,12 +190,12 @@ kanban-new.sh --title "…" [--stage todo|grooming] [--prefix P] \
 ## `kanban-move.sh` — validated stage transition
 
 ```bash
-kanban-move.sh <ID|path> <stage> [--force] [--approved]
+kanban-move.sh <ID|path> <stage> [--force] [--approved] [--resume]
 ```
 
 - First arg accepts either a bare ID (`AVF-43`) — resolved by scanning stage
   dirs for a matching filename — or a full/relative path.
-- `<stage>` is one of `grooming|todo|progress|test|ready|done`.
+- `<stage>` is one of `grooming|todo|progress|test|ready|done|freeze|closed`.
 - Validates the transition before moving anything:
   - `→ done` requires `--approved`, which is a caller attestation. The script
     checks only that the flag is present; it does not validate authorization
@@ -183,18 +203,26 @@ kanban-move.sh <ID|path> <stage> [--force] [--approved]
     approval at hand-off or recorded EPIC-scoped upfront autonomous authorization
     and record the chosen form in the parent EPIC Execution Log. Without the flag,
     the script exits with an error and makes no move.
+  - `→ closed` cancels/supersedes work and also requires `--approved`. A
+    successful `done/` card cannot be reclassified as `closed/`; `closed/` is
+    terminal even with `--force`. Future work needs a new linked card.
+  - `→ freeze` is allowed from `grooming/`, `todo/`, `progress/`, `test/`, or
+    `ready/`. Record the pause reason and return condition in the card's
+    `**Decisions:**`. Leaving `freeze/` is allowed only to `todo/` or
+    `progress/` with `--resume`; `done/` and `closed/` cannot enter `freeze/`.
   - A subtask (`<EPIC-ID>-NN-*`) cannot reach `done/` before its epic
     (`<EPIC-ID>-*`) is already in `done/`.
   - Leaving `grooming/` is blocked while the card still has a
     `**Open questions:**` section — resolve into `**Decisions:**` first (see
     `SKILL.md` grooming protocol).
-  - `--force` bypasses all of the above validations for a deliberate manual
-    override — use sparingly, prints a stderr warning when used.
+  - `--force` bypasses only the ordinary sequential-stage check and the
+    subtask-parent completion gate. It does not bypass `--approved`, the
+    grooming open-questions check, or the `freeze/` and `closed/` rules.
 - On success, moves the card via [git-move](../git-move/SKILL.md) (stages the
   rename, does **not** commit) and prints the suggested commit subject on
   stdout: `task: <verb> <ID> (<from>→<to>)`, where `<verb>` is
-  `groom|start|review|ready|done` for the matching edge (or `move` for a
-  `--force`-only/backward transition). Commit it yourself:
+  `groom|start|review|ready|done` for the matching edge (or `move` for any
+  other special, forced, or backward transition). Commit it yourself:
   ```bash
   git commit -m "$(kanban-move.sh AVF-43 progress)"
   ```
@@ -202,7 +230,7 @@ kanban-move.sh <ID|path> <stage> [--force] [--approved]
 ## `kanban-status.sh` — board overview
 
 ```bash
-kanban-status.sh [--stage todo|grooming|progress|test|ready|done] [--epic <EPIC-ID>]
+kanban-status.sh [--stage todo|grooming|progress|test|ready|done|freeze|closed] [--epic <EPIC-ID>]
 ```
 
 - No flags → counts per stage + the card list per stage; subtasks are printed
@@ -217,15 +245,16 @@ kanban-status.sh [--stage todo|grooming|progress|test|ready|done] [--epic <EPIC-
 kanban-lint.sh [<ID|path>…]
 ```
 
-- No args → lints every **active** card on the board; `done/` (archived) and
-  `freeze/` (parked) cards are excluded. The nits dump
-  `.claude/kanban/grooming/TODO.md` is not a card and is skipped by that exact
+- No args → required-field lint applies to every **active** card on the board;
+  `done/`, `freeze/`, and `closed/` skip content-completeness checks. Board-wide
+  exact-ID uniqueness still scans every lifecycle stage, including those three
+  archives. The nits dump `.agents/kanban/grooming/TODO.md` is not a card and is skipped by that exact
   path only; any other Markdown file stays a lint target. Args restrict to
   specific cards/IDs, but an explicit (absolute or relative) or implicit
-  `done/`/`freeze/` reference remains excluded; an implicit ID/basename prefers
+  `done/`/`freeze/`/`closed/` reference remains excluded from content checks; an implicit ID/basename prefers
   an active match when both an active and an excluded card match.
 - Checks:
-  - filename/ID shape (`<PREFIX>-<NUM>[-<NN>]-<slug>.md`, prefix matches the
+  - filename/ID shape (`<PREFIX>-<NUM>[<LETTER>][-<NN>]-<slug>.md`, prefix matches the
     project's reserved prefix or an existing multi-prefix entry in the lock
     file);
   - required [task-template.md](task-template.md) sections present
@@ -233,10 +262,10 @@ kanban-lint.sh [<ID|path>…]
     `**Impact:**`, `**Recommendation:**`, `**Acceptance Criteria:**`);
   - a stray `**Open questions:**` section on a card **outside** `grooming/`
     (should have been resolved into `**Decisions:**` before leaving grooming);
-  - duplicate IDs across stage dirs (same `<PREFIX>-<NUM>` on two different
-    card files);
+  - duplicate full ID tokens across all stage dirs (for example, the same
+    `K-094a` on two files); distinct tokens `K-094a` and `K-094b` are not duplicates;
   - counter drift — a card number on the board higher than
-    `.claude/kanban.lock`'s recorded counter for that prefix (a lock file that
+    resolved `kanban.lock`'s recorded counter for that prefix (a lock file that
     fell behind; not fatal, `kanban-id.sh` self-heals on next allocation, but
     worth flagging before it masks a real problem).
 - Prints one line per finding to stdout; clean board prints nothing.
@@ -248,7 +277,7 @@ kanban-lint.sh [<ID|path>…]
 | `0` | success (or, for `kanban-lint.sh`, no findings) |
 | `1` | usage error — bad/missing flags or args |
 | `2` | validation/not-found error — unknown ID, illegal transition, missing card, or (`kanban-lint.sh`) findings present |
-| `3` | lock contention — `flock` on `.claude/kanban.lock.flock` timed out |
+| `3` | lock contention — `flock` on the resolved `kanban.lock.flock` timed out |
 
 ## Worked examples
 
@@ -270,18 +299,18 @@ kanban-lint.sh [<ID|path>…]
 **Create a task:**
 ```bash
 "$ROOT"/skills/kanban/scripts/kanban-new.sh --title "Add rate limiter" --stage todo
-# .claude/kanban/todo/AVF-43-add-rate-limiter.md
+# .agents/kanban/todo/AVF-43-add-rate-limiter.md
 ```
 
 **Create an epic + 2 subtasks:**
 ```bash
 S=skills/kanban/scripts
 "$ROOT"/$S/kanban-new.sh --title "Billing rewrite" --epic --stage todo
-# .claude/kanban/todo/EPIC-001-billing-rewrite.md (epic ID = EPIC-001)
+# .agents/kanban/todo/EPIC-001-billing-rewrite.md (epic ID = EPIC-001)
 "$ROOT"/$S/kanban-new.sh --title "DB schema" --sub EPIC-001
-# .claude/kanban/todo/EPIC-001-01-db-schema.md
+# .agents/kanban/todo/EPIC-001-01-db-schema.md
 "$ROOT"/$S/kanban-new.sh --title "API CRUD" --sub EPIC-001
-# .claude/kanban/todo/EPIC-001-02-api-crud.md
+# .agents/kanban/todo/EPIC-001-02-api-crud.md
 ```
 
 **Move a card and commit:**

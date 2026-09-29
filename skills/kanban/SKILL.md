@@ -5,16 +5,33 @@ description: Use when managing tasks — creating, grooming/refining draft tasks
 
 ## Stages
 
-| Stage    | Path                       | Description                                                |
-|----------|----------------------------|------------------------------------------------------------|
-| Grooming | `.claude/kanban/grooming/` | Draft tasks with open questions / unresolved scope         |
-| Todo     | `.claude/kanban/todo/`     | Refined tasks ready to start                               |
-| Progress | `.claude/kanban/progress/` | Currently being worked on                                  |
-| Test     | `.claude/kanban/test/`     | Implementation handed off; review/QA in progress           |
-| Ready    | `.claude/kanban/ready/`    | Auto-review passed; awaiting authorized finalization       |
-| Done     | `.claude/kanban/done/`     | Authorized completion                                      |
+| Stage    | Canonical path              | Description                                                |
+|----------|-----------------------------|------------------------------------------------------------|
+| Grooming | `.agents/kanban/grooming/`  | Draft tasks with open questions / unresolved scope         |
+| Todo     | `.agents/kanban/todo/`      | Refined tasks ready to start                               |
+| Progress | `.agents/kanban/progress/`  | Currently being worked on                                  |
+| Test     | `.agents/kanban/test/`      | Implementation handed off; review/QA in progress           |
+| Ready    | `.agents/kanban/ready/`     | Auto-review passed; awaiting authorized finalization       |
+| Done     | `.agents/kanban/done/`      | Successfully completed work                                |
+| Freeze   | `.agents/kanban/freeze/`    | Temporarily paused work awaiting its recorded return condition |
+| Closed   | `.agents/kanban/closed/`    | Cancelled or superseded work; terminal archive             |
 
 Lifecycle: `grooming → todo → progress → test → ready → done`.
+
+New boards default to `.agents/kanban`. Existing `.claude/kanban` boards remain
+supported. Aliases resolving to the same physical directory are one board; if
+both paths resolve to different boards, helpers fail closed. The counter file
+is `kanban.lock` beside the resolved board root (for example,
+`.agents/kanban.lock` or the legacy `.claude/kanban.lock`). Conflicting lock
+files also fail closed.
+
+`freeze/` is a side state: enter from `grooming/`, `todo/`, `progress/`, `test/`,
+or `ready/`; resume the same card only to `todo/` or `progress/` with
+`--resume`. Record the pause reason and return condition in `**Decisions:**`.
+`closed/` records cancellation/supersession, not successful completion; entering
+it from any nonterminal stage, including `freeze/`, requires `--approved`.
+`closed/` is terminal even with `--force`; future work gets a new linked card.
+Both stages participate in board-wide ID uniqueness checks.
 
 `grooming/` and `ready/` are agent-boundary stages: autonomous runs never enter `grooming/`
 and never advance past `ready/`, except an EPIC with recorded EPIC-scoped upfront
@@ -22,10 +39,14 @@ autonomous authorization as defined in Done below.
 
 ## IDs & Prefix
 
-Every card carries `<PREFIX>-<NUM>` (epic subtasks: `<PREFIX>-<NUM>-<NN>`, see
-Epics below). Counters live in `<repo>/.claude/kanban.lock` (git-committed,
-`flock`-guarded, reconciled against cards actually on the board on every
-allocation — a stale counter after a merge can't hand out a duplicate ID).
+Every card carries `<PREFIX>-<NUM>` or a legacy letter-suffixed ID
+`<PREFIX>-<NUM><LETTER>` (epic subtasks: `<PREFIX>-<NUM>-<NN>`, see Epics
+below). Counters live in the committed `kanban.lock` beside the resolved board
+root; allocation uses a companion `flock` marker and reconciles against cards
+actually on the board on every allocation — a stale counter after a merge
+can't hand out a duplicate ID. The ID parser preserves the optional letter, so
+`K-094a` and `K-094b` are distinct IDs; slug words such as `css-grid` are not
+prefix candidates.
 **First use in a project (no `prefix=` yet) is a confirmation, never a
 guess.** `kanban-id.sh next`/`prefix` exits 2 with the board's candidate
 prefixes (existing board cards win by count if any, else a dir-name-derived
@@ -34,6 +55,12 @@ candidates as options, recommended one first) and then run
 `kanban-id.sh set-prefix <PREFIX>` to confirm it; don't auto-pick and don't
 retry silently. Full mechanics, lock format, prefix registry →
 [scripts.md](scripts.md).
+
+The adjacent `.flock` file coordinates only processes that open the same
+resolved lock file. Separate Git worktrees have separate tracked counters and
+lock markers; until a shared allocator exists, one canonical board owner must
+allocate IDs and perform lifecycle moves from the canonical checkout. Task
+worktrees do not allocate IDs or mutate board stages.
 
 ## Scripts
 
@@ -45,20 +72,21 @@ Set `ROOT="${AI_AGENTS_SKILLS_ROOT:-${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-${CURSO
 |---|---|---|
 | `"$S"/kanban-id.sh` | allocate/inspect IDs (`next`\|`epic`\|`sub`\|`peek`\|`prefix`) | `sub <EPIC-ID>` |
 | `"$S"/kanban-new.sh` | allocate ID + render template + stage card | `--epic`\|`--sub <EPIC-ID>` |
-| `"$S"/kanban-move.sh` | validated stage transition (wraps [git-move](../git-move/SKILL.md)) | `--approved` (required for `→done`) |
+| `"$S"/kanban-move.sh` | validated stage transition (wraps [git-move](../git-move/SKILL.md)) | `--approved` for `→done`/`→closed`; `--resume` from `freeze/` |
 | `"$S"/kanban-status.sh` | board overview, subtasks grouped under their epic | `--epic ID` |
 | `"$S"/kanban-lint.sh` | card validation (shape, template, dupes, counter drift) | — |
 
 Full CLI, flags, exit codes, worked examples → [scripts.md](scripts.md). Manual
-fallback (hand-written card + [git-move](../git-move/SKILL.md) directly) still
-works if a script is unavailable.
+fallback (hand-written card using the resolved board's adjacent `kanban.lock` +
+[git-move](../git-move/SKILL.md) directly) still works if a script is
+unavailable.
 
 ## Task Lifecycle
 
 ### 1. Create
 
 - **Default:** `"$S"/kanban-new.sh --title "…" --stage todo` (or `--stage grooming` when scope isn't settled) — allocates the ID, renders [task template](task-template.md), stages the card, prints its path.
-- **Manual fallback:** allocate the next ID by hand against `.claude/kanban.lock`, fill in [task template](task-template.md), `git add`.
+- **Manual fallback:** allocate the next ID by hand against the lock beside the resolved board root, fill in [task template](task-template.md), `git add`.
 - **Scope clear** (AC, files, approach all settled) → `todo/`.
 - **Open questions remain** → `grooming/`; list them in `**Open questions:**`.
 
@@ -78,7 +106,7 @@ When a bug/err is found OR the user suggests a fix:
      or dumped.
 3. **Wrap-up report.** On task completion (hand-off / ready), surface to the user a short list of: (a) side-filed grooming cards created during the work, (b) en-route fixes that were done (no new card), (c) nits appended to the dump.
 
-#### Nits dump — `.claude/kanban/grooming/TODO.md`
+#### Nits dump — `.agents/kanban/grooming/TODO.md`
 
 Running scratch list of small out-of-scope findings picked up in passing. Create
 the file if absent.
@@ -117,7 +145,7 @@ See [reference.md](reference.md) for the full grooming protocol.
   user can catch a wrong card or misread scope before work starts — keep it
   concise and explained, don't dump the raw card. Skip only on autonomous/
   unattended runs (no user present, e.g. schedule-tasks).
-- **From file**: move `.claude/kanban/todo/<task>.md` → `progress/`.
+- **From file**: move `.agents/kanban/todo/<task>.md` → `progress/`.
 - **From description**: create from [task template](task-template.md) in `todo/`, then move to `progress/` (only if scope is clear).
 
 ### 3. Implement (progress/)
@@ -149,6 +177,22 @@ expansion, or bypassing tests/review. Order matters — card first, merge last:
 Outside an EPIC with recorded EPIC-scoped upfront autonomous authorization,
 `ready/ → done/` requires explicit user approval at hand-off. Never merge before
 the card is in `done/` and the branch has been verified clean.
+
+### Freeze and closed
+
+- A card may enter `freeze/` from `grooming/`, `todo/`, `progress/`, `test/`, or
+  `ready/`. Add its pause reason and return condition to `**Decisions:**`; lint
+  does not require new headings for these notes.
+- Resume from `freeze/` to `todo/` or `progress/` only with
+  `kanban-move.sh <ID> <stage> --resume`. `--force` cannot bypass this rule.
+- Move a cancelled or superseded card to `closed/` only with
+  `kanban-move.sh <ID> closed --approved`. This flag is a caller attestation;
+  the caller must already have explicit user authorization to cancel the work.
+  A card in `closed/` cannot be moved out, even with `--force`; create a new
+  linked card for future work. A successfully completed `done/` card cannot be
+  reclassified as cancelled.
+- `done/`, `freeze/`, and `closed/` skip active-card content-completeness lint,
+  but all exact card IDs across all stages must be unique.
 
 ## Epics
 
@@ -212,7 +256,7 @@ See [reference.md](reference.md) for the autonomous-run commit contract.
 - Do NOT move to `ready/` while tests are red.
 - Do NOT file a new card for an en-route/user-suggested fix until `grooming/`+`todo/` are scanned for a duplicate.
 - Do NOT file when the fix is in-scope OR cplx ≤ 3/10 OR standard-subagent-sized — fix now; log on card or commit msg if no active task.
-- Do NOT drop an oos finding silently — fix it, card it, or append it to `.claude/kanban/grooming/TODO.md`.
+- Do NOT drop an oos finding silently — fix it, card it, or append it to `.agents/kanban/grooming/TODO.md`.
 - Do NOT commit the nits dump into a task branch/PR when the project git-excludes it.
 - MUST surface wrap-up list (side-filed grooming + en-route fixes + dumped nits) on hand-off/ready.
 

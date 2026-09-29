@@ -16,11 +16,11 @@ export KANBAN_PREFIX_REGISTRY="$TMP/registry.tsv"
 
 CARD="$(bash "$KNEW" --repo "$REPO" --title "Move me" --stage todo --prefix K)"
 OUT="$(bash "$KMOVE" --repo "$REPO" K-001 progress 2>/tmp/move-stderr.$$)"
-[ "$OUT" = "$REPO/.claude/kanban/progress/K-001-move-me.md" ] || { echo "FAIL: unexpected move destination: $OUT"; exit 1; }
+[ "$OUT" = "$REPO/.agents/kanban/progress/K-001-move-me.md" ] || { echo "FAIL: unexpected move destination: $OUT"; exit 1; }
 grep -q '^task: start K-001 (todo→progress)$' /tmp/move-stderr.$$ || { echo "FAIL: unexpected commit-subject line"; cat /tmp/move-stderr.$$; exit 1; }
 rm -f /tmp/move-stderr.$$
-[ -f "$REPO/.claude/kanban/progress/K-001-move-me.md" ] || { echo "FAIL: card not relocated"; exit 1; }
-[ -f "$REPO/.claude/kanban/todo/K-001-move-me.md" ] && { echo "FAIL: old path still present"; exit 1; }
+[ -f "$REPO/.agents/kanban/progress/K-001-move-me.md" ] || { echo "FAIL: card not relocated"; exit 1; }
+[ -f "$REPO/.agents/kanban/todo/K-001-move-me.md" ] && { echo "FAIL: old path still present"; exit 1; }
 
 # --- forward-skip without --force is rejected -------------------------------
 
@@ -30,7 +30,7 @@ bash "$KMOVE" --repo "$REPO" K-002 test >/dev/null 2>/tmp/move-skip-err.$$
 rc=$?
 set -e
 [ "$rc" -eq 2 ] || { echo "FAIL: expected exit 2 (validation) for a rejected forward-skip, got $rc"; exit 1; }
-grep -qi "forward step" /tmp/move-skip-err.$$ || { echo "FAIL: skip-rejection message unclear"; cat /tmp/move-skip-err.$$; exit 1; }
+grep -qi "permitted transition" /tmp/move-skip-err.$$ || { echo "FAIL: skip-rejection message unclear"; cat /tmp/move-skip-err.$$; exit 1; }
 rm -f /tmp/move-skip-err.$$
 
 # --- grooming exit blocked while Open questions remain ----------------------
@@ -47,7 +47,7 @@ rm -f /tmp/move-groom-err.$$
 # resolve the open questions, then the move should succeed
 sed -i '/\*\*Open questions:\*\*/,/^$/d' "$GCARD"
 bash "$KMOVE" --repo "$REPO" K-003 todo >/dev/null
-[ -f "$REPO/.claude/kanban/todo/K-003-groom-me.md" ] || { echo "FAIL: card did not move after Open questions resolved"; exit 1; }
+[ -f "$REPO/.agents/kanban/todo/K-003-groom-me.md" ] || { echo "FAIL: card did not move after Open questions resolved"; exit 1; }
 
 # --- done requires --approved ------------------------------------------------
 
@@ -61,29 +61,29 @@ set -e
 grep -qi "approved" /tmp/move-done-err.$$ || { echo "FAIL: done-approval message unclear"; cat /tmp/move-done-err.$$; exit 1; }
 grep -Fq "explicit user approval at hand-off" /tmp/move-done-err.$$ || { echo "FAIL: missing-flag error omits user approval form"; cat /tmp/move-done-err.$$; exit 1; }
 grep -Fq "recorded EPIC-scoped upfront autonomous authorization" /tmp/move-done-err.$$ || { echo "FAIL: missing-flag error omits autonomous authorization form"; cat /tmp/move-done-err.$$; exit 1; }
-[ -f "$REPO/.claude/kanban/ready/K-001-move-me.md" ] || { echo "FAIL: missing --approved moved the card"; exit 1; }
+[ -f "$REPO/.agents/kanban/ready/K-001-move-me.md" ] || { echo "FAIL: missing --approved moved the card"; exit 1; }
 rm -f /tmp/move-done-err.$$
 
 bash "$KMOVE" --repo "$REPO" K-001 done --approved >/dev/null
-[ -f "$REPO/.claude/kanban/done/K-001-move-me.md" ] || { echo "FAIL: approved done move did not happen"; exit 1; }
+[ -f "$REPO/.agents/kanban/done/K-001-move-me.md" ] || { echo "FAIL: approved done move did not happen"; exit 1; }
 
 # --- subtasks wait for their parent epic -------------------------------------
 
-mkdir -p "$REPO/.claude/kanban/ready"
-printf '# Parent epic\n' >"$REPO/.claude/kanban/ready/EPIC-001-parent.md"
-printf '# Child card\n' >"$REPO/.claude/kanban/ready/EPIC-001-01-child.md"
+mkdir -p "$REPO/.agents/kanban/ready"
+printf '# Parent epic\n' >"$REPO/.agents/kanban/ready/EPIC-001-parent.md"
+printf '# Child card\n' >"$REPO/.agents/kanban/ready/EPIC-001-01-child.md"
 set +e
 bash "$KMOVE" --repo "$REPO" EPIC-001-01 done --approved >/dev/null 2>/tmp/move-parent-err.$$
 rc=$?
 set -e
 [ "$rc" -eq 2 ] || { echo "FAIL: expected exit 2 when child precedes parent, got $rc"; exit 1; }
 grep -qi "parent epic" /tmp/move-parent-err.$$ || { echo "FAIL: parent-before-child error unclear"; cat /tmp/move-parent-err.$$; exit 1; }
-[ -f "$REPO/.claude/kanban/ready/EPIC-001-01-child.md" ] || { echo "FAIL: child moved before parent was done"; exit 1; }
+[ -f "$REPO/.agents/kanban/ready/EPIC-001-01-child.md" ] || { echo "FAIL: child moved before parent was done"; exit 1; }
 rm -f /tmp/move-parent-err.$$
 
-bash "$KMOVE" --repo "$REPO" "$REPO/.claude/kanban/ready/EPIC-001-parent.md" done --approved >/dev/null
+bash "$KMOVE" --repo "$REPO" "$REPO/.agents/kanban/ready/EPIC-001-parent.md" done --approved >/dev/null
 bash "$KMOVE" --repo "$REPO" EPIC-001-01 done --approved >/dev/null
-[ -f "$REPO/.claude/kanban/done/EPIC-001-01-child.md" ] || { echo "FAIL: child did not move after parent was done"; exit 1; }
+[ -f "$REPO/.agents/kanban/done/EPIC-001-01-child.md" ] || { echo "FAIL: child did not move after parent was done"; exit 1; }
 
 # --- --force backward transition prints the "move" verb, not "back" --------
 

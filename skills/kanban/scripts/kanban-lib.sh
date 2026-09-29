@@ -2,7 +2,7 @@
 # Sourced only, NOT executable standalone (no shebang, no `set -euo pipefail`
 # of its own — the sourcing script owns that).
 
-KANBAN_STAGES=(grooming todo progress test ready done)
+KANBAN_STAGES=(grooming todo progress test ready done freeze closed)
 
 kanban::die() { echo "$1" >&2; exit "${2:-1}"; }
 
@@ -30,8 +30,69 @@ kanban::repo_root() {
   git rev-parse --show-toplevel 2>/dev/null || pwd
 }
 
-kanban::board_dir() { printf '%s/.claude/kanban' "$1"; }
-kanban::lock_file()  { printf '%s/.claude/kanban.lock' "$1"; }
+kanban::_validate_lock_paths() {
+  local repo="$1" board="$2" canonical_lock
+  local claude_lock="$1/.claude/kanban.lock" agents_lock="$1/.agents/kanban.lock"
+  canonical_lock="$(dirname "$board")/kanban.lock"
+
+  if [ -e "$claude_lock" ] && [ -e "$agents_lock" ] && [ ! "$claude_lock" -ef "$agents_lock" ]; then
+    kanban::die "kanban: both .claude/kanban.lock and .agents/kanban.lock exist but point to different files" 2
+  fi
+  if [ -e "$claude_lock" ] && [ ! -e "$canonical_lock" ] && [ "$claude_lock" != "$canonical_lock" ]; then
+    kanban::die "kanban: lock path conflicts with resolved board root: $claude_lock (expected $canonical_lock)" 2
+  fi
+  if [ -e "$agents_lock" ] && [ ! -e "$canonical_lock" ] && [ "$agents_lock" != "$canonical_lock" ]; then
+    kanban::die "kanban: lock path conflicts with resolved board root: $agents_lock (expected $canonical_lock)" 2
+  fi
+}
+
+kanban::board_dir() {
+  local repo="$1" claude_board="$1/.claude/kanban" agents_board="$1/.agents/kanban"
+  local claude_lock="$1/.claude/kanban.lock" agents_lock="$1/.agents/kanban.lock"
+  local claude_real="" agents_real=""
+
+  if [ -d "$claude_board" ]; then
+    claude_real="$(cd "$claude_board" 2>/dev/null && pwd -P)" \
+      || kanban::die "kanban: cannot resolve board directory: $claude_board" 2
+  fi
+  if [ -d "$agents_board" ]; then
+    agents_real="$(cd "$agents_board" 2>/dev/null && pwd -P)" \
+      || kanban::die "kanban: cannot resolve board directory: $agents_board" 2
+  fi
+
+  if [ -n "$claude_real" ] && [ -n "$agents_real" ]; then
+    [ "$claude_real" = "$agents_real" ] \
+      || kanban::die "kanban: both .claude/kanban and .agents/kanban exist but resolve to different boards" 2
+    kanban::_validate_lock_paths "$repo" "$agents_real"
+    printf '%s' "$agents_real"
+  elif [ -n "$agents_real" ]; then
+    kanban::_validate_lock_paths "$repo" "$agents_real"
+    printf '%s' "$agents_real"
+  elif [ -n "$claude_real" ]; then
+    kanban::_validate_lock_paths "$repo" "$claude_real"
+    printf '%s' "$claude_real"
+  elif [ -e "$claude_lock" ] && [ -e "$agents_lock" ]; then
+    [ "$claude_lock" -ef "$agents_lock" ] \
+      || kanban::die "kanban: both .claude/kanban.lock and .agents/kanban.lock exist but point to different files" 2
+    kanban::_validate_lock_paths "$repo" "$agents_board"
+    printf '%s' "$agents_board"
+  elif [ -e "$agents_lock" ]; then
+    kanban::_validate_lock_paths "$repo" "$agents_board"
+    printf '%s' "$agents_board"
+  elif [ -e "$claude_lock" ]; then
+    kanban::_validate_lock_paths "$repo" "$claude_board"
+    printf '%s' "$claude_board"
+  else
+    kanban::_validate_lock_paths "$repo" "$agents_board"
+    printf '%s' "$agents_board"
+  fi
+}
+
+kanban::lock_file() {
+  local board
+  board="$(kanban::board_dir "$1")"
+  printf '%s/kanban.lock' "$(dirname "$board")"
+}
 
 kanban::stage_index() {
   local s="$1" i
@@ -47,12 +108,12 @@ kanban::stage_index() {
 
 # --- card id parsing ---------------------------------------------------------
 
-# kanban::extract_id <basename-without-.md> -> the card's ID token
-# (PREFIX-NUM, or PREFIX-NUM-SUB for a subtask); falls back to the whole
-# basename if it doesn't look like a card at all.
+# kanban::extract_id <basename-without-.md> -> the card's exact ID token
+# (PREFIX-NUM[letter], optionally followed by a two-digit subtask suffix);
+# falls back to the whole basename if it doesn't look like a card at all.
 kanban::extract_id() {
   local base="$1"
-  if [[ "$base" =~ ^([A-Za-z][A-Za-z0-9]*-[0-9]+(-[0-9]{2})?) ]]; then
+  if [[ "$base" =~ ^([A-Za-z][A-Za-z0-9]*-[0-9]+[A-Za-z]?(-[0-9]{2})?)(-|$) ]]; then
     printf '%s' "${BASH_REMATCH[1]}"
   else
     printf '%s' "$base"
@@ -62,7 +123,7 @@ kanban::extract_id() {
 # kanban::card_prefix <basename-without-.md> -> the leading PREFIX, or "" if none
 kanban::card_prefix() {
   local base="$1"
-  if [[ "$base" =~ ^([A-Za-z][A-Za-z0-9]*)- ]]; then
+  if [[ "$base" =~ ^([A-Za-z][A-Za-z0-9]*)-[0-9]+[A-Za-z]?(-[0-9]{2})?(-|$) ]]; then
     printf '%s' "${BASH_REMATCH[1]}"
   fi
 }

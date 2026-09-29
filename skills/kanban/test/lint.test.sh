@@ -16,6 +16,7 @@ export KANBAN_PREFIX_REGISTRY="$TMP/registry.tsv"
 
 # a well-formed card should lint clean
 bash "$KNEW" --repo "$REPO" --title "Well formed" --stage todo --prefix K >/dev/null
+ln -s .agents "$REPO/.claude"
 OUT="$(bash "$KLINT" --repo "$REPO")"
 echo "$OUT" | grep -q '^ERROR' && { echo "FAIL: expected no errors on a well-formed card"; echo "$OUT"; exit 1; }
 
@@ -72,8 +73,12 @@ cp "$REPO/.claude/kanban/todo/K-001-well-formed.md" "$REPO/.claude/kanban/todo/K
 cat > "$REPO/.claude/kanban/done/K-003-shared-card.md" <<'EOF'
 no title, no sections
 EOF
-OUT_ACTIVE_REF="$(bash "$KLINT" --repo "$REPO" K-003-shared-card)"
-echo "$OUT_ACTIVE_REF" | grep -q '^ERROR' && { echo "FAIL: expected bare reference to lint the active duplicate"; echo "$OUT_ACTIVE_REF"; exit 1; }
+set +e
+OUT_ACTIVE_REF="$(bash "$KLINT" --repo "$REPO" K-003-shared-card 2>&1)"
+rc=$?
+set -e
+[ "$rc" -eq 2 ] || { echo "FAIL: expected board-wide duplicate finding, got exit $rc"; echo "$OUT_ACTIVE_REF"; exit 1; }
+echo "$OUT_ACTIVE_REF" | grep -q "duplicate card ID 'K-003'" || { echo "FAIL: duplicate archived ID not reported"; echo "$OUT_ACTIVE_REF"; exit 1; }
 echo "$OUT_ACTIVE_REF" | grep -q '^kanban-lint: 1 card(s) checked' || { echo "FAIL: expected bare reference to check the active duplicate"; echo "$OUT_ACTIVE_REF"; exit 1; }
 rm -f "$REPO/.claude/kanban/todo/K-003-shared-card.md" "$REPO/.claude/kanban/done/K-003-shared-card.md"
 

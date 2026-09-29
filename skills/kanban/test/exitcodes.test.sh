@@ -40,12 +40,12 @@ check_rc "kanban-move.sh: unknown target stage" 2 bash "$S/kanban-move.sh" --rep
 
 # --- 2: kanban-lint.sh findings present --------------------------------------
 
-mkdir -p "$REPO/.claude/kanban/todo"
-cat > "$REPO/.claude/kanban/todo/K-777-broken.md" <<'EOF'
+mkdir -p "$REPO/.agents/kanban/todo"
+cat > "$REPO/.agents/kanban/todo/K-777-broken.md" <<'EOF'
 no title, no sections
 EOF
 check_rc "kanban-lint.sh: findings present" 2 bash "$S/kanban-lint.sh" --repo "$REPO"
-rm -f "$REPO/.claude/kanban/todo/K-777-broken.md"
+rm -f "$REPO/.agents/kanban/todo/K-777-broken.md"
 
 # --- 3: lock contention (flock timeout) --------------------------------------
 
@@ -53,8 +53,8 @@ rm -f "$REPO/.claude/kanban/todo/K-777-broken.md"
 # kanban.lock itself — kanban.lock is replaced via mktemp+mv on every write
 # (lock_upsert), so flock-ing it directly would be a TOCTOU (a waiter on the
 # old inode is disconnected from whoever opens the new one after a rename).
-mkdir -p "$REPO/.claude"
-LOCKFILE="$REPO/.claude/kanban.lock"
+mkdir -p "$REPO/.agents"
+LOCKFILE="$REPO/.agents/kanban.lock"
 LOCKMARKER="$LOCKFILE.flock"
 : > "$LOCKMARKER"
 ( flock "$LOCKMARKER" -c 'sleep 3' ) &

@@ -26,6 +26,11 @@ ERRORS=0
 WARNINGS=0
 err()  { echo "ERROR $1: $2"; ERRORS=$((ERRORS + 1)); }
 warn() { echo "WARN $1: $2"; WARNINGS=$((WARNINGS + 1)); }
+canonical_path() {
+  local path="$1" dir
+  dir="$(cd "$(dirname "$path")" 2>/dev/null && pwd -P)" || return 1
+  printf '%s/%s' "$dir" "$(basename "$path")"
+}
 
 shopt -s nullglob
 # The nits dump is a running scratch list of small findings, not a card (see
@@ -39,8 +44,10 @@ for card in "$BOARD"/*/*.md; do
   is_nits_dump "$card" || BOARD_CARDS+=("$card")
 done
 shopt -u nullglob
-# done/ is archived and freeze/ is parked: neither is linted.
-SKIP_DIRS=("$BOARD/done" "$BOARD/freeze")
+# done/ and closed/ are terminal archives; freeze/ is temporarily parked.
+# None are linted for active-card completeness, but all participate in the
+# board-wide duplicate-ID check below.
+SKIP_DIRS=("$BOARD/done" "$BOARD/freeze" "$BOARD/closed")
 is_archived() {
   local d
   for d in "${SKIP_DIRS[@]}"; do
@@ -62,9 +69,9 @@ else
   for ref in "$@"; do
     if [ -f "$ref" ]; then
       # Absolute, so the done/freeze/nits-dump prefix checks below match.
-      TARGETS+=("$(cd "$(dirname "$ref")" && pwd)/$(basename "$ref")")
+      TARGETS+=("$(canonical_path "$ref")")
     elif [ -f "$REPO/$ref" ]; then
-      TARGETS+=("$REPO/$ref")
+      TARGETS+=("$(canonical_path "$REPO/$ref")")
     else
       found=""
       # Prefer an active card for an implicit reference; only fall back to an
@@ -96,8 +103,8 @@ else
   done
 fi
 
-# done/ and freeze/ cards and the nits dump are excluded even when passed as
-# explicit paths.
+# done/, freeze/, closed/ cards and the nits dump are excluded even when passed
+# as explicit paths.
 ACTIVE_TARGETS=()
 for f in "${TARGETS[@]}"; do
   is_archived "$f" || is_nits_dump "$f" || ACTIVE_TARGETS+=("$f")
@@ -117,7 +124,7 @@ fi
 # --- board-level: duplicate IDs across stages ----------------------------
 
 declare -A ID_SEEN_AT=()
-for f in "${ALL_CARDS[@]}"; do
+for f in "${BOARD_CARDS[@]}"; do
   base="$(basename "$f" .md)"
   id="$(kanban::extract_id "$base")"
   if [ -n "${ID_SEEN_AT[$id]:-}" ]; then
@@ -134,8 +141,8 @@ for f in "${TARGETS[@]}"; do
   base="$(basename "$f" .md)"
   stage="$(basename "$(dirname "$f")")"
 
-  if [[ ! "$base" =~ ^[A-Za-z][A-Za-z0-9]*-[0-9]+(-[0-9]{2})?-.+$ ]]; then
-    err "$f" "filename does not match <PREFIX>-<NUM>[-<SUB>]-<slug>.md"
+  if [[ ! "$base" =~ ^[A-Za-z][A-Za-z0-9]*-[0-9]+[A-Za-z]?(-[0-9]{2})?-.+$ ]]; then
+    err "$f" "filename does not match <PREFIX>-<NUM>[<LETTER>][-<NN>]-<slug>.md"
   fi
 
   prefix="$(kanban::card_prefix "$base")"

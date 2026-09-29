@@ -20,7 +20,7 @@ bash "$KID" --repo "$REPO" prefix </dev/null >/dev/null 2>/tmp/id-basics-err.$$
 rc=$?
 set -e
 [ "$rc" -eq 2 ] || { echo "FAIL: expected exit 2 (confirmation required) on first use, got $rc"; cat /tmp/id-basics-err.$$; exit 1; }
-[ -f "$REPO/.claude/kanban.lock" ] && { echo "FAIL: lock file must not be created before confirmation"; exit 1; }
+[ -f "$REPO/.agents/kanban.lock" ] && { echo "FAIL: lock file must not be created before confirmation"; exit 1; }
 rm -f /tmp/id-basics-err.$$
 
 P1="$(KANBAN_ASSUME_YES=1 bash "$KID" --repo "$REPO" prefix 2>/dev/null)"
@@ -46,8 +46,8 @@ O2="$(bash "$KID" --repo "$REPO" next OTHER)"
 PK="$(bash "$KID" --repo "$REPO" peek)"
 [ "$PK" = "$ID2" ] || { echo "FAIL: peek expected $ID2, got $PK"; exit 1; }
 
-grep -q "^prefix=${P1}$" "$REPO/.claude/kanban.lock" || { echo "FAIL: lock file missing prefix line"; cat "$REPO/.claude/kanban.lock"; exit 1; }
-grep -q "^${P1}=2$" "$REPO/.claude/kanban.lock" || { echo "FAIL: lock file counter wrong"; cat "$REPO/.claude/kanban.lock"; exit 1; }
-grep -q "^OTHER=2$" "$REPO/.claude/kanban.lock" || { echo "FAIL: lock file OTHER counter wrong"; cat "$REPO/.claude/kanban.lock"; exit 1; }
+grep -q "^prefix=${P1}$" "$REPO/.agents/kanban.lock" || { echo "FAIL: lock file missing prefix line"; cat "$REPO/.agents/kanban.lock"; exit 1; }
+grep -q "^${P1}=2$" "$REPO/.agents/kanban.lock" || { echo "FAIL: lock file counter wrong"; cat "$REPO/.agents/kanban.lock"; exit 1; }
+grep -q "^OTHER=2$" "$REPO/.agents/kanban.lock" || { echo "FAIL: lock file OTHER counter wrong"; cat "$REPO/.agents/kanban.lock"; exit 1; }
 
 echo "PASS id-basics"
