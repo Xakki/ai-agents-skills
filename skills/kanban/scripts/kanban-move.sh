@@ -115,7 +115,7 @@ if [ "$RESUME" -eq 1 ] && { [ "$FROM_STAGE" != freeze ] || { [ "$TO_STAGE" != to
 fi
 
 if [ "$TO_STAGE" = done ] && [ "$APPROVED" -ne 1 ]; then
-  kanban::die "kanban-move.sh: moving to done/ requires --approved (caller must hold explicit user approval at hand-off or recorded EPIC-scoped upfront autonomous authorization)" 2
+  kanban::die "kanban-move.sh: moving to done/ requires --approved (caller must hold valid action-specific authorization for this target: explicit current user approval, recorded upfront task/EPIC/workflow authorization, or recorded profile/agent authorization; all mandatory gates remain binding)" 2
 fi
 
 if [ "$TO_STAGE" = closed ] && [ "$APPROVED" -ne 1 ]; then

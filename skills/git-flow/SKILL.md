@@ -45,10 +45,10 @@ examples → [reference.md](reference.md).
 
 | Skill | Follows CORE + its delta |
 |---|---|
-| [kanban](../kanban/SKILL.md) | Per-task `task/<ID>` branch; each sub-agent commits its zone; orchestrator finalizes; OK → squash-merge to default + rename branch to `done/<ID>` (strip the `task/` prefix — archive is `done/<ID>`, NOT `done/task/<ID>`). |
-| [schedule-tasks](../schedule-tasks/SKILL.md) | Autonomous per-task `task/<NAME>` branch + park-commit model. With a valid, user-approved exact scope manifest and green QA + independent review, it may merge an in-scope card while it remains in `ready/`; `ready→done` stays user-only. No push/deploy; no scope expansion. |
+| [kanban](../kanban/SKILL.md) | Per-task `task/<ID>` branch; each sub-agent commits its zone; orchestrator finalizes; required review/gates must pass, `done` and merge each need valid action-specific authorization; verify the merge before renaming to `done/<ID>` (strip the `task/` prefix — archive is `done/<ID>`, NOT `done/task/<ID>`). Keep the task branch when merge is ungranted or unverified. |
+| [schedule-tasks](../schedule-tasks/SKILL.md) | Autonomous per-task `task/<NAME>` branch + park-commit model; a valid approved exact scope manifest permits merge-at-ready after green QA + independent review, without granting `done`, push or deploy. Those actions may proceed automatically under independently valid action-specific authorization. No card-scope expansion; only the scoped helper chains. Archive as `done/<NAME>` only after a successful verified merge; otherwise retain the task branch/card and safely return to base before chaining. |
 | [prepare-pr](../prepare-pr/SKILL.md) | PR assembly — sanity-check diff, run the gate, draft description. Draft-only by default. |
-| [qa-check](../qa-check/SKILL.md) | Quality gate scoped by `git diff`; never auto-merge / auto-push. |
+| [qa-check](../qa-check/SKILL.md) | Quality gate scoped by `git diff`; green checks alone are not authorization; execute merge/push automatically when separately authorized and all gates pass. |
 | [git-move](../git-move/SKILL.md) | Mechanics for `git mv` / `git rm` (rule 8). |
 
 Each documents ONLY its context-specific deltas; everything else here is binding.

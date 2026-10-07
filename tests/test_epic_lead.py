@@ -14,6 +14,7 @@ SKILL = ROOT / "skills" / "epic-lead" / "SKILL.md"
 CANONICAL_AUTHORIZATION_FORMS = (
     "explicit user approval at hand-off",
     "recorded EPIC-scoped upfront autonomous authorization",
+    "recorded profile/agent authorization",
 )
 
 
@@ -81,8 +82,7 @@ def test_epic_lead_keeps_the_archive_branch_and_canonical_finalization_order() -
 
     ordered_steps = (
         "move the parent EPIC `ready → done`",
-        "Verify `epic/<ID>` is clean.",
-        "Only then perform one local squash merge",
+        "Only then, when merge is authorized, perform one",
         "Rename the archive branch, do not delete it:",
     )
     positions = [text.index(step) for step in ordered_steps]
@@ -107,4 +107,5 @@ def test_autonomous_authorization_remains_limited_to_its_epic_scope() -> None:
         assert re.search(r"later[- ]EPIC", text), path
         assert "scope expansion" in text, path
         assert re.search(r"tests?/review", text), path
-    assert "named EPIC and approved children" in _compact(documents[SKILL])
+    assert "recorded profile/agent authorization" in _compact(documents[SKILL])
+    assert "A grant for one action does not imply another" in _compact(documents[SKILL])

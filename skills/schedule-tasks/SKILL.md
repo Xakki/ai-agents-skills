@@ -1,6 +1,6 @@
 ---
 name: schedule-tasks
-description: Schedule autonomous claude runs for Kanban cards within a user-approved, hash-verified card allowlist. A scoped run may merge after green QA/review while leaving the card in ready/; done/ remains user-only. Chain advances only inside that allowlist and never pushes or deploys.
+description: Schedule autonomous claude runs for Kanban cards within an approved, hash-verified card allowlist. Chain only inside that allowlist; merge-at-ready requires green QA and independent review. Done, push and deploy require independent valid action-specific authorization. Resume parked tasks with /schedule-tasks resume.
 ---
 
 ## Purpose
@@ -13,9 +13,12 @@ basename and order. A recorded EPIC authorization may supply that list only afte
 verifies the parent record and approved children.
 
 Narrow scheduler exception: after green QA and independent review, an in-scope task may merge
-to its recorded base while the card remains in `ready/`. This does not authorize `ready→done`,
-push, or deploy. The final hop `ready→done` is always **user-only**. Escalation parks on a
-`task/*` branch; resume via `/schedule-tasks resume`.
+to its recorded base while the card remains in `ready/`. The manifest by itself does not
+authorize `ready→done`, push or deploy. `ready` is a verified checkpoint, not a compulsory
+human stop; those additional actions may proceed automatically under independent valid
+action-specific authorization for each target and all mandatory gates. No such grant expands
+the immutable card allowlist. Escalation parks on a `task/*` branch;
+resume via `/schedule-tasks resume`.
 
 Git mechanics follow the [git-flow](../git-flow/SKILL.md) core. The autonomous
 per-task branch + park-commit model and the scoped merge-at-ready exception below
@@ -161,11 +164,12 @@ Run `/schedule-tasks resume [<NAME>]` in the main thread (interactive, not sched
      - Then `git switch task/<NAME>`.
 3. **Resume work**: read the card's `## ⏸ Parked` section, apply the user's answer, continue
    implementation, run qa-check, then `progress→test→ready` on the branch.
-4. **Merge**: after QA/review pass, when the task lands in `ready/` on the branch, merge to base:
-   `git switch <BASE_BRANCH>` → `git merge --squash "task/<NAME>"` → `git commit -m "task: <NAME> merged (ready)"` (one squash commit) → `git branch -m "task/<NAME>" "done/<NAME>"` (archive, do not delete). The card remains in `ready/`.
+4. **Done**: when valid action-specific authorization covers the task and gates pass, move `ready→done` and commit the exact card update. Otherwise leave it `ready` and report the missing grant.
+5. **Merge**: after a clean branch check and independent merge authorization, merge to base. The approved exact scope manifest allows merge-at-ready after green QA and independent review; otherwise normal finalization requires `done` first.
+   `git switch <BASE_BRANCH>` → `git merge --squash "task/<NAME>"` → one `git commit`: `task: <NAME> merged (ready)` if the scoped card remains ready, or `task: <NAME> done` after authorized done finalization. Verify the base commit and canonical card path. Only after a successful verified merge, archive with `git branch -m "task/<NAME>" "done/<NAME>"` (do not delete). If merge is unauthorized or fails, retain `task/<NAME>` and report that the card remains on that branch, not on the canonical base.
    On merge conflict → resolve manually; do NOT auto-park from resume (interactive, user present).
-5. **Cleanup**: after the merge, delete `$LOG_DIR/.parked/<NAME>`.
-6. **Done**: `ready→done` is **user-only** — do not perform it in the scheduled prompt or resume flow.
+6. **Push/deploy**: perform only when separately authorized for that action and target, through the sanctioned workflow; otherwise report deferred. After an actual authorized push or deploy, read back the exact target and verify the expected remote revision or deployed version/state before reporting success.
+7. **Cleanup**: after the merge, delete `$LOG_DIR/.parked/<NAME>`.
 
 ## Cancellation
 
@@ -180,12 +184,12 @@ atq | awk '{print $1}' | xargs -r atrm      # cancel ALL — warn user first
 - DO NOT schedule without confirming date/time if ambiguous
 - DO NOT queue a task not in `todo/` or outside the hash-verified scope manifest
 - DO NOT use `cron` for one-shot — use `at`
-- DO NOT push, deploy, or open PRs from the autonomous prompt
-- In the scheduled prompt, DO NOT merge without a valid scope manifest and green QA + independent review; merge is allowed only in step 8 and the card stays in `ready/`. Interactive resume uses its own reviewed merge step.
+- In the scheduled prompt, DO NOT merge without a valid scope manifest and green QA + independent review; merge is allowed only in step 8. The manifest alone leaves the card in `ready/`; an independent valid `done` grant may finalize it. Interactive resume uses its own reviewed merge step.
 - DO NOT extend the manifest or advance to an unlisted task
+- DO NOT push, merge, open PRs, or deploy without valid action-specific authorization; when it is present, use the sanctioned workflow and verify the target
 - DO NOT put `--debug-file` inside the repo (ENOENT risk; see `reference.md`)
 - DO commit `task: start <ID> (todo→progress)` as its OWN commit — never bundle the start mv with implementation
-- DO NOT instruct the prompt to move a card into `done/` — user-only step
+- DO NOT move a card into `done/`, merge, push, or deploy without authorization covering that action and target
 - DO NOT start a card from `grooming/` — chain only consumes `todo/`
 - DO NOT use `--no-verify`
 - DO NOT use `AskUserQuestion` in the autonomous prompt — escalation parks the task instead (non-blocking)

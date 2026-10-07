@@ -1,27 +1,41 @@
 ---
 name: qa-check
-description: Run before marking any task complete to verify quality. Runs the project's lint/type/test/static-analysis checks via make, scoped to what changed. Triggers — RU "проверь качество", "прогони qa", "qa перед завершением"; EN "run qa", "quality check", "verify before done".
+description: Use before completion for autonomous project quality gates.
 user-invocable: true
 ---
 
 # qa-check
 
-A quality gate you run **before** declaring a task done. It is project-agnostic:
-it discovers *what* changed, maps that to the project's make targets, runs only
-the relevant ones, and reports Pass/Fail per check.
+A quality gate to run **before** declaring a task done. Discover sanctioned
+checks from project instructions, Make targets, manifests and scripts, CI
+workflows, and saved project guidance. Scope checks to task-owned changes and
+report Pass/Fail with truthful evidence.
 
 Git mechanics follow the [git-flow](../git-flow/SKILL.md) core; this skill only
 adds the gate behaviour below.
 
 ## How to run
 
-1. **Scope by the diff.** `git diff --name-only` (vs the base/last commit) →
-   decide which check sections apply (backend / frontend / infra / docs). Run
-   **only** the sections touching changed paths. Everything goes **through `make`**.
-2. **Run the project's checks** for that scope (lint → type/static analysis →
-   unit → targeted functional/e2e). See **ask-on-first-use** for the mapping.
-3. **Report Pass/Fail per item.** Green = the command exits `0` **and** introduces
-   no new warnings. Red = stop and fix the **root cause**, then re-run.
+1. **Discover before execution.** Read applicable `AGENTS.md` and project
+   guidance; inspect sanctioned Make targets, manifests/scripts, CI workflows,
+   and saved project-specific QA instructions. Use these sources to identify
+   commands and path coverage. Do not ask a first-use questionnaire or guess a
+   command, target, or test filter.
+2. **Scope and run.** Identify the task-owned diff and select checks covering
+   those paths. Use required Make/container gates when project instructions
+   require them; otherwise use documented project-native runners. Broader
+   regression checks are appropriate when project requirements or material
+   blast radius justify them, without routine user confirmation. Do not assume
+   a `name=` filter exists. Use only authorized, documented environment setup;
+   do not install ad-hoc dependencies or bypass sanctioned runners. If essential
+   command/scope information remains unclear, make reasonable read-only
+   discovery and independent checks first; only then
+   report a genuine blocker.
+3. **Report each check.** Green requires exit status `0` and no new warnings
+   under the project's stated policy. Red means report the failure and, when
+   authorized and in scope, fix the root cause and rerun. Distinguish checks
+   not run, blocked, failed, and passed; do not imply broader coverage than
+   measured.
 
 ## Anti-patterns — never do these to make it "pass"
 
@@ -30,17 +44,17 @@ adds the gate behaviour below.
   out) without a real, stated reason.
 - Do NOT use `--no-verify`, and never silence failures with `|| true` or by
   discarding stderr.
-- Do NOT run the whole suite (`make test`) unless the user asks — use the
-  targeted form (`name=<...>`) for the modules you touched.
-- Do NOT auto-merge or auto-push because checks went green.
+- Do NOT run a whole suite by default when a sanctioned focused check suffices;
+  use broader regression checks when required or justified by material risk.
+- Do NOT substitute a native runner for a required Make/container gate or
+  invent a targeted filter to avoid a sanctioned gate.
+- Green checks alone are not authorization; when valid action-specific
+  authorization covers the target and all gates pass, automated merge, push,
+  or deploy is allowed without a redundant confirmation.
 
-## ask-on-first-use (per project)
+## Authorization boundaries
 
-On the first run in a project you don't know its commands. **Ask the user** (don't
-guess) and offer to save the answers to the project's `.claude/` (a line in
-the project's `CLAUDE.md` or a config file) so later runs skip the questions:
-
-1. **Path/module → make targets** mapping (which lint + test targets cover which
-   areas, e.g. backend vs frontend).
-2. **The minimal always-run command** (e.g. `make lint`).
-3. *(optional)* **Coverage gate** — threshold and where it's enforced.
+Passing QA checks is not authorization to publish, merge, or deploy. Such
+actions require valid action-specific authorization covering the target and
+all required gates. Never infer authorization from a green check or silently
+perform a protected action; preserve any applicable approval requirements.

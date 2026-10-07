@@ -154,11 +154,17 @@ grep -h '^AUTO-RUN-RESULT' "$HOME/.local/state/claude-auto-runs/$(basename "$(gi
    uncommitted paths on base — pre-existing dirt is ignored.
 2. **Per-task branch.** Step 3 commits `task: start` on base (removing the card from
    `todo/` so the selector won't re-pick it), then creates `task/<NAME>`. All impl,
-   QA, and review commits land on the branch. On scoped success (step 8), after
-   green QA and independent review, the agent squash-merges the branch to base as
-   ONE commit while the card stays in `ready/`, then archives the branch as
-   `done/<NAME>`. On failure, `park-task.sh` commits WIP on the branch and returns
-   to base; the branch stays unmerged.
+   QA, and review commits land on the branch. The exact approved scope manifest
+   permits merge-at-ready after green QA and independent review, leaving the
+   card ready under that grant alone. An independent valid `done` grant may
+   finalize the card and commit its exact update; push/deploy also require their
+   own action-specific grants. Verify an authorized squash merge and its base
+   commit/card locations before archiving as `done/<NAME>`. If merge is ungranted
+   or blocked, retain the task branch and its ready/done card, preserve unrelated
+   dirt, and safely return to base before chaining; report the canonical base as
+   unmerged. Stop before chaining if a safe return is impossible. On failure,
+   `park-task.sh` commits WIP on the branch and returns to base; the branch stays
+   unmerged.
 3. **Chain step (step 9, on ok/park/skip).** The prompt calls
    `chain-next-task.sh` once. The helper verifies the baseline, asks
    `select-next-task.sh` for the next unblocked card in the approved manifest,

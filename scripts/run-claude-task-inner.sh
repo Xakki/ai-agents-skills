@@ -70,7 +70,7 @@ PROMPT=$(cat <<PROMPT_EOF
 
 Approved scope ID: \`${SCOPE_ID}\`. Authorized card basenames, in order:
 ${SCOPE_TEXT}
-Scope is immutable for this chain. Process/merge/chain only listed cards. Never infer permission from other \`todo/\` cards. The scope permits merge at \`ready/\` after green QA and independent review; it does NOT permit moving a card to \`done/\`, pushing, or deploying.
+Scope is immutable for this chain. Process/merge/chain only listed cards. Never infer permission from other \`todo/\` cards. The manifest grants the narrow merge-at-ready exception after green QA and independent review; by itself it does not grant \`done\`, push, or deploy. Additional actions require independent valid action-specific authorization and cannot expand this card allowlist or override explicit task restrictions or native guards.
 
 Сабагенты и kanban-правила → CLAUDE.md + \`.claude/skills/kanban/SKILL.md\`.
 
@@ -107,20 +107,21 @@ Scope is immutable for this chain. Process/merge/chain only listed cards. Never 
 
 7. **Тесты и независимое ревью.** Проверь AC и релевантные тесты по CLAUDE.md (делегируй тестовую роль, если она объявлена). Затем передай diff отдельному свежему read-only reviewer-контексту; исполнитель не может сам одобрить свою работу. Запиши результаты в Execution Log. Замечания или отсутствие независимого reviewer → **парковка (review-fail)**.
 
-8. **Финализация (test → ready + scoped merge exception):**
-   \`git mv .claude/kanban/test/\$(basename ${TASK_FILE}) .claude/kanban/ready/\$(basename ${TASK_FILE})\`
-   \`git commit -m "task: ready ${TASK_NAME} (test→ready)"\`
-   \`git switch ${BASE_BRANCH}\`
-   \`git merge --squash "task/${TASK_NAME}"\` — при неудаче: если \`MERGE_HEAD\` существует (конфликт, мерж начался) → \`git merge --abort\` → **парковка (merge-conflict)**; если \`MERGE_HEAD\` отсутствует (мерж отклонён до старта) → **парковка (merge-conflict)** напрямую без \`--abort\`.
-   \`git commit -m "task: ${TASK_NAME} merged (ready)"\` — ОДИН squash-коммит ветки на базу; карточка остаётся в \`ready/\`.
-   \`git branch -m "task/${TASK_NAME}" "done/${TASK_NAME}"\` — переименовать ветку в архивную \`done/<NAME>\` (НЕ удалять).
-   → **шаг 9**, затем **шаг 10** с \`AUTO-RUN-RESULT: ok: ${TASK_NAME}: completed\`.
+8. **Finalize (test → ready checkpoint, then authorized actions):**
+   Resolve the canonical helper root in this order: \`AI_AGENTS_SKILLS_ROOT\`, \`CLAUDE_PLUGIN_ROOT\`, \`PLUGIN_ROOT\`, \`CURSOR_PLUGIN_ROOT\`. Set \`KANBAN_ROOT="\${AI_AGENTS_SKILLS_ROOT:-\${CLAUDE_PLUGIN_ROOT:-\${PLUGIN_ROOT:-\${CURSOR_PLUGIN_ROOT:-}}}}"\` and \`KANBAN_MOVE="\${KANBAN_ROOT}/skills/kanban/scripts/kanban-move.sh"\`; verify that exact helper path is executable. If the root/helper cannot be resolved, stop and report the blocker. Invoke the helper only by \`"\${KANBAN_MOVE}"\`; never use a bare \`kanban-move.sh\` command.
+   Move the card with \`"\${KANBAN_MOVE}" --repo "${REPO}" "${TASK_BASENAME}" ready\`. Refresh the latest ready-card body and any remaining owned task files. Stage only exact owned paths; inspect cached name-status and run \`git diff --cached --check\`. Keep normal hooks enabled; never bypass a native refusal. Commit coherent validated task progress and the ready wrap-up when useful, without a separate permission request; do not create an empty/redundant commit when this exact owned state is already committed and verified. Verify commit SHA, message, paths, reviewed bytes, and no task-owned uncommitted changes.
+   Check authorization separately for \`done\`, merge, push, and deploy: explicit current user approval, recorded upfront task/EPIC/workflow authorization, or recorded profile/agent authorization. These actions may and should proceed automatically when that valid grant covers the action, target, and limits and all applicable gates pass; do not request redundant confirmation for a valid existing grant. Record source/reference, executing profile/agent, covered actions, and results in the card. Profile name, credentials, green tests, and stage transition alone are not a grant; native guards and task restrictions remain binding. \`ready\` is a mandatory evidence/verified-local-commit checkpoint, not a compulsory human stop.
+   If \`done\` authorization covers this card and all acceptance/review/quality gates pass, move it with \`"\${KANBAN_MOVE}" --repo "${REPO}" "${TASK_BASENAME}" done --approved\`, preserving the parent-before-child EPIC gate; refresh/read back the card and commit its exact owned update. Otherwise leave it at \`ready\` and identify the missing grant. A \`done\` grant does not authorize merge, push, or deploy.
+   Merge only after clean-branch verification and independent merge authorization. The hash-verified approved manifest permits scoped merge-at-ready after green QA and independent review, without requiring a \`done\` grant; otherwise the normal finalization path requires \`done\` first. Whenever merge cannot proceed because its authorization or another prerequisite is missing, retain \`task/${TASK_NAME}\`, do not archive it, and report the missing action(s) plus that the \`ready\`/\`done\` acceptance card exists on the task branch while the canonical base still has its pre-merge state. After verifying the owned commit and preserving pre-existing dirty work, safely run \`git switch "${BASE_BRANCH}"\` before step 9; never force a switch. Verify the base branch and preserved dirt. If switching is unsafe, blocked, or dirt preservation cannot be verified, stop without running the next-task chain.
+   When merge is authorized, run \`git switch "${BASE_BRANCH}"\`, then \`git merge --squash "task/${TASK_NAME}"\`. On merge failure, inspect whether \`MERGE_HEAD\` exists: if it does, run \`git merge --abort\`, verify the abort restored the pre-merge index/worktree without losing unrelated work, then use the existing park flow to switch to the task branch and park for merge-conflict; if abort fails, stop and report the unresolved merge. If \`MERGE_HEAD\` does not exist, the merge did not start: do not run abort; return to the task branch as required by the existing park flow and park directly for merge-conflict. After a successful merge, create the single squash commit \`task: ${TASK_NAME} merged (ready)\` when the card remains ready, or \`task: ${TASK_NAME} done\` when authorized done finalization occurred; verify the exact base commit and canonical card path/body. Rename the archive to \`done/${TASK_NAME}\` only after this successful verified authorized merge; otherwise keep the task branch. The archive name records a merged branch, not a card-stage transition.
+   Push and deploy are independent, separately authorized actions and must use the sanctioned project workflow, with all applicable operational gates satisfied. After any actual authorized push, read back the exact remote target/ref and verify it points to the expected commit. After any actual authorized deploy, read back the exact deployment target and verify the expected version/state. If exact read-back is unavailable or mismatches, report the action as unverified, never successful. Do not force-push; report ungranted actions as pending.
+   Run step 9 only after the task branch is successfully merged or, when merge is ungranted, after the verified safe return to base above. The final result must distinguish a merged card from a ready/done card retained on the task branch; never imply base merge, push, or deployment without its evidence.
 
 9. **Chain (for any result: ok/park/skip).** Required before step 10. Call this shell helper exactly once:
    \`${SCRIPT_DIR}/chain-next-task.sh "${REPO}" "${LOG_DIR}/.parked" "${TASK_BASENAME}" "${SCOPE_ID}" "${BASELINE_FILE}"\`
    The helper checks the baseline, selects only the next unblocked card from the approved allowlist, and queues one \`at\` job with the same scope ID. Do not run \`at\` or \`select-next-task.sh\` directly, and do not choose from the general \`todo/\` backlog.
 
-10. **Finish.** Do not push, open a PR, merge outside step 8, or move the card from \`ready/\` to \`done/\`. The final answer line must be:
+10. **Finish.** Perform only authorized actions; do not perform ungranted actions and list deferred actions with the missing scope. Do not request redundant confirmation when a valid grant applies. Final response line:
     \`AUTO-RUN-RESULT: <ok|park|skip>: ${TASK_NAME}: <причина>\`
 
 Жёсткие запреты:
@@ -129,8 +130,8 @@ Scope is immutable for this chain. Process/merge/chain only listed cards. Never 
 - Пропуски стадий (todo→test и т. п.).
 - Один \`git mv\` = один коммит (не смешивать с контент-правками, кроме fail-коммитов).
 - \`--no-verify\`.
-- Карточку в \`done/\` — только пользователь.
 - Direct \`at\` calls or scope expansion from the prompt; only \`chain-next-task.sh\` may enqueue the next card.
+- Any lifecycle/release action without valid action-specific authorization and required gates.
 - \`wip(park)\` коммит на базовой ветке — только через park-task.sh на \`task/*\`.
 - \`AskUserQuestion\` в автономном потоке.
 PROMPT_EOF
