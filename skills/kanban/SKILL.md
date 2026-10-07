@@ -132,6 +132,15 @@ Move card to `test/`. Run QA checks (lint/tests per project `CLAUDE.md`).
 ### 5. Ready (test → ready)
 
 Auto-review passed + AC met + tests green → move to `ready/`. If review finds issues → stay in `test/`.
+Use the canonical move helper, then refresh the latest ready-card body and any
+remaining owned task files. Make the normal local wrap-up commit without a
+separate permission request, using the configured named Git executor when
+routing requires it. Verify the commit SHA, message, committed paths and
+reviewed bytes, and confirm no task-owned changes remain uncommitted before
+reporting the handoff complete. Do not require a globally empty worktree or
+capture unrelated work. If Git, access, or a hook genuinely blocks the commit,
+report `card ready; commit blocked` with evidence. Ready does not authorize
+`done`, merge, push, or deployment.
 
 ### 6. Done (ready → done) — authorized finalization
 
@@ -189,8 +198,12 @@ a task is worked **in its own branch** (an epic's subtasks share the epic branch
   schedule-tasks). Create it at start.
 - **Sub-agents commit.** Each sub-agent commits its OWN zone's work into that
   branch (git-flow format + `Agent: <zone>` footer).
-- **Orchestrator finalizes.** On task completion the orchestrator makes a
-  wrap-up commit on the branch (adding its own remaining bits).
+- **Normal local commits.** Commit coherent, validated progress proactively
+  when useful; a separate user-approval gate is not required for ordinary local
+  task commits. At `test → ready`, the orchestrator makes a verified wrap-up
+  commit containing the latest card body and any remaining owned task files.
+  Do not create an empty or redundant commit when that exact owned state is
+  already committed and verified.
 - **Merge on OK — card and clean-check before merge.** Review OK → move the
   card to `done/` and verify the branch is clean (`git status --short` empty)
   *before* touching the default branch. Only then **squash-merge** the branch
