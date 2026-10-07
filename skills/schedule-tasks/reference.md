@@ -114,11 +114,18 @@ grep -h '^AUTO-RUN-RESULT' "$HOME/.local/state/claude-auto-runs/$(basename "$(gi
    uncommitted paths on base — pre-existing dirt is ignored.
 2. **Per-task branch.** Step 3 commits `task: start` on base (removing the card from
    `todo/` so the chain won't re-pick it), then creates `task/<NAME>`. All impl,
-   qa, and review commits land on the branch. On success (step 8), the agent
-   squash-merges the branch to base as ONE commit and renames the branch to
-   `done/<NAME>` (archive, not deleted). On any failure the agent calls
-   `park-task.sh` which commits WIP on the branch and returns to base; the branch
-   stays unmerged.
+   qa, and review commits land on the branch. On success (step 8), after required
+   acceptance/review/quality gates pass, the agent moves the card to `done/` only
+   when valid `done` authorization covers the target, then commits that exact
+   card update. Merge requires independent valid authorization. Only after an
+   authorized squash merge succeeds and its base commit/card locations are
+   verified may the agent rename the branch to `done/<NAME>` (archive, not
+   deleted). If merge is ungranted or blocked, retain the task branch and its
+   ready/done card, verify the owned commit and preserve unrelated dirt, then
+   safely return to base before chaining; report that the canonical base remains
+   unmerged and the card exists on the task branch. Stop before chaining if a
+   safe return is not possible. On other failure the agent calls `park-task.sh`,
+   which commits WIP on the branch and returns to base; the branch stays unmerged.
 3. **Chain step (step 9, on ok/park/skip).** Step 9 runs on **every** outcome.
    The agent calls `select-next-task.sh` (pre-interpolated path) to find the next
    unblocked card, then enqueues it via `at -t +20min`. Blocked cards (depending on

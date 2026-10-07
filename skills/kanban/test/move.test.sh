@@ -59,8 +59,9 @@ rc=$?
 set -e
 [ "$rc" -eq 2 ] || { echo "FAIL: expected exit 2 (validation) for ready->done without --approved, got $rc"; exit 1; }
 grep -qi "approved" /tmp/move-done-err.$$ || { echo "FAIL: done-approval message unclear"; cat /tmp/move-done-err.$$; exit 1; }
-grep -Fq "explicit user approval at hand-off" /tmp/move-done-err.$$ || { echo "FAIL: missing-flag error omits user approval form"; cat /tmp/move-done-err.$$; exit 1; }
-grep -Fq "recorded EPIC-scoped upfront autonomous authorization" /tmp/move-done-err.$$ || { echo "FAIL: missing-flag error omits autonomous authorization form"; cat /tmp/move-done-err.$$; exit 1; }
+grep -Fq "explicit current user approval" /tmp/move-done-err.$$ || { echo "FAIL: missing-flag error omits current user authorization form"; cat /tmp/move-done-err.$$; exit 1; }
+grep -Fq "recorded upfront task/EPIC/workflow authorization" /tmp/move-done-err.$$ || { echo "FAIL: missing-flag error omits upfront authorization form"; cat /tmp/move-done-err.$$; exit 1; }
+grep -Fq "recorded profile/agent authorization" /tmp/move-done-err.$$ || { echo "FAIL: missing-flag error omits profile/agent authorization form"; cat /tmp/move-done-err.$$; exit 1; }
 [ -f "$REPO/.claude/kanban/ready/K-001-move-me.md" ] || { echo "FAIL: missing --approved moved the card"; exit 1; }
 rm -f /tmp/move-done-err.$$
 

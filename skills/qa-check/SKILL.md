@@ -32,7 +32,9 @@ adds the gate behaviour below.
   discarding stderr.
 - Do NOT run the whole suite (`make test`) unless the user asks — use the
   targeted form (`name=<...>`) for the modules you touched.
-- Do NOT auto-merge or auto-push because checks went green.
+- Green checks alone are not authorization; when valid action-specific
+  authorization covers the target and all gates pass, automated merge, push,
+  or deploy is allowed without a redundant confirmation.
 
 ## ask-on-first-use (per project)
 

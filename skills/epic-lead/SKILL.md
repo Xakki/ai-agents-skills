@@ -28,10 +28,13 @@ adds only the EPIC orchestration delta.
 - Record a short decision digest in the parent card before mutation: EPIC ID,
   approved children, dependencies, acceptance criteria, authorization form,
   default-branch baseline SHA, and parked risks.
-- Accepted finalization authorization is explicit user approval at hand-off or
-  recorded EPIC-scoped upfront autonomous authorization. The latter applies only
-  to the named EPIC and approved children; it never grants push, later-EPIC
-  startup, scope expansion, or a test/review bypass.
+- For each finalization action, accept explicit user approval at hand-off,
+  recorded EPIC-scoped upfront autonomous authorization, other recorded upfront
+  task/workflow authorization, or recorded profile/agent authorization. It must
+  cover the target and limits; record source/reference, executor, actions and
+  results. A grant for one action does not imply another, later-EPIC startup,
+  scope expansion, or a test/review bypass. Do not request another user
+  confirmation when a valid grant applies.
 
 ## Prepare
 
@@ -55,8 +58,9 @@ adds only the EPIC orchestration delta.
 
 ## Execute and review
 
-- Follow Kanban stages and move cards with its scripts. Child cards stop at
-  `ready`; only the authorized parent gates their `done` transitions.
+- Follow Kanban stages and move cards with its scripts. Child cards reach
+  `ready` as an evidence checkpoint; the parent-before-child gate controls
+  `done`, which proceeds when action-specific authorization covers each card.
 - Follow Git Flow exactly: explicit-path staging, each sub-agent commits its own
   zone, the orchestrator makes only its wrap-up commit, and `Agent: <zone>` is
   the only commit trailer.
@@ -78,16 +82,27 @@ adds only the EPIC orchestration delta.
    where relevant, refresh affected data, and the full project quality gate.
    Review the integrated `base SHA..HEAD` diff and hand off the parent at `ready`
    only with green evidence.
-2. On one accepted authorization form, move the parent EPIC `ready → done` with
-   `--approved`, then move its children to `done` as Kanban permits.
-3. Verify `epic/<ID>` is clean. Only then perform one local squash merge into the
-   detected default branch, following Git Flow. Do not push without separate user
-   approval and never force-push.
+2. When valid authorization covers `done`, move the parent EPIC `ready → done`
+   with `--approved`, then eligible children to `done` as Kanban permits.
+   Otherwise leave it at `ready` and report the missing action grant.
+3. Verify `epic/<ID>` is clean. Only then, when merge is authorized, perform one
+   local squash merge into the detected default branch, following Git Flow, and
+   verify the resulting base commit and canonical card locations. If merge is
+   not authorized or does not complete successfully, retain `epic/<ID>`; cards
+   remain on that branch and are not merged into the canonical base.
+   Perform push only when separately covered by valid push authorization; never
+   force-push. Use deploy only when specifically authorized and the sanctioned
+   operational workflow/gates pass. After an actual authorized push or deploy,
+   read back the exact target and verify the expected remote revision or
+   deployed version/state before reporting success.
 4. Rename the archive branch, do not delete it:
+   only after a successful, verified, authorized merge; without that merge, keep
+   the task branch and do not archive it.
    `git branch -m epic/<ID> done/<ID>`.
 5. Hand off concisely: authorization reference, card states, commits/changed
-   zones, gate and review evidence, parked risks, clean status, archive branch,
-   and explicit no-push/no-later-EPIC status.
+   zones, gate and review evidence, authorization references and action results,
+   parked risks, clean status, archive branch, and any actions deferred for
+   missing authorization.
 
 ## Do not import
 

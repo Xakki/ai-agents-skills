@@ -45,10 +45,10 @@ examples → [reference.md](reference.md).
 
 | Skill | Follows CORE + its delta |
 |---|---|
-| [kanban](../kanban/SKILL.md) | Per-task `task/<ID>` branch; each sub-agent commits its zone; orchestrator finalizes; OK → squash-merge to default + rename branch to `done/<ID>` (strip the `task/` prefix — archive is `done/<ID>`, NOT `done/task/<ID>`). |
-| [schedule-tasks](../schedule-tasks/SKILL.md) | Autonomous per-task `task/<NAME>` branch + park-commit model; finalization is the SAME as kanban (squash-merge to default, rename branch to `done/<NAME>`). Owns its autonomous park / commit-shape specifics. |
+| [kanban](../kanban/SKILL.md) | Per-task `task/<ID>` branch; each sub-agent commits its zone; orchestrator finalizes; required review/gates must pass, `done` and merge each need valid action-specific authorization; verify the merge before renaming to `done/<ID>` (strip the `task/` prefix — archive is `done/<ID>`, NOT `done/task/<ID>`). Keep the task branch when merge is ungranted or unverified. |
+| [schedule-tasks](../schedule-tasks/SKILL.md) | Autonomous per-task `task/<NAME>` branch + park-commit model; required gates must pass, `done` and merge are independently authorized; archive as `done/<NAME>` only after a successful verified merge. If merge is ungranted, retain the branch/card and safely return to base before chaining. Owns its autonomous park / commit-shape specifics. |
 | [prepare-pr](../prepare-pr/SKILL.md) | PR assembly — sanity-check diff, run the gate, draft description. Draft-only by default. |
-| [qa-check](../qa-check/SKILL.md) | Quality gate scoped by `git diff`; never auto-merge / auto-push. |
+| [qa-check](../qa-check/SKILL.md) | Quality gate scoped by `git diff`; green checks alone are not authorization; execute merge/push automatically when separately authorized and all gates pass. |
 | [git-move](../git-move/SKILL.md) | Mechanics for `git mv` / `git rm` (rule 8). |
 
 Each documents ONLY its context-specific deltas; everything else here is binding.

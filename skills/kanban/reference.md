@@ -41,10 +41,12 @@ move to `done/` is rejected until its epic is already in `done/`. Full CLI →
 [scripts.md](scripts.md).
 
 **Subtask flow inside an epic.** Each subtask card walks
-`todo/ → progress/ → test/ → ready/` normally. It stops at `ready/`:
-- Do NOT move a subtask to `done/`. `done/` for a subtask is granted only when
-  the parent EPIC has explicit user approval at hand-off or recorded EPIC-scoped
-  upfront autonomous authorization for that EPIC and its approved children.
+`todo/ → progress/ → test/ → ready/` normally. `ready/` is its evidence
+checkpoint; after the parent reaches `done/`, continue the child's finalization
+when action-specific authorization covers it:
+- Do NOT move a subtask to `done/` before its parent is `done/`. A valid action-
+  specific authorization must cover the parent and child transitions; an
+  applicable recorded profile/agent authorization is sufficient.
 - Do NOT merge the epic branch when a subtask finishes. The branch merges once,
   after the epic is approved.
 - If a subtask surfaces a new open question, park it in `grooming/` and raise it
@@ -59,19 +61,26 @@ move to `done/` is rejected until its epic is already in `done/`. Full CLI →
    subtask. Never advance an epic on a red suite.
 
 **Hand-off.** Green gate → move the epic card to `ready/` and tell the user
-what to verify (concrete commands / URLs / expected output). Finalization needs
-explicit user approval at hand-off or recorded EPIC-scoped upfront autonomous
-authorization for that EPIC and approved children. The latter never grants push,
-later-EPIC startup, scope expansion, or a test/review bypass. The exact order is:
+what to verify (concrete commands / URLs / expected output). `ready` is a checkpoint, not a compulsory human stop. Continue with each action
+when valid action-specific authorization covers the target and all gates pass;
+this includes explicit user approval at hand-off, recorded EPIC-scoped upfront
+autonomous authorization, other recorded upfront task/workflow authorization,
+or recorded profile/agent authorization. Record source, executor,
+actions, limits, and results. A `done` grant alone does not grant push, later-EPIC
+startup, scope expansion, or a test/review bypass. The exact order is:
 parent `ready → done`, eligible subtasks to `done`, verify `epic/<ID>` clean,
-one squash merge, then `git branch -m epic/<ID> done/<ID>`. Keep the archive;
-do not delete it.
+then perform one squash merge only when separately authorized. Verify the base
+commit and card locations; rename with `git branch -m epic/<ID> done/<ID>` only
+after the successful, verified merge. If merge is missing or blocked, retain
+the epic branch and report that the cards are not on the canonical base. Keep a
+merged archive; do not delete it.
 
 ## Autonomous-Run Commit Contract
 
 Manual/orchestrated work uses the per-task branch model in `SKILL.md` (own
 `task/<ID>` branch, sub-agents commit their zones; on OK move the card to
-`done/`, verify the branch is clean, then squash-merge + rename to
+`done/` only when authorized, verify the branch is clean, then squash-merge
+only when separately authorized and rename only after the merge is verified to
 `done/<ID>` — strip the `task/` prefix, archive is `done/<ID>` not
 `done/task/<ID>`), following the [git-flow](../git-flow/SKILL.md) core.
 

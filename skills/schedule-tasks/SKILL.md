@@ -1,6 +1,6 @@
 ---
 name: schedule-tasks
-description: Schedule autonomous claude runs for kanban cards, each in its own byobu/tmux window. Triggers — RU "запланируй задачи", "запусти задачи по таймеру", "поставь в крон задачи из todo"; EN "schedule tasks", "run tasks on a timer", "auto-run kanban". Chain self-arms on ok/park/skip (+20 min); stops only on no-eligible-card or atd-off; never moves a card to done/. Escalation parks on a branch non-blocking; resume with /schedule-tasks resume.
+description: Schedule autonomous claude runs for kanban cards, each in its own byobu/tmux window. Triggers — RU "запланируй задачи", "запусти задачи по таймеру", "поставь в крон задачи из todo"; EN "schedule tasks", "run tasks on a timer", "auto-run kanban". Chain self-arms on ok/park/skip (+20 min); stops only on no-eligible-card or atd-off; performs authorized lifecycle actions when gates pass. Escalation parks on a branch non-blocking; resume with /schedule-tasks resume.
 ---
 
 ## Purpose
@@ -9,7 +9,8 @@ Schedule one-shot autonomous `claude` runs for cards in `.claude/kanban/todo/`. 
 a byobu window in session `1`, walks one card `todo→progress→test→ready`, then self-chains the
 next card at **+20 min** on `ok`, `park`, or `skip`. Chain **STOPS** only when atd is inactive
 or the backlog has no eligible card.
-Final hop `ready→done` is **user-only**. Escalation parks non-blocking on a `task/*` branch;
+`ready` is a verified checkpoint; proceed through `done` and other actions only when
+valid action-specific authorization covers each target and mandatory gates pass. Escalation parks non-blocking on a `task/*` branch;
 resume via `/schedule-tasks resume`.
 
 Git mechanics follow the [git-flow](../git-flow/SKILL.md) core. The autonomous
@@ -142,11 +143,12 @@ Run `/schedule-tasks resume [<NAME>]` in the main thread (interactive, not sched
      - Then `git switch task/<NAME>`.
 3. **Resume work**: read the card's `## ⏸ Parked` section, apply the user's answer, continue
    implementation, run qa-check, then `progress→test→ready` on the branch.
-4. **Merge**: when the task lands in `ready/` on the branch, merge to base:
-   `git switch <BASE_BRANCH>` → `git merge --squash "task/<NAME>"` → `git commit -m "task: <NAME> done"` (one squash commit) → `git branch -m "task/<NAME>" "done/<NAME>"` (archive, do not delete).
+4. **Done**: when valid action-specific authorization covers the task and gates pass, move `ready→done` and commit the exact card update. Otherwise leave it `ready` and report the missing grant.
+5. **Merge**: only after `done` and a clean branch check, and only when merge is separately authorized, merge to base:
+   `git switch <BASE_BRANCH>` → `git merge --squash "task/<NAME>"` → `git commit -m "task: <NAME> done"` (one squash commit). Verify the base commit and canonical card path. Only after a successful verified merge, archive with `git branch -m "task/<NAME>" "done/<NAME>"` (do not delete). If merge is unauthorized or fails, retain `task/<NAME>` and report that the card remains on that branch, not on the canonical base.
    On merge conflict → resolve manually; do NOT auto-park from resume (interactive, user present).
-5. **Cleanup**: after the merge, delete `$LOG_DIR/.parked/<NAME>`.
-6. **Done**: `ready→done` is **user-only** — do not perform it autonomously.
+6. **Push/deploy**: perform only when separately authorized for that action and target, through the sanctioned workflow; otherwise report deferred. After an actual authorized push or deploy, read back the exact target and verify the expected remote revision or deployed version/state before reporting success.
+7. **Cleanup**: after the merge, delete `$LOG_DIR/.parked/<NAME>`.
 
 ## Cancellation
 
@@ -161,10 +163,10 @@ atq | awk '{print $1}' | xargs -r atrm      # cancel ALL — warn user first
 - DO NOT schedule without confirming date/time if ambiguous
 - DO NOT queue a task not in `todo/`
 - DO NOT use `cron` for one-shot — use `at`
-- DO NOT push / merge / open PRs from the autonomous prompt
+- DO NOT push, merge, open PRs, or deploy without valid action-specific authorization; when it is present, use the sanctioned workflow and verify the target
 - DO NOT put `--debug-file` inside the repo (ENOENT risk; see `reference.md`)
 - DO commit `task: start <ID> (todo→progress)` as its OWN commit — never bundle the start mv with implementation
-- DO NOT instruct the prompt to move a card into `done/` — user-only step
+- DO NOT move a card into `done/`, merge, push, or deploy without authorization covering that action and target
 - DO NOT start a card from `grooming/` — chain only consumes `todo/`
 - DO NOT use `--no-verify`
 - DO NOT use `AskUserQuestion` in the autonomous prompt — escalation parks the task instead (non-blocking)

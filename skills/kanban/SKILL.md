@@ -11,14 +11,37 @@ description: Use when managing tasks — creating, grooming/refining draft tasks
 | Todo     | `.claude/kanban/todo/`     | Refined tasks ready to start                               |
 | Progress | `.claude/kanban/progress/` | Currently being worked on                                  |
 | Test     | `.claude/kanban/test/`     | Implementation handed off; review/QA in progress           |
-| Ready    | `.claude/kanban/ready/`    | Auto-review passed; awaiting authorized finalization       |
+| Ready    | `.claude/kanban/ready/`    | Evidence checkpoint; awaiting authorized finalization     |
 | Done     | `.claude/kanban/done/`     | Authorized completion                                      |
 
 Lifecycle: `grooming → todo → progress → test → ready → done`.
 
-`grooming/` and `ready/` are agent-boundary stages: autonomous runs never enter `grooming/`
-and never advance past `ready/`, except an EPIC with recorded EPIC-scoped upfront
-autonomous authorization as defined in Done below.
+Autonomous runs never enter `grooming/`. `ready/` is a mandatory evidence and
+verified local-commit checkpoint, not a compulsory human stop. Continue with
+authorized actions when their action-specific authorization and gates pass.
+
+## Authorization for automated lifecycle actions
+
+`done`, merge, push, and deploy may and should proceed automatically when the
+executing profile/agent already holds valid authorization for that specific
+action, target project/task, and applicable limits, and all mandatory
+acceptance, quality, review, and operational gates pass. Do not request another
+user confirmation merely because execution is automated or a card reached
+`ready`. Valid sources include explicit user approval at hand-off, recorded
+EPIC-scoped upfront autonomous authorization for its named scope, other
+recorded upfront task/workflow authorization, or recorded profile/agent authorization
+(standing owner-approved authority assigned to that profile/agent). Existing
+valid grants remain effective within their scope.
+
+Check each action independently. Record the authorization source/reference,
+executing profile/agent, covered actions and limits, target, and result in the
+card. A profile name, credentials, green tests, or stage transition alone is
+not a grant. This policy itself grants no production or release permission;
+explicit task restrictions and native security/approval controls remain
+binding, and a refusal must not be bypassed. `ready` does not imply `done`,
+merge, push, or deploy authorization. `done` alone does not authorize merge,
+push, or deploy; no grant extends to later EPICs or scope expansion unless it
+explicitly includes them.
 
 ## IDs & Prefix
 
@@ -144,20 +167,27 @@ report `card ready; commit blocked` with evidence. Ready does not authorize
 
 ### 6. Done (ready → done) — authorized finalization
 
-Authorization is exactly one of: `explicit user approval at hand-off`; or, only
-for one named EPIC and its approved child cards, `recorded EPIC-scoped upfront
-autonomous authorization`. The latter never authorizes push, a later EPIC, scope
+Authorization for `done` must be explicit current user approval, recorded
+upfront task/EPIC/workflow authorization, or recorded profile/agent
+authorization, and must cover this card. Record its source and scope. A grant
+for `done` alone never implies merge, push, deploy, later-EPIC work, scope
 expansion, or bypassing tests/review. Order matters — card first, merge last:
 
 1. Move the card `ready/ → done/` (`kanban-move.sh <ID> done --approved` or git-move manually).
 2. Verify the task branch is clean (`git status --short` empty — everything
    committed, nothing stray left uncommitted).
-3. Only then squash-merge the branch into the default branch (see Git Commits
-   below).
+3. Only then squash-merge the branch into the default branch if merge is also
+   authorized for this target (see Git Commits below).
 
-Outside an EPIC with recorded EPIC-scoped upfront autonomous authorization,
-`ready/ → done/` requires explicit user approval at hand-off. Never merge before
-the card is in `done/` and the branch has been verified clean.
+If `done` authorization is missing, retain `ready/` and identify the missing
+grant. Never merge before the card is in `done/` and the branch has been
+verified clean; if merge authorization is missing, leave the completed `done`
+card on its task branch, retain that branch, and report that the canonical base
+still has the pre-merge card state. Archive-rename the task branch only after a
+successful, verified, authorized merge. Push and deploy remain independent
+actions; after an authorized push or deploy, read back the exact target and
+verify the expected remote revision or deployed version/state before reporting
+success. Otherwise report the missing action or read-back evidence.
 
 ## Epics
 
@@ -180,11 +210,12 @@ cards; the epic is their parent and their integration point.
   its own — the epic gates that.
 - **Integration.** When the last subtask reaches `ready/`: restart the project,
   refresh all data (re-run imports/migrations), and run the full test suite.
-- **Hand-off.** Only then move the epic card to `ready/` and obtain explicit user
-  approval at hand-off or recorded EPIC-scoped upfront autonomous authorization.
-  Move the parent to `done/`, then its subtasks as the script permits; verify
-  `epic/<ID>` is clean; squash-merge once; then rename the archive to `done/<ID>`
-  (`git branch -m epic/<ID> done/<ID>`). Never delete that archive branch.
+- **Hand-off.** Only then move the epic card to `ready/`. If valid authorization
+  covers parent and children `done`, move parent first, then eligible subtasks;
+  verify `epic/<ID>` is clean before an authorized squash merge. Rename the
+  archive to `done/<ID>` (`git branch -m epic/<ID> done/<ID>`) only after the
+  merge succeeds and its result is verified; otherwise retain `epic/<ID>` and
+  report that the cards remain on the task branch. Never delete it.
 
 See [reference.md](reference.md) for the full epic protocol.
 
@@ -204,13 +235,18 @@ a task is worked **in its own branch** (an epic's subtasks share the epic branch
   commit containing the latest card body and any remaining owned task files.
   Do not create an empty or redundant commit when that exact owned state is
   already committed and verified.
-- **Merge on OK — card and clean-check before merge.** Review OK → move the
-  card to `done/` and verify the branch is clean (`git status --short` empty)
-  *before* touching the default branch. Only then **squash-merge** the branch
-  into the default branch as ONE commit, then **rename** the branch to
+- **Authorized finalization.** Review and gates OK → move the card to `done/`
+  and verify the branch is clean (`git status --short` empty) only when `done`
+  is authorized. If merge is separately authorized, only then **squash-merge**
+  the branch into the default branch as ONE commit, verify the merge result, then
+  **rename** the branch to
   `done/<ID>` — strip the `task/` prefix (`git branch -m task/<ID> done/<ID>`);
   the archive is `done/<ID>`, NOT `done/task/<ID>`. Kept as an archive for
-  optional later cleanup — do not delete immediately.
+  optional later cleanup — do not delete immediately. If merge is not
+  authorized or does not complete successfully, retain the task branch and do
+  not archive-rename it. After any authorized push/deploy, read back the exact
+  target and verify the expected remote revision/deployed version or state
+  before reporting success.
 - Moving cards between stage dirs → `kanban-move.sh` (wraps [git-move](../git-move/SKILL.md), validates the transition); manual fallback → `git-move` directly.
 
 See [reference.md](reference.md) for the autonomous-run commit contract.
@@ -218,8 +254,9 @@ See [reference.md](reference.md) for the autonomous-run commit contract.
 ## Stop Conditions
 
 - Do NOT skip planning.
-- Do NOT move to `done/` without explicit user approval at hand-off or recorded
-  EPIC-scoped upfront autonomous authorization.
+- Do NOT perform `done`, merge, push, or deploy without valid authorization
+  explicitly covering that action and target; do not ask again when a valid
+  recorded grant already covers it.
 - Do NOT start a card from `grooming/` — resolve open questions, move to `todo/` first.
 - Do NOT silently resolve `grooming/` questions — ask the user; record in `**Decisions:**`.
 - Do NOT move to `ready/` while tests are red.

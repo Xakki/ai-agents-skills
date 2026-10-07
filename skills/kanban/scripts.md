@@ -180,8 +180,11 @@ kanban-move.sh <ID|path> <stage> [--force] [--approved]
   - `→ done` requires `--approved`, which is a caller attestation. The script
     checks only that the flag is present; it does not validate authorization
     evidence. Before using it, the orchestrator must already hold explicit user
-    approval at hand-off or recorded EPIC-scoped upfront autonomous authorization
-    and record the chosen form in the parent EPIC Execution Log. Without the flag,
+    approval (including explicit user approval at hand-off), recorded
+    EPIC-scoped upfront autonomous authorization, other recorded upfront
+    task/workflow authorization, or recorded
+    profile/agent authorization covering this action and target, and record the
+    source, scope and executor in the card. Without the flag,
     the script exits with an error and makes no move.
   - A subtask (`<EPIC-ID>-NN-*`) cannot reach `done/` before its epic
     (`<EPIC-ID>-*`) is already in `done/`.
@@ -189,7 +192,9 @@ kanban-move.sh <ID|path> <stage> [--force] [--approved]
     `**Open questions:**` section — resolve into `**Decisions:**` first (see
     `SKILL.md` grooming protocol).
   - `--force` bypasses all of the above validations for a deliberate manual
-    override — use sparingly, prints a stderr warning when used.
+    override — use sparingly, prints a stderr warning when used. It is not an
+    authorization grant and must never be used to evade a missing grant or
+    native security/approval control.
 - On success, moves the card via [git-move](../git-move/SKILL.md) (stages the
   rename, does **not** commit) and prints the suggested commit subject on
   stdout: `task: <verb> <ID> (<from>→<to>)`, where `<verb>` is
