@@ -26,7 +26,7 @@ SOURCES="$TMP/sources.tsv"
 printf 'mysrc\tfile://%s\tskills-repo\n' "$SRC" >"$SOURCES"
 CACHE="$TMP/cache"; OUT="$TMP/catalog.tsv"
 
-bash "$SCRIPT" --cache "$CACHE" --sources "$SOURCES" --out "$OUT"
+bash "$SCRIPT" --refresh --cache "$CACHE" --sources "$SOURCES" --out "$OUT"
 
 grep -qP '^mysrc\treact\tlocal\treact\tReact best practices' "$OUT" || { echo "FAIL: react row"; cat "$OUT"; exit 1; }
 grep -qP '^mysrc\tdocker-nested\tlocal\tdocker/nested\t' "$OUT" || { echo "FAIL: nested row"; cat "$OUT"; exit 1; }

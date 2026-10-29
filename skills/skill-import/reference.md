@@ -1,62 +1,17 @@
-# skill-import — reference
+# Skill import interface and limitations
 
-Source files: `build-catalog.sh`, `import-skill.sh`, `update-imported.sh`,
-`sources.tsv`. Before relying on a fact here, verify it against those scripts;
-on drift, fix this file in the same change and report to the team-lead.
+Resolve the plugin root using the current runtime's documented interface. Configure a source list as tab-separated `name`, `origin URL`, `type`. Do not trust a discovered source without reviewing ownership, license, scripts and exact version before import. The source list is user-controlled configuration; its presence is not consent to fetch or publish.
 
-## sources.tsv
+`build-catalog.sh` reads previously prepared source caches without network by default. `--refresh` explicitly permits cloning a missing configured source or fetching the matching branch and fast-forwarding a clean existing cache; dirty or divergent caches are refused rather than reset. Cache refresh is a Git/network operation with its own scope. On an incomplete build, the previous catalog is preserved. A catalog is a candidate index, not an approval or a guarantee that descriptions are correct.
 
-Tab-separated `name<TAB>clone_url<TAB>type`; `#` comments allowed.
-- `skills-repo` — every dir containing `SKILL.md` is a skill.
-- `hybrid` — local `SKILL.md` dirs plus `github.com` links parsed from `README.md`.
-Add a repo = append a row. Use HTTPS URLs (public repos, no ssh key needed).
+`import-skill.sh <source> <skill> --project <project> [--dest <project-relative-directory>] [--cache <dir>] [--catalog <file>] [--sources <file>]` accepts one unique local entry. The cache must be a regular Git checkout whose configured origin matches the source list; this comparison is not cryptographic source authentication and does not prove the commit came from that origin. Independently establish and review provenance. Tracked changes in the selected source path, ambiguous rows, symlinks, submodules, unsafe paths, mismatched skill names and an existing destination are rejected. It copies only tracked `HEAD` files into a new destination, adds the receipt `.skill-import.json` and reports the full commit. The destination must stay within the requested project. A pre-existing manifest and the Git index remain untouched.
 
-## Catalog format (`<cache>/catalog.tsv`)
+Source and skill names use letters, digits, dot, underscore and hyphen; source locations additionally allow slash, but neither may contain `..`. Paths outside this restricted grammar, including spaces, require a separately reviewed method. Only an exact name match is accepted; the importer never guesses the first `SKILL.md` in a repository.
 
-Header + rows `source<TAB>skill<TAB>kind<TAB>location<TAB>description`.
-- `kind=local` → `location` is the skill dir path inside the source clone.
-- `kind=external` → `location` is a `github.com` URL (may be `.../tree/<branch>/<subpath>`).
-Built on the fly: first run clones (`--depth 1`), later runs fetch+reset. Use
-`--offline` to reuse the cache without network.
+`update-skill.sh <source> <skill> [--project DIR] [--dest DIR] [--cache DIR] [--catalog FILE] [--sources FILE]` plans an update from three trees: the receipt baseline, the local directory (hidden files included) and tracked `HEAD` of the verified cache, under the same source checks as an import. It prints JSON: `upstream_changes` (`add`/`change`/`remove`), `local_changes` (`modified`/`added`/`deleted` against the receipt), `has_receipt`, `discard_local_required` and `plan_sha256`. It writes nothing.
 
-## Matcher subagent prompt (template)
+`update-skill.sh ... --apply --plan-sha256 <hash> [--discard-local]` takes `<dest>/.skill-import.lock`, recomputes the plan and proceeds only when the hash is unchanged. It stages the new tree with its receipt in a hidden directory under the destination, checks it against the upstream hashes, moves the old directory to `<dest parent>/.skill-import-backups/<skill>-<UTC time>-<old commit>` and renames the staged tree into place (if that rename fails the original is restored). Nothing is deleted except the helper's own staging directory; backups stay until the user removes them. A copy without a receipt, or with any local change, needs `--discard-local`. The refresh of the cache itself stays a separate, authorized `build-catalog.sh --refresh`. Between the two renames the skill directory is briefly absent, and independent writers are not locked out.
 
-> You are picking skills for a project. Read `<catalog.tsv>` (columns:
-> source, skill, kind, location, description) and the project docs at
-> `<paths>`. Infer the project's stack and needs. Return a ranked shortlist
-> (max ~12) of the most relevant skills, each as:
-> `skill | source | kind | location | one-line why it fits this project`.
-> Do not ask the user anything; return the list to the team-lead. English only.
+`update-imported.sh` previews verified legacy manifest entries against local tracked `HEAD` (ignoring receipts), without writing the manifest, target or index and without fetching. A difference is reported with exit 4. `--force` is refused by every script. External catalog entries cannot be imported or updated directly until an explicitly approved source is prepared as a verified local cache.
 
-The team-lead translates the shortlist into the user's language before showing it.
-
-## Manifest (`<project>/.claude/skills/.imported.tsv`)
-
-Rows `skill<TAB>source<TAB>url<TAB>location<TAB>commit_sha<TAB>date`. Written by
-`import-skill.sh`; read by `update-imported.sh`.
-
-## Frontmatter extraction caveat
-
-`build-catalog.sh` reads only single-line `name:`/`description:` from
-frontmatter. Multi-line/folded descriptions are truncated to the first line —
-acceptable for catalog display.
-
-## Edge cases
-
-- External URL without a discoverable `SKILL.md` → import aborts.
-- Collision: import exits 3; update exits 4 when a differing copy needs `--force`.
-- `update-imported.sh` refreshes the catalog first, so a source removed upstream
-  is reported as "no longer in catalog".
-
-### Limitations — update behavior differs by kind
-
-- **External-kind skills cannot be diffed locally.** Without `--force`,
-  `update-imported.sh` does not flag them as changed — it prints
-  `external <skill> (<source>): re-pull only with --force (cannot diff locally)`
-  and skips them (no diff, no exit-4 trigger). Run
-  `update-imported.sh <skill> --force` (or `--all --force`) to re-pull: this
-  re-clones/fetches the latest into the external cache
-  (`<cache>/external/<slug>`) and re-copies into the project.
-- **Local-kind skills get a real content diff** (`diff -rq` between the
-  refreshed source cache `<cache>/repos/<source>/<location>` and the project
-  copy) and honor the normal no-force report / `--force` apply flow.
+`mv -T -n`, `realpath -m`, NUL-aware `find`/`sort`, Git and Python are required by this implementation. It is tested on Linux/GNU tools, not established for macOS or Windows. Its checks do not lock the entire project against independent writers; do not race destination or cache mutation. A security/approval veto remains a stop, not a reason to bypass the interface.

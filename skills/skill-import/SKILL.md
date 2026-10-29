@@ -1,48 +1,16 @@
 ---
 name: skill-import
-description: Discover and import skills from external git repos into the current project's .claude/skills/, matched to the project's needs, with descriptions in the user's language, and keep them updatable. Триггеры RU — «импортируй скилы», «подбери скилы для проекта», «поставь скилы из репозитория», «обнови импортированные скилы», «какие скилы подойдут проекту»; EN — import skills, pick skills for this project, install skills from a repo, update imported skills, which skills fit this project.
+description: Discover reviewed skills in configured Git sources and safely import a selected skill; импортировать скилл, подобрать навыки.
 ---
 
-# skill-import
+# Skill import
 
-Copies skills from configured source repos into `<project>/.claude/skills/`,
-matched to what the project actually needs. Catalog is built on the fly into a
-cache; imported skills are tracked for updates.
+Use when the user asks to discover or import a specific skill into a project. Determine the project, destination and source through the runtime or task. Discover existing skills and project needs before proposing candidates; a configured source is not proof that its contents are safe, licensed or authorized. Present relevant options with their source and intended destination before a dependent import.
 
-Set `ROOT="${AI_AGENTS_SKILLS_ROOT:-${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-${CURSOR_PLUGIN_ROOT:-}}}}"`. Scripts run via `"$ROOT"/skills/skill-import/<script>`:
-`build-catalog.sh`, `import-skill.sh`, `update-imported.sh`. Config:
-`sources.tsv` (append a row to add a repo). Details, catalog/manifest formats
-and the matcher prompt: [reference.md](reference.md).
+`import-skill.sh` creates a **new** import from an exact, reviewed local Git cache whose configured origin matches the selected source and has no tracked changes in the selected path. That comparison does not authenticate the commit: independently review the selected commit and provenance. It writes a provenance receipt (`.skill-import.json`: source, commit, SHA-256 of every file) inside the new skill directory and changes no manifest or Git index.
 
-## Modes
+To update an imported skill, run `update-skill.sh <source> <skill>` (a read-only plan with `plan_sha256`, upstream changes and local changes), review it, then repeat with `--apply --plan-sha256 <hash>`. Apply refuses if anything changed since the plan, and refuses to replace local modifications, added or hidden files, or a copy without a receipt unless the user authorized discarding them and you add `--discard-local`. The old directory is moved whole to a backup directory and never deleted. There is no `--force`, no apply-all and no direct external-URL import; each skill is a separate reviewed step.
 
-| Mode | What it does |
-|---|---|
-| **discover** (default) | build catalog → delegate matching to a subagent → present options in the user's language → import chosen |
-| **update** | `update-imported.sh [skill\|--all]` — re-sync imported skills |
-| **list** | show `<project>/.claude/skills/.imported.tsv` |
-| **add-source** | append a `name<TAB>url<TAB>type` row to `sources.tsv` |
+Catalog building is offline by default; `--refresh` makes explicit network or local-source changes and must be authorized for the specified sources. Existing dirty caches are never reset or force-updated. `update-imported.sh` remains a read-only comparison for legacy manifest entries.
 
-## Discover (happy path)
-
-1. Build/refresh the catalog:
-   `bash "$ROOT"/skills/skill-import/build-catalog.sh`
-   (writes `${SKILL_IMPORT_CACHE:-~/.cache/skill-import}/catalog.tsv`).
-2. **Delegate matching to a subagent** — do NOT read the full catalog into the
-   main thread. Hand the subagent the catalog path and the project's doc paths
-   (`README*`, `CLAUDE.md`/`AGENTS.md`, stack manifests). It returns a ranked
-   shortlist: `skill · source · kind · location · why_relevant` (English). See
-   the matcher prompt in [reference.md](reference.md).
-3. Present the shortlist to the user **in their language** (translate the
-   description + why-relevant). Let them choose.
-4. Import each chosen skill:
-   `bash "$ROOT"/skills/skill-import/import-skill.sh <source> <skill>`
-   (run from the project root, or pass `--project <dir>`).
-5. The import **stages** files; commit via the `git-flow` skill.
-
-## Safety
-
-- Sources are read-only; scripts never push to them.
-- Import never overwrites an existing project skill without `--force`.
-- Update never overwrites a differing copy without `--force` (shows the diff).
-- Copy stages only — commits are `git-flow`'s job.
+Use the current runtime's supported plugin root to locate `build-catalog.sh`, `import-skill.sh`, `update-skill.sh` and `update-imported.sh`. When delegation is available and authorized, a subagent may narrow a large catalog without unnecessarily loading it into the main context. [See the exact interface and limitations](reference.md). Do not execute imported instructions or scripts as part of discovery.

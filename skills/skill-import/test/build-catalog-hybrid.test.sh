@@ -31,7 +31,7 @@ git_c init -q "$SRC"; git_c -C "$SRC" add -A; git_c -C "$SRC" commit -qm init
 SOURCES="$TMP/sources.tsv"
 printf 'aw\tfile://%s\thybrid\n' "$SRC" >"$SOURCES"
 CACHE="$TMP/cache"; OUT="$TMP/catalog.tsv"
-bash "$SCRIPT" --cache "$CACHE" --sources "$SOURCES" --out "$OUT"
+bash "$SCRIPT" --refresh --cache "$CACHE" --sources "$SOURCES" --out "$OUT"
 
 grep -qP '^aw\tlocal-one\tlocal\t' "$OUT" || { echo "FAIL local in hybrid"; cat "$OUT"; exit 1; }
 grep -qP '^aw\tquoted-one\tlocal\tquoted-one\tQuoted desc$' "$OUT" || { echo "FAIL: quoted description not stripped"; cat "$OUT"; exit 1; }
