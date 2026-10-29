@@ -1,0 +1,7 @@
+# Lifecycle and handoff evidence
+
+For a decision-only card, record the allowed scope, testable invariant, reactivation gate, non-decisions and open questions; preserve the stage unless a move is authorized. For already-completed external validation or rollout, retain the operator-provided sanitized observation and distinguish it from checks executed now. Do not replay an external probe without a new reason and authority, or imply a backup write proved restore. If a reproducible probe requires an environment value inside a container, verify actual injection rather than assuming a host-sourced file is inherited.
+
+Use the canonical board helper for authorized adjacent transitions, reconcile any maintained status field, and run targeted lint on the actual card path before and after. Treat zero checked cards as unverified; report whole-board diagnostics separately. Avoid a no-op move when the card is already at its requested state. Update an authorized parent matrix if current child status or next action changes, preserving prior decisions as history. A metadata handoff does not authorize runtime, deployment, merge, push or `done`.
+
+When staging is authorized, inspect staged and working state separately. A mover may stage a rename before an evidence append; refresh the final destination body and verify the actual cached paths, diff and resulting commit. Follow the actual repository message policy, preserve unrelated changes and report only observed clean state and checks.

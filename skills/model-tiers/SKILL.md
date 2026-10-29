@@ -1,72 +1,12 @@
 ---
 name: model-tiers
-description: >
-  Map cheap, standard, and judgment work to resolved model slugs via
-  AI_MODEL_*. Use to select a subagent tier, override defaults, or map
-  mechanical, product-logic, and architecture work to models such as Haiku,
-  Sonnet, and Opus.
+description: Resolve optional model-tier settings through the active agent runtime; выбор модели, уровни моделей.
 ---
 
-# model-tiers — cheap / standard / judgment
+# Model tiers
 
-Three cognitive tiers — skills and delegation rules name **tiers only**, never vendor
-model slugs. Resolved slugs for this session are injected at **SessionStart**
-(`hooks/model-tiers-inject.sh`) and appear in context as `cheap`, `standard`,
-`judgment`.
+Use when a task explicitly needs model selection or the user has configured a delegation policy. The optional `AI_MODEL_CHEAP`, `AI_MODEL_STANDARD` and `AI_MODEL_JUDGMENT` values are runtime-specific selectors, not universal model names. Read them from the agent's supported environment or configuration interface, and verify that each selector and any model override is supported and authorized in the active runtime.
 
-## Tiers
+Keep the inherited model when no applicable override is requested or supported. An unset tier is unconfigured, not permission to invent a selector or substitute another provider's model. Profiles, role names and model selectors are distinct; preserve any required named profile and follow its actual capabilities.
 
-| Tier | Role | Default slug |
-|------|------|--------------|
-| **cheap** | Mechanical, spec-complete, single-pass work (grep, rename, format, inventory) | `haiku` |
-| **standard** | Routine product logic, known patterns, doc/skill edits, code review | `sonnet` |
-| **judgment** | Architecture, tricky debug, cross-file synthesis, multi-source research | `opus` |
-
-When torn between two tiers, pick the cheaper one; escalate on ambiguity. Floor =
-**standard** for anything touching product logic.
-
-## Env keys
-
-| Key | Tier |
-|-----|------|
-| `AI_MODEL_CHEAP` | cheap |
-| `AI_MODEL_STANDARD` | standard |
-| `AI_MODEL_JUDGMENT` | judgment |
-
-## Precedence
-
-1. **Runtime environment** — `AI_MODEL_*` values inherited when the agent starts.
-   Claude, Codex, and Cursor can set these through their `settings.json` `env`
-   block. For Prime Agent, export them in the shell/service that starts
-   `prime-agent`; use exact selectors accepted by `prime-agent model list`.
-2. **Plugin defaults** — `skills/model-tiers/defaults.env` (shipped with the plugin).
-
-Unset override keys fall back to defaults. **Never invent a model** — always use
-the resolved slug from the map above or from SessionStart injection.
-
-## SessionStart inject
-
-Every session receives a tiny block:
-
-```
-## Model tiers (resolved for this session)
-cheap = <slug>
-standard = <slug>
-judgment = <slug>
-```
-
-Pass these slugs as `model:` on every `Agent` / `Task` call. Omitting `model:` inherits
-the caller's tier (expensive default).
-
-## Configure overrides
-
-Set `AI_MODEL_*` in the active runtime's environment. Claude, Codex, and Cursor
-can use their `settings.json` `env` block; for Prime Agent, export the values
-before startup. Long jq examples → [reference.md](reference.md).
-
-## Agent frontmatter limitation
-
-YAML `model:` in `.claude/agents/*.md` is **not** env-expanded — frontmatter tracks
-plugin defaults at authoring time. Callers must pass the **resolved slug** from the
-tier map when invoking agents; skills reference tiers (`cheap`, `standard`,
-`judgment`) only.
+For Claude-specific configuration and its shipped aliases, see [the conditional reference](reference.md). Other runtimes must use their own documented configuration and discovery interfaces. A session-start hook may report tier settings as hints; it does not override the user's model choice or require a model argument on every delegation.

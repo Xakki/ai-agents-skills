@@ -33,6 +33,7 @@
 # Telegram limits: 4096 chars/message. Long bodies are split, keeping the title
 # only on the first message. Each chunk is retried up to 3 times with backoff.
 
+set +x
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
@@ -41,11 +42,27 @@ source "$SCRIPT_DIR/runtime.sh"
 
 ENV_FILE="$TG_ENV_FILE"
 if [[ -f "$ENV_FILE" ]]; then
+    # Preserve explicitly supplied environment values over file defaults.
+    env_names=()
+    env_values=()
+    for env_name in TELEGRAM_BOT_TOKEN TELEGRAM_CHAT_ID TELEGRAM_THREAD_ID TELEGRAM_MENTION; do
+        if [[ ${!env_name+x} ]]; then
+            env_names+=("$env_name")
+            env_values+=("${!env_name}")
+        fi
+    done
     set -a
     # shellcheck disable=SC1090
     source "$ENV_FILE"
+    set +x
     set +a
+    for env_index in "${!env_names[@]}"; do
+        printf -v "${env_names[$env_index]}" '%s' "${env_values[$env_index]}"
+        export "${env_names[$env_index]}"
+    done
+    unset env_names env_values env_name env_index
 fi
+set +x
 
 TITLE=""
 BODY=""
@@ -89,6 +106,15 @@ done
 
 if [[ -z "$TOKEN" || -z "$CHAT_ID" ]]; then
     echo "tg-notify: TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID must be set (env or $ENV_FILE)" >&2
+    exit 2
+fi
+
+# These values become curl config, so reject control characters, quoting and
+# non-Telegram destination formats before building any transport request.
+if [[ ! "$TOKEN" =~ ^[0-9]+:[A-Za-z0-9_-]+$ ]] ||
+   [[ ! "$CHAT_ID" =~ ^(-?[0-9]+|@[A-Za-z0-9_]+)$ ]] ||
+   [[ -n "$THREAD_ID" && ! "$THREAD_ID" =~ ^[0-9]+$ ]]; then
+    echo "tg-notify: invalid token or destination format" >&2
     exit 2
 fi
 
@@ -180,28 +206,34 @@ save_failed() {
 }
 
 send_chunk_once() {
-    local text="$1"
-    local args=(--silent --show-error --max-time 30
-        --write-out '\n%{http_code}'
-        --data-urlencode "chat_id=${CHAT_ID}"
-        --data-urlencode "text=${text}"
-        --data-urlencode "disable_web_page_preview=true")
-    if [[ -n "$THREAD_ID" ]]; then
-        args+=(--data-urlencode "message_thread_id=${THREAD_ID}")
-    fi
-    if [[ -n "$PARSE_MODE" ]]; then
-        args+=(--data-urlencode "parse_mode=${PARSE_MODE}")
-    fi
-    local raw curl_rc=0
-    raw=$(curl "${args[@]}" "$API" 2>&1) || curl_rc=$?
+    local text="$1" raw curl_rc=0
+    # Keep the token, destination and text out of curl argv and process listings.
+    # A pipe-backed curl config holds only validated values; text is URL-encoded
+    # from stdin. Disable .curlrc, restrict the protocol and never follow redirects.
+    exec 9< <(
+        printf 'url = "%s"\n' "$API"
+        printf 'data-urlencode = "chat_id=%s"\n' "$CHAT_ID"
+        printf 'data-urlencode = "disable_web_page_preview=true"\n'
+        [[ -z "$THREAD_ID" ]] || printf 'data-urlencode = "message_thread_id=%s"\n' "$THREAD_ID"
+        [[ -z "$PARSE_MODE" ]] || printf 'data-urlencode = "parse_mode=%s"\n' "$PARSE_MODE"
+        :
+    )
+    raw=$(
+        # The config pipe already contains these validated values; do not also
+        # pass the Telegram credential or destination in curl's environment.
+        unset TELEGRAM_BOT_TOKEN TELEGRAM_CHAT_ID TELEGRAM_THREAD_ID TELEGRAM_HOME_CHANNEL TOKEN CHAT_ID THREAD_ID
+        printf '%s' "$text" | curl --disable --silent --max-time 30 --proto '=https' \
+            --config /dev/fd/9 --data-urlencode 'text@-' --write-out '\n%{http_code}' 2>/dev/null
+    ) || curl_rc=$?
+    exec 9<&-
     local http_code="${raw##*$'\n'}"
     local response="${raw%$'\n'*}"
     if (( curl_rc != 0 )); then
-        SEND_ERR="curl rc=$curl_rc: $response"
+        SEND_ERR="curl rc=$curl_rc"
         return 1
     fi
-    if ! grep -q '"ok":true' <<<"$response"; then
-        SEND_ERR="http=$http_code response=$response"
+    if [[ "$http_code" != 200 ]] || ! printf '%s' "$response" | python3 -c 'import json,sys; sys.exit(0 if json.load(sys.stdin).get("ok") is True else 1)' 2>/dev/null; then
+        SEND_ERR="http=$http_code"
         return 1
     fi
     return 0

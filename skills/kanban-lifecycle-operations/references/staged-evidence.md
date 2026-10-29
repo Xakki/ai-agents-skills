@@ -1,0 +1,5 @@
+# Staged evidence and finalization
+
+Preserve the original review and gate receipts. Record actual acceptance mapping, branch/source identity, results, skips, limitations and the intended endpoint without rewriting historical failures. If staging is authorized, stage the exact final destination body and required source deletion or companion paths; a previously staged rename can contain an older body. Inspect complete cached and working diffs and preserve foreign index and working state.
+
+Commit only within the actual authorized scope and message policy, with normal hooks. Verify native exit, parent and commit ID, complete changed paths and resulting bytes against the reviewed candidate, rendered message, applicable trailers and residual owned versus unrelated state. A confirmed move with a blocked commit is a verified card move plus a blocked Git checkpoint, not a completed commit. Do not replay unchanged product gates for a metadata-only change; run checks affected by changed inputs. Read back any separately authorized remote or live outcome before claiming it succeeded.

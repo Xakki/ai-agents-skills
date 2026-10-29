@@ -1,64 +1,17 @@
-# git-flow — reference
+# Git message and staging guidance
 
-Rare/edge detail and longer examples behind the [SKILL.md](SKILL.md) CORE.
+Use this reference for exact commit messages, staged-state preservation and branch or publication decisions.
 
-## Commit message examples
+## Exact messages
 
-```
-api: add pagination to /orders
+Build the requested subject and body using separate `git commit -m` arguments, or write the exact intended message to a private temporary file and use `git commit -F <file>`. Ordinary quoted strings containing literal `\n` do not become newline characters. When Bash is the chosen shell, ANSI-C `$'...'` quoting can express newlines; avoid accidental indentation. Preserve user-provided trailers and add no new trailer unless authorized by the task or applicable project policy.
 
-Cursor-based; offset paging blew up past 100k rows on prod.
+After committing, inspect `git show -s --format=%B HEAD` and, when trailers matter, `git show -s --format='%(trailers:only,unfold)' HEAD`. Verify the message and actual commit ID rather than inferring the result from the command. A message amendment changes the commit ID and requires authorization.
 
-Agent: backend
-```
+## Existing index and dirty worktree
 
-```
-docs: document the deploy rollback steps
+Record the admitted scope and pre-existing staged state before changes. Explicit `git add -- <path>` is not sufficient if unrelated entries are already staged; inspect the complete staged set and preserve unrelated entries. Use project-supported hunk selection when only part of a file belongs to the task. Do not force-stage ignored content or inspect private material solely to make a commit pass. A checkpoint records work and does not by itself prove acceptance.
 
-Agent: docs
-```
+## Branches and remote effects
 
-Minimal (no body, single-zone):
-
-```
-infra: pin redis image to 7.2
-
-Agent: infra
-```
-
-## The `Agent: <zone>` footer
-
-- One footer line, last line of the message.
-- `<zone>` = the area the sub-agent owned (e.g. `backend`, `frontend`, `infra`,
-  `db`, `docs`, `tests`). Keep it short and stable across a project.
-- This is an explicit, scoped override of the global "no signatures/trailers"
-  rule — it is the **only** trailer allowed. Still no `Co-Authored-By:`,
-  `Generated with …`, emoji lines, etc.
-- A solo agent working the whole change still adds the footer with the dominant
-  zone (or `task` for pure board/stage work).
-
-## Branches
-
-- Default branch is whatever the project uses (`main` / `master` / other) — never
-  assume; detect with `git rev-parse --abbrev-ref HEAD` / `git remote show`.
-- User-requested branches: `feature/<short>`, `fix/<short>`, `chore/<short>`.
-  `<short>` is a kebab-case slug, not a sentence.
-- Skill-defined branches (`task/<ID>`, etc.) are owned by that skill — follow the
-  skill, not these defaults.
-
-## Staging — why explicit-path only
-
-Bulk staging (`git add .` / `-A` / `-u`, `git commit -a`) sweeps in unrelated
-working-tree changes (pre-existing dirt, other agents' WIP, secrets, build
-artifacts). Always `git add` the specific paths the commit is about. The only
-sanctioned exception is schedule-tasks' user-initiated **resume** path, which
-guards with an active-run check before a one-shot bulk commit — see
-[schedule-tasks](../schedule-tasks/SKILL.md).
-
-## Force-push & no-verify
-
-- No force-push (`--force` / `-f` / `--force-with-lease`) to the default branch.
-  On a private feature branch a `--force-with-lease` after an interactive rebase
-  is acceptable only when the user asked.
-- Never `--no-verify` — pre-commit / pre-push hooks exist for a reason; fix the
-  root cause instead of bypassing.
+Use the branch and naming policy supplied by the task or repository. Inspect exact source/target refs and ancestry; avoid destructive history changes without explicit authorization. Normal hooks and any configured signing must run. A failed native security or approval boundary is not a reason to bypass it. Report local commit, remote update, review and deployment as separate outcomes.

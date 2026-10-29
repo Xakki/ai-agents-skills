@@ -296,7 +296,7 @@ kanban-lint.sh [<ID|path>…]
 #     K        76 card(s), highest K-76
 #     ...
 #   kanban: confirm with:  kanban-id.sh --repo <repo> set-prefix <PREFIX>
-# an agent should ASK THE USER here (AskUserQuestion, candidates as options),
+# an agent should ask the user through an available question interface here,
 # not guess — then:
 "$ROOT"/skills/kanban/scripts/kanban-id.sh --repo . set-prefix K
 "$ROOT"/skills/kanban/scripts/kanban-id.sh --repo . next   # K-77

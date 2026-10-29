@@ -13,11 +13,11 @@ description: >
 Single source of truth for standard abbreviations in names (vars / fns / classes
 / CSS classes / tokens) and terse text (comments, commit msgs, logs).
 
-This policy, the canonical `dictionary.tsv`, **and** your local capture buffer
-`${ABBR_LOCAL:-$HOME/.config/abbr/local.tsv}` (if it exists) are **auto-injected
-into every session** — incl. subagents — by this plugin's `SessionStart` hook
-(`hooks/abbr-inject.sh`). All of it is already in your context; you don't open
-the files to look an abbr up. Never duplicate the dict anywhere else.
+Resolve the canonical dictionary and any optional local capture buffer through
+the available runtime or plugin interface. Some runtimes can inject these inputs
+at session start; verify the actual hook registration and supplied context before
+assuming they are present. Otherwise read the available dictionary through its
+supported interface when needed. Do not duplicate the canonical dictionary.
 
 ## Policy
 

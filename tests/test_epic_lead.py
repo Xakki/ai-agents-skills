@@ -44,7 +44,7 @@ def test_epic_lead_has_valid_frontmatter_and_canonical_workflow_links() -> None:
     assert frontmatter["name"] == "epic-lead"
     assert frontmatter["description"]
     for skill in ("kanban", "git-flow", "teamlead"):
-        assert f"`ai-agents-skills:{skill}`" in text
+        assert f"../{skill}/SKILL.md" in text
 
 
 def test_authorization_forms_are_consistent_across_the_kanban_contract() -> None:
@@ -67,35 +67,25 @@ def test_scripts_document_approved_as_caller_attestation_only() -> None:
         assert form in compact
 
 
-def test_epic_lead_keeps_the_archive_branch_and_canonical_finalization_order() -> None:
-    text = _skill_text()
-    archive_documents = (
-        KANBAN / "SKILL.md",
-        KANBAN / "reference.md",
-        SKILL,
-    )
-
-    for path in archive_documents:
-        document = path.read_text(encoding="utf-8").lower()
-        assert "git branch -m epic/<id> done/<id>" in document
-        assert "do not delete" in document or "never delete" in document
-
-    ordered_steps = (
-        "move the parent EPIC `ready → done`",
-        "Only then, when merge is authorized, perform one",
-        "Rename the archive branch, do not delete it:",
-    )
-    positions = [text.index(step) for step in ordered_steps]
-    assert positions == sorted(positions)
+def test_epic_lead_preserves_per_action_authority_and_applicable_order() -> None:
+    text = _compact(_skill_text()).lower()
+    assert "each action's valid authorization" in text
+    assert "parent-before-child" in text
+    assert "if the user or project requires explicit confirmation for `done`" in text
+    assert "branch merge, archive or deletion only when" in text
+    assert "preserve unrelated work" in text
 
 
-def test_epic_lead_uses_only_the_canonical_agent_commit_trailer() -> None:
-    text = _skill_text()
-
-    assert re.search(r"`Agent: <zone>` is\s+the only commit trailer", text)
-    assert "never add that evidence as Git trailers" in text
-    for trailer in ("`Epic:`", "`Card:`", "`Agent-Profile:`", "`Agent-Session:`", "`Prompt-SHA256:`"):
-        assert trailer not in text
+def test_epic_lead_uses_runtime_and_project_policy_without_forced_model_or_trailer() -> None:
+    text = _compact(_skill_text()).lower()
+    assert "runtime capabilities" in text
+    assert "inherited defaults" in text
+    assert "perform authorized implementation directly" in text
+    assert "if a required role is unavailable" in text
+    assert "do not assume a branch name, model, trailer or global clean worktree" in text
+    assert "never add evidence as git trailers by default" in text
+    assert "ask the user one question" not in text
+    assert "the only commit trailer" not in text
 
 
 def test_autonomous_authorization_remains_limited_to_its_epic_scope() -> None:
@@ -109,3 +99,20 @@ def test_autonomous_authorization_remains_limited_to_its_epic_scope() -> None:
         assert re.search(r"tests?/review", text), path
     assert "recorded profile/agent authorization" in _compact(documents[SKILL])
     assert "A grant for one action does not imply another" in _compact(documents[SKILL])
+
+
+def test_kanban_findings_and_grooming_respect_scope_and_runtime() -> None:
+    body = (KANBAN / "SKILL.md").read_text(encoding="utf-8")
+    reference = (KANBAN / "reference.md").read_text(encoding="utf-8")
+    scripts = (KANBAN / "scripts.md").read_text(encoding="utf-8")
+    text = _compact(body).lower()
+    assert "small size or suitability for a subagent is not permission" in text
+    assert "only when that write is in scope" in text
+    assert "otherwise report the finding" in text
+    assert "required authorization is missing" in text
+    assert "record decisions" in text
+    assert "askuserquestion" not in (body + reference + scripts).lower()
+    done = text.split("### 6. done", 1)[1].split("### freeze", 1)[0]
+    assert "authorization for `done` must be explicit" in done
+    assert "must cover this card" in done
+    assert "if `done` authorization is missing, retain `ready/`" in done

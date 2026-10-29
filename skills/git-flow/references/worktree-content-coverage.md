@@ -1,0 +1,9 @@
+# Linked-worktree content coverage
+
+Use for an authorized read-only assessment of work that may have been integrated, especially after squash or cherry-pick. Inventory registered worktrees and their HEADs, branches and lock/prunable metadata. Establish the read boundary separately for each worktree, keep staged, unstaged and untracked paths distinct, and report uninspected protected or ignored areas as unknown. Do not scan nested or opaque checkouts outside that boundary.
+
+Pin the intended comparison base. Ancestry, branch-only commits and patch IDs describe topology; a negative ancestry or `git cherry` result does not prove that a multi-commit squash or subsequent edits omitted the work. Conversely, a merged branch or accepted task does not prove an associated worktree contains no unique local or ignored files.
+
+Build the authorized path set from committed branch changes and the scoped dirty roster, including untracked source files. Classify source, generated files, history and task records separately. For permitted regular files, compare literal working bytes (`git hash-object --no-filters`) with pinned base and reachable integration blobs; check file mode, absence and deletion intent separately. A historical matching blob establishes inclusion at that revision, not a fresh test pass or byte identity at the current base. A reviewed bounded diff may support semantic inclusion without byte equality; preserve the evidence and its limits.
+
+Report independently: tip ancestry; content included, superseded or unknown; current task acceptance; and whether artifacts, active users and removal authority are accounted for. Status does not include all ignored artifacts. A candidate is not permission to delete a worktree, ref or remote branch. Verify any remote claim against the actual remote ref, not only cached tracking metadata.

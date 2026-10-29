@@ -1,56 +1,51 @@
 ---
 name: teamlead
-description: Use for autonomous coding coordination and delegation.
+description: Coordinate delegated work, preserve scope, review results and report decisions efficiently.
 ---
 
-# Team-lead
+# Team lead
 
-The main thread owns coordination and final acceptance. Delegate when useful;
-keep trivial work local. The main chat stays **readable and clutter-free**:
-show decisions and outcomes, not raw file dumps or intermediate process noise.
+Own the assignment and its final integration. Delegate bounded work when the
+user, applicable instructions and runtime permit it and the benefit exceeds the
+coordination cost. Handle simple work directly when appropriate.
 
-This skill is **runtime-agnostic**: it works for any agent application that can
-delegate sub-agent work. Adapt the concrete delegation, review, and ask
-mechanisms to your runtime; the rules below are universal.
+## Delegate and coordinate
 
-## Core rules
+- Discover available delegation and review interfaces; do not assume an agent,
+  model, profile or capability exists. Honor explicit role requirements and
+  permissions. If a required role is unavailable, report the blocked work rather
+  than silently substituting a different role.
+- Give each worker the objective, relevant context, acceptance criteria,
+  authorized scope, protected inputs, applicable rules, required checks and
+  expected result. Specify necessary tools or skills only when relevant and
+  available. Include task-specific known failure modes when they can prevent
+  rework, such as cache invalidation, warm-state behavior, shared test state or
+  contract and generated-artifact changes.
+- Batch related reconnaissance in the same area when practical; include the
+  foreseeable questions in one brief. Reuse an existing worker for follow-up if
+  supported and appropriate. Avoid redundant probes, but keep independently
+  required review independent and parallelize when it materially helps.
+- Ask for a decision-focused digest: conclusions, relevant evidence and the
+  location of detailed artifacts. Retain limitations and blockers. When a
+  durable report already contains the detail, avoid copying it wholesale into
+  every handoff. Use the runtime's context-management features when needed
+  without losing task state.
+- Track active workers and their actual outcomes. Avoid conflicting writes;
+  establish that a writer has finished before overlapping work proceeds. Reuse
+  an executor's context for retries when supported; keep independent review
+  separate when required. Integrate results and retain responsibility for the
+  final answer.
+- Arrange independent review when required or when it is useful and available.
+  Select an authorized reviewer and scope; a read-only instruction alone does
+  not enforce isolation. Repair confirmed in-scope issues and report material
+  out-of-scope findings.
+- Use runtime/profile defaults and explicit model or provider requirements.
+  Do not change routing to satisfy an assumed tier preference. Follow the
+  runtime's supported communication channels, and have workers return questions
+  or missing access to the coordinator when the runtime supports that pattern.
+- Answer in the user's language; use the project's working language for worker
+  briefs. Bundle independent questions when a decision is actually needed.
 
-1. **Own the task.** The team-lead retains coordination, integrates results,
-   and reports concise decisions and conclusions rather than raw process.
-   Delegate bounded work when independent expertise or parallelism adds value;
-   do not delegate trivial work when setup and review overhead exceed the benefit.
-2. **Follow runtime routing.** Use the configured specialist mechanism; for
-   Hermes named-profile work, follow `herm-prof`, not anonymous substitution.
-   Return each bounded subtask directly to the team-lead where supported. Do not
-   stand up long-lived background agents or inter-agent messaging unless the
-   user explicitly asks or the task genuinely needs parallel workers.
-3. **Compose the team autonomously.** Follow team-composition recommendations
-   supplied in the user's task. Otherwise choose or add specialists from
-   explicit current instructions, stable user preferences, relevant verified
-   prior experience, then task risk and scope. Never invent prior experience.
-   Do not routinely ask approval for membership or preferred model tiers.
-4. **Review independently where useful.** Use a read-only reviewer for
-   meaningful changes or material risk; review must not mutate files. Surface
-   only its verdict and conclusions. Fix in-scope defects through the normal
-   flow. Do not silently expand into sensitive or out-of-scope work; report
-   findings with concise evidence and return the decision to the user.
-5. **Preserve continuity.** Start a fresh executor for a new task; reuse that
-   task's executor for retries and follow-ups with its saved evidence. Compact
-   when needed without discarding progress. Review uses a separate session.
-6. **Isolation and tooling.** Sub-agents talk only to the team-lead, never to
-   the user, and ask no questions. The team-lead assigns each sub-agent its
-   tools and skills and passes them explicitly in the task prompt, with a
-   reminder line: "do not ask the user; work with what you're given; return
-   decisions and missing access to the team-lead".
-7. **Model & reasoning level.** Obey runtime/profile defaults and configured
-   fallbacks, and preserve explicit hard model/provider pins. Tier guidance from
-   `ai-agents-skills:model-tiers` may inform profile choice only within allowed
-   routing. Do not force Claude/Codex tier aliases or resolved model overrides
-   into Hermes named-profile launches or `delegate_task`; use runtime-supported
-   overrides only when the task explicitly requires them. For Hermes named
-   profile launching, follow the existing `herm-prof` skill rather than adding
-   another launcher. Never leave permitted runtime defaults overridden merely
-   to satisfy a tier preference.
-8. **Language.** Reply to the user in the user's language; phrase sub-agent
-   prompts in the working language your project or team uses. Keep this split
-   configurable per project, not hardcoded.
+For Hermes named-profile delegation, read [Hermes routing](references/hermes.md)
+only when that mechanism applies. Other runtimes use their own documented
+interfaces and permissions.

@@ -7,6 +7,9 @@
 
 set -uo pipefail
 
+# Disable all Telegram lifecycle hooks without touching state or reading input.
+case "${TG_NOTIFY_ENABLED:-1}" in 0|[Ff][Aa][Ll][Ss][Ee]|[Nn][Oo]|[Oo][Ff][Ff]) exit 0 ;; esac
+
 HOOK_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 # shellcheck source=../skills/tg-notify/runtime.sh
 source "$HOOK_DIR/../skills/tg-notify/runtime.sh"
@@ -32,13 +35,13 @@ rm -f "$STATE_DIR/$SESSION_ID.stopped" 2>/dev/null || true
 # Record start time + (truncated) prompt as JSON for later use by Notification hook
 # Truncate to 512 chars (multibyte-safe) — bash ${var:0:n} and head -c are byte-based.
 NOW=$(date +%s)
-PROMPT_TRIM=$(python3 -c '
+PROMPT_TRIM=$(printf '%s' "$PROMPT" | python3 -c '
 import sys
-t = sys.argv[1].replace("\n", " ").replace("\r", " ")
+t = sys.stdin.read().replace("\n", " ").replace("\r", " ")
 sys.stdout.write(t[:512])
-' "$PROMPT")
-jq -n --argjson ts "$NOW" --arg p "$PROMPT_TRIM" \
-    '{started_at:$ts, prompt:$p}' \
+' )
+printf '%s\n' "$PROMPT_TRIM" | jq -Rn --argjson ts "$NOW" \
+    '{started_at:$ts, prompt:input}' \
     > "$STATE_DIR/$SESSION_ID.start" 2>/dev/null || true
 
 exit 0

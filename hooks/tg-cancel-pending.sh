@@ -7,6 +7,9 @@
 
 set -uo pipefail
 
+# Disable all Telegram lifecycle hooks without touching state or reading input.
+case "${TG_NOTIFY_ENABLED:-1}" in 0|[Ff][Aa][Ll][Ss][Ee]|[Nn][Oo]|[Oo][Ff][Ff]) exit 0 ;; esac
+
 HOOK_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 # shellcheck source=../skills/tg-notify/runtime.sh
 source "$HOOK_DIR/../skills/tg-notify/runtime.sh"

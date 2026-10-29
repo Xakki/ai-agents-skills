@@ -8,6 +8,11 @@
 
 set -uo pipefail
 
+# TG_NOTIFY_ENABLED=0/false/no/off disables Telegram lifecycle hooks before
+# state or input access. A notification already scheduled by another process
+# retains that process's environment and is not cancelled by this setting.
+case "${TG_NOTIFY_ENABLED:-1}" in 0|[Ff][Aa][Ll][Ss][Ee]|[Nn][Oo]|[Oo][Ff][Ff]) exit 0 ;; esac
+
 HOOK_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 # shellcheck source=../skills/tg-notify/runtime.sh
 source "$HOOK_DIR/../skills/tg-notify/runtime.sh"
@@ -30,6 +35,7 @@ INPUT=$(cat)
 SESSION_ID=$(printf '%s' "$INPUT" | jq -r '.session_id // "unknown"' 2>/dev/null)
 TRANSCRIPT=$(printf '%s' "$INPUT" | jq -r '.transcript_path // ""' 2>/dev/null)
 ASSISTANT_RESPONSE=$(printf '%s' "$INPUT" | jq -r '.assistant_response // ""' 2>/dev/null)
+LAST_ASSISTANT_MESSAGE=$(printf '%s' "$INPUT" | jq -r '.last_assistant_message // ""' 2>/dev/null)
 CWD=$(printf '%s' "$INPUT" | jq -r '.cwd // ""' 2>/dev/null)
 [[ -n "$CWD" ]] || CWD="$PWD"
 
@@ -81,7 +87,11 @@ fi
 PROMPT_TRIM="${prompt:-}"
 
 LAST_TEXT=""
-if [[ -n "$TRANSCRIPT" && -f "$TRANSCRIPT" ]]; then
+if [[ -n "$LAST_ASSISTANT_MESSAGE" ]]; then
+    # Codex provides this stable event field; transcript layout is not an API.
+    LAST_TEXT="$LAST_ASSISTANT_MESSAGE"
+    log "stop codex_response_len=${#LAST_TEXT}"
+elif [[ -n "$TRANSCRIPT" && -f "$TRANSCRIPT" ]]; then
     # Take the LAST assistant message that actually has text (skip tool_use-only entries)
     LAST_TEXT=$(jq -rs '
         [.[] | select(.type == "assistant")
@@ -97,9 +107,9 @@ elif [[ -n "$ASSISTANT_RESPONSE" ]]; then
 fi
 
 truncate_body() {
-    python3 -c '
+    printf '%s' "$1" | python3 -c '
 import sys
-t = sys.argv[1]
+t = sys.stdin.read()
 # Body budget: tg-notify.sh splits the wrapped HTML at 4000 chars. Header
 # (mention + title) + <pre></pre> wrapper ≈ 70 chars; leave slack for HTML
 # escaping (<, >, & expand). 3800 fits one Telegram message in practice.
@@ -111,7 +121,7 @@ else:
     suffix = f"\n\n... [{cut} симв. вырезано с конца]"
     keep = mx - len(suffix)
     sys.stdout.write(t[:keep] + suffix)
-' "$1"
+'
 }
 
 BODY_RAW=""

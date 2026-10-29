@@ -1,0 +1,11 @@
+# Approved brand assets
+
+Identify the approved source and the role of each requested derivative before drawing or converting. Preserve the canonical source bytes, paths, colors, layering and proportions unless replacement or a specific alteration is authorized. Create distinct named derivatives. A request for a different framing does not by itself permit distortion or cropping.
+
+When geometry matters, inspect actual artwork bounds and calculate the effects of scaling, margins and target aspect ratio. Preserve proportions by default; if required constraints are incompatible, explain the alternatives and obtain the applicable decision before a non-uniform transform. Keep original vector geometry when a reference-faithful adaptation requires it.
+
+For each requested format or surface, verify real output type, dimensions, transparency/background, visible bounds, variants, names and relevant manifest references. Inspect small and full-size renderings on the backgrounds for which the asset is intended; a valid file or matching hash alone does not establish visual quality. Make export controls accessible and exercise them where an interactive artifact is part of the request. Use the converter chosen by the task and distinguish submitted, completed and downloaded outputs for asynchronous services.
+
+Preserve applicable font, asset and dependency licenses and verified attribution. When a canonical distribution manifest is required, map sources to outputs with actual hashes and versions, and test its integrity against the final files. Do not claim offline or self-contained delivery unless the requested network, fonts and resources were checked. A local rendering is not evidence that a separately requested external converter worked.
+
+For inline SVG derivatives, preserve the intended viewBox, paint order and aspect ratio. When multiple copies share a document, namespace functional IDs and their references together so gradients, masks and clips do not collide. Do not call live `<text>` an outlined wordmark; verify typography outside the original page if a deterministic standalone export is required. Check transparent PNG and deliberately opaque JPEG behavior separately when those formats are requested.

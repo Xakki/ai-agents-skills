@@ -1,0 +1,7 @@
+# Startup credentials and state ownership
+
+Trace a protected listener's enablement, credential source, startup validation, exact request authentication and probe wiring in each applicable environment. Validate the raw value against the grammar the actual authentication mechanism uses, without silently trimming or transforming it. Disabled and enabled modes may have different documented rules. Test invalid and valid synthetic values through startup and an authenticated request without exposing secrets through logs, process arguments or generated config.
+
+For readiness that consumes state written elsewhere, identify the real producer and whether it is mandatory in the deployment mode. Distinguish absent, present/fresh, present/stale and read-error states; an optional consumer may permit absence if the contract says so, while the producer's own readiness may remain strict. Do not equate all missing or invalid values with health. Test both the consumer and the producer boundary with their actual wiring.
+
+When reviewing cross-service configuration, include credential presence, exposed ports, mounts, routing, probe authentication and state lifecycle in the same matrix. A rendered configuration does not prove that a consumer accepts it or that a service is reachable. Use only authorized synthetic or safe probes and report unavailable credentials or tooling as evidence gaps rather than inferred success or product defects.

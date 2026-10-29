@@ -1,0 +1,7 @@
+# Squash integration with protected local work
+
+Use only when an authorized integration must preserve a dirty target checkout with content that cannot be inspected. Pin source and target refs, record the allowed metadata and exact source delta, and confirm the protected path is outside the intended changes. Select an integration environment whose checkout cannot materialize the protected content; verify the exclusion rather than assuming it.
+
+In an authorized isolated checkout, construct the approved squash against the pinned target with automatic stash disabled. Inspect the staged content and conflicts within the reader boundary. Where source is a descendant of target and the approved result is the whole source tree, compare the actual staged tree ID with the source tree ID; equal path counts are not equivalent evidence. Run normal hooks and the project's applicable tests, then verify the resulting parent, tree and message.
+
+Before any separately authorized target fast-forward, recheck its exact ref, relevant dirty state and index. Use the native fast-forward operation in the correct checkout; if it refuses, stop rather than forcing the ref, resetting the worktree or stashing protected content. Verify final target and preserved state after integration. Retire temporary refs or worktrees only with separate authorization. Keep local integration, user acceptance and remote publication as distinct outcomes.

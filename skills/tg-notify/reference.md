@@ -14,6 +14,13 @@ exported env vars or in a creds file (chmod 600) at `~/.config/tg-notify/.env`
 | `TELEGRAM_CHAT_ID` | Destination (required) — **switch DM ↔ group ↔ channel here**. |
 | `TELEGRAM_THREAD_ID` | Forum topic id (optional; sent only when non-empty). |
 | `TELEGRAM_MENTION` | Mention prepended to every message (optional; empty = none). |
+| `TG_NOTIFY_ENABLED` | Export `0`, `false`, `no`, or `off` in the agent process to disable Telegram lifecycle hooks; defaults to enabled. This does not disable an explicitly invoked sender or cancel an already scheduled process. |
+
+The lifecycle hooks read `TG_NOTIFY_ENABLED` from their inherited process
+environment before loading runtime files. Setting it only in the sender's
+credential file does not disable the hooks. The sender requires `curl` and
+`python3`, uses a fixed Telegram HTTPS endpoint without redirect following,
+and sends credentials and text to curl through file descriptors/stdin.
 
 **Destination = `TELEGRAM_CHAT_ID`:**
 - **Private chat (DM):** your numeric user id, e.g. `123456789`.
@@ -23,15 +30,15 @@ exported env vars or in a creds file (chmod 600) at `~/.config/tg-notify/.env`
 The bot must be a member of the destination (admin for channels). For a group topic, also set
 `TELEGRAM_THREAD_ID`. Per-call you can override with `-c CHAT_ID` / `-T THREAD_ID`.
 
-State/logs/failed payloads live under `$TG_NOTIFY_HOME` (default `$CLAUDE_PLUGIN_DATA` or
-`~/.local/state/tg-notify`), outside the plugin directory.
+State, logs and failed payloads live outside the plugin directory; use the
+runtime-provided writable directory or explicitly set `TG_NOTIFY_HOME`.
 
 ## Flags
 
 | Flag | Purpose |
 |---|---|
 | `-t TITLE` | Title (bold). |
-| `-m TEXT` | Body inline. |
+| `-m TEXT` | Body inline; visible in the caller's process arguments. Prefer stdin for private content. |
 | `-f FILE` | Body from file. |
 | stdin | Body from stdin if `-m`/`-f` not given and stdin is a pipe. |
 | `-s ok\|fail\|warn\|info` | Adds an emoji to the title. |
@@ -45,6 +52,6 @@ Body is auto-split into ≤4000-char chunks if too long for one Telegram message
 
 ## Conventions
 
-- Title under ~70 chars, action-oriented (`saFin: rsync xakki завершён`, `prom rules reload failed`).
+- Use a short action-oriented title without secrets; title flags are visible in the caller's process arguments.
 - The body is the *report* — what you did, what changed, timings. Plain text or simple bullets.
 - Pick `-s` carefully: `ok` for success, `fail` for genuine failures, `warn` partial, `info` neutral.

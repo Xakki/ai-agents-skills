@@ -1,0 +1,11 @@
+# API integration and offline evidence
+
+Inspect the actual router, composition root, client interface, dependency configuration, authentication, entitlements, quota, telemetry and neighboring operations. Wire a narrow interface at the existing composition boundary and preserve behavior for unavailable optional clients. Match documented route and method handling; an explicitly public route does not by itself define anonymous authorization. Use existing metering and error conventions where applicable.
+
+Project upstream data into the documented output; preserve intentional redaction and stable error-source labels rather than forwarding arbitrary payloads or internal error text. Validate external inputs before any connection or effect. If the contract requires a gateway, its absence or failure must not silently trigger a direct upstream call. Respect existing privacy and request-counting semantics.
+
+For a suspected wire violation, write a deterministic fake-transport test at the actual producer/consumer boundary using the authoritative schema; capture and inspect real serialized output, required/forbidden keys, types, headers and bounds. Whether unknown keys are forbidden depends on the documented contract; do not impose exact equality on deliberately extensible envelopes. Test omitted versus explicit null, validation before transport, request and response variants, and safe errors. An upstream timeout hint does not replace the locally enforced operation deadline. Preserve no-retry or no-fallback behavior only where that is the actual contract.
+
+Use contract-valid positive fixtures and focused negative controls, then run the relevant adjacent lifecycle and integration checks in the project’s approved runtime. A fake transport verifies the tested code path, not the deployed service or live provider. Do not use live credentials or network probes unless authorized. Inspect in-scope untracked files as well as tracked diffs, and keep local commit or publication separate from implementation authority.
+
+For operator-run local services, distinguish successful bind from client reachability and use the actual bound port in a safe startup message. Avoid exposing request targets, secrets or payloads in logs. Tests can check graceful stop and port reuse in a disposable process; editing the script does not reload an already-running service.

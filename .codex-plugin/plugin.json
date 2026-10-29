@@ -1,6 +1,6 @@
 {
   "name": "ai-agents-skills",
-  "version": "0.2.19",
+  "version": "0.2.20",
   "description": "Reusable Codex skills and lifecycle hooks for task planning, Git workflows, optional Telegram notifications, project scaffolding, artifact publishing, logging, and skill import.",
   "author": {
     "name": "Xakki"
@@ -25,7 +25,7 @@
   "interface": {
     "displayName": "ai-agents-skills",
     "shortDescription": "Kanban, scheduled tasks, Telegram notifications, git helpers, and more.",
-    "longDescription": "Kanban task management, autonomous timed runs of kanban cards, optional Telegram notifications and reports, self-hosted artifact publishing, Git and project-scaffolding utilities, structured logging, and skill import. Codex lifecycle hooks use the dedicated Codex event map and require review before execution.",
+    "longDescription": "Kanban task management, optional Telegram notifications and reports, artifact publishing, Git, project-scaffolding utilities, structured logging, and reviewed local skill imports. The scheduled-run prototype is Claude-specific. Codex lifecycle hooks use the dedicated Codex event map and require review before execution.",
     "developerName": "Xakki",
     "category": "Productivity",
     "capabilities": ["Read", "Write"],

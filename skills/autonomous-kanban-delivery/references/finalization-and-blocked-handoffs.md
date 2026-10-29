@@ -1,0 +1,11 @@
+# Finalization and blocked handoffs
+
+Before every lifecycle move, resolve physical and indexed source/destination paths, helper selection, and staging behavior. For symlinked boards, qualify uncertain behavior in an authorized disposable repository and inspect the actual index. Never assume a successful move staged the final card body; refresh it if authorized and inspect the full staged diff. Manual fallback is permitted only when the workflow and owner authorize it, preserving every lifecycle gate; never bypass a native veto.
+
+Follow the authorized commit schedule, preserve foreign staging, use normal hooks, and prove the resulting parent, complete changed-path set and committed blobs against the independently prepared candidate. A synthetic receipt-reader test is not proof of an actual commit. Do not regenerate expectations from the result to make a comparison pass. Carry unchanged accepted product evidence forward without claiming new execution.
+
+For task-specific containerized hooks, establish an ordinary passing control and test the actual supported consumer with distinct candidate and real index/worktree contents in disposable isolated fixtures; fake command output alone proves neither delivery nor index preservation. Keep hook admission, real checkpoint and product acceptance separate. For formatter failure, preserve the rejected receipt and reconcile actual state; accept formatter edits only under applicable authority, without bypassing hooks or discarding unrelated work.
+
+If pinned vendor bytes or a scoped checkpoint encounter a real policy failure, retain the original evidence and request an exact exception only where authorization is missing; do not silently alter frozen bytes or weaken checks. Confirm already-implemented work through the card's specific acceptance seam rather than generic nearby tests.
+
+At a repair limit or external blocker, record the actual failed predicate, results, pending gates and next owner, and preserve branch, owned diff, index and native receipts. Resume the authorized missing phase when possible. Continue a separate card only after proving the retained changes cannot interfere. `ready` does not authorize `done`, merge, push or deploy.

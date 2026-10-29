@@ -1,0 +1,7 @@
+# Helper and validator effects
+
+Resolve the physical board, exact card paths and canonical mover through the project interface. Inspect actual mover selector, symlink behavior, stages and index effects; qualify uncertain behavior in a disposable authorized fixture rather than the live board. Use supported adjacent transitions and preserve all gates. If no compatible helper exists, use an explicitly sanctioned fallback with the same lifecycle and authorization boundaries.
+
+Inspect linter selection and archive exclusions separately from mover behavior. Resolve a path or other selector using the installed linter's own contract, which may differ from the mover's. Run the exact-card check when supported and verify that the checked count covers all intended unique targets; capture unrelated board-wide baseline diagnostics. After an authorized move, verify exactly one destination, no old active source, each status field that exists, working bytes and staged paths. Do not create missing status fields merely to satisfy a check. A successful move or clean full-board lint does not prove the intended archived card was checked.
+
+A helper may leave an unstaged deletion and untracked destination or stage a rename before later edits. Preserve unrelated index entries. If no linter is available, report it NOT_RUN and perform only the available exact state and diff checks; generic Markdown lint is not a substitute.

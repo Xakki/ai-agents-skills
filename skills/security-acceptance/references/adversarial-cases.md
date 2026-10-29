@@ -1,0 +1,9 @@
+# Adversarial boundary cases
+
+For authentication and audit, test each supported credential class, route and precedence path with valid and invalid synthetic credentials. A malformed credential must not accidentally broaden access through a fallback. Verify response and persisted audit behavior through the actual authorized boundary, including safe metadata and ordering where required. Distinguish upstream setup that prevents the auth path from being reached from a demonstrated auth defect.
+
+For credential caches, test simultaneous identical keys, distinct scopes, expiry, refresh failure, cancellation, eviction and the actual lifecycle. Do not assume a TTL bounds memory without eviction. Check that tokens, derived identifiers, exception data and debug representations do not cross a boundary that forbids them. If credential or trust-store state is persistent, verify integrity and permissions under the actual contract rather than assuming existing data is safe.
+
+For broker/IPC authority, distinguish a well-formed identity from the exact owner, generation and endpoint identity required by the protocol. Trace real registration, provisioning, frame validation and release as well as helper tests. Test wrong-but-valid identities, stale generations, extra or oversized inputs and forbidden downstream actions; apply fixed-operation restrictions only where the contract requires them.
+
+For filesystem and runtime state, inspect each operation after a validation: a retained handle does not make a later pathname-based operation safe if its directory can be replaced. Test final/ancestor links, identity replacement, same-size in-place mutation, short reads/writes, cleanup races and platform protection failures in disposable fixtures. A valid metadata observation does not prove content stability. Assert outside sentinels are unaffected and keep inaccessible evidence marked unknown.

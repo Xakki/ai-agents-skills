@@ -1,23 +1,24 @@
 ---
 name: tg-notify
-description: Send a Telegram notification with a short report (DM / group / channel, configurable). Auto-trigger ONLY when a just-finished task took >20 min of wall-clock time (deploy, rsync/backup, big build, batch/scheduled job) — the user has likely left the terminal. Bypass the threshold only when the user explicitly asks ("send to telegram", "notify in TG", "ping me when done") or when invoked from a scheduled / background job. MAIN THREAD ONLY — subagents / teammates do NOT use this skill; they return their report to the teamlead, who decides whether to notify.
+description: Send an authorized Telegram notification or short report to a configured chat, group, or channel; уведомление в Telegram, сообщить в телеграм.
 ---
 
 # tg-notify
 
 Manual sender of a Telegram message to a configurable destination (DM, group, or channel) via a bot.
-The plugin also ships **hooks** (`../../hooks/`) that auto-notify on long turns and permission/idle
-prompts — those fire on their own once configured; this skill is the **manual** sender.
+The plugin also ships optional lifecycle hooks for long turns and permission/idle
+prompts. This skill is the **manual** sender. Configure and enable hooks only
+when authorized; hook installation alone does not authorize a message.
 
 ## When to use
 
-**Threshold: 20-minute minimum for auto-sends** (matches the `TG_NOTIFY_STOP_THRESHOLD` hook default).
-Shorter → just answer in the terminal. Unknown duration → treat as below threshold, don't send.
+Automatic completion notifications use the configured threshold, which defaults
+to 20 minutes; unknown duration does not satisfy it. An explicit user request
+to send a notification does not require waiting for that threshold.
 
-Auto-send only if one of:
-- A long-running op (**>20 min**) just finished — send a short status report with timing.
-- The user explicitly asks for a Telegram notification/ping (any duration).
-- A scheduled / background job needs to report (any duration).
+Send only when the user explicitly requests it or an authorized scheduled or
+background workflow covers the destination and message. A long task alone does
+not grant permission to send.
 
 Track duration honestly with `SECONDS=0; <command>; dur=$SECONDS` so the check is real.
 
@@ -30,22 +31,15 @@ main session's lifecycle, not from inside a subagent.)
 
 ## How to invoke
 
+Obtain the resolved `SKILL_DIR` and authorized destination through the runtime.
+Use stdin for the message body so it is not passed in the sender's argv:
+
 ```bash
-ROOT="${AI_AGENTS_SKILLS_ROOT:-${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-${CURSOR_PLUGIN_ROOT:-}}}}"
-TG="$ROOT/skills/tg-notify/tg-notify.sh"
-
-# Short status (title only)
-"$TG" -s ok -t "Backup завершён" -m "wephost: 64 GiB, 12m 03s"
-
-# Title + multi-line body via stdin (preferred for reports)
-{
-  echo "rsync /home/wephost: 64.0 GiB, 12m 03s"
-  echo "Все сервисы запущены."
-} | "$TG" -s ok -t "saFin: миграция завершена"
-
-# Send to a different destination than the default (e.g. a channel)
-echo "released v1.2.3" | "$TG" -s ok -t "Deploy" -c "@my_channel"
+printf '%s\n' 'Deployment completed.' | "$SKILL_DIR/tg-notify.sh" -s ok -t 'Deployment'
 ```
+
+Do not include secrets in the title or other command-line arguments. See the
+reference for configuration, explicit destination and message authorization.
 
 ## Reference
 

@@ -18,12 +18,10 @@ description: Use when managing tasks — creating, grooming/refining draft tasks
 
 Lifecycle: `grooming → todo → progress → test → ready → done`.
 
-New boards default to `.agents/kanban`. Existing `.claude/kanban` boards remain
-supported. Aliases resolving to the same physical directory are one board; if
-both paths resolve to different boards, helpers fail closed. The counter file
-is `kanban.lock` beside the resolved board root (for example,
-`.agents/kanban.lock` or the legacy `.claude/kanban.lock`). Conflicting lock
-files also fail closed.
+New boards default to `.agents/kanban`. Resolve an existing board and its
+`kanban.lock` through the project helper. Aliases to the same physical path are
+one board; distinct conflicting boards or counters fail closed. For an existing
+legacy board, consult [board compatibility](references/board-compatibility.md).
 
 `freeze/` is a side state: enter from `grooming/`, `todo/`, `progress/`, `test/`,
 or `ready/`; resume the same card only to `todo/` or `progress/` with
@@ -39,6 +37,10 @@ authorized actions when their action-specific authorization and gates pass.
 The narrow `schedule-tasks` merge-at-ready exception preserves its exact approved
 card allowlist and QA/review gates; the manifest alone does not authorize `done`,
 push or deploy.
+
+When the current user or applicable project workflow requires explicit user
+approval for `done`, preserve that requirement. Standing profile or agent
+authority is not a substitute for the required user approval.
 
 ## Authorization for automated lifecycle actions
 
@@ -76,8 +78,8 @@ prefix candidates.
 **First use in a project (no `prefix=` yet) is a confirmation, never a
 guess.** `kanban-id.sh next`/`prefix` exits 2 with the board's candidate
 prefixes (existing board cards win by count if any, else a dir-name-derived
-one) — on that exit, **ask the user** which to use (`AskUserQuestion`,
-candidates as options, recommended one first) and then run
+one) — on that exit, **ask the user** which to use via the runtime's available
+question interface (present candidates and a recommendation), then run
 `kanban-id.sh set-prefix <PREFIX>` to confirm it; don't auto-pick and don't
 retry silently. Full mechanics, lock format, prefix registry →
 [scripts.md](scripts.md).
@@ -116,51 +118,29 @@ unavailable.
 - **Scope clear** (AC, files, approach all settled) → `todo/`.
 - **Open questions remain** → `grooming/`; list them in `**Open questions:**`.
 
-#### Side-found / user-suggested fixes
+#### Side-found or user-suggested findings
 
-When a bug/err is found OR the user suggests a fix:
-
-1. **Dedupe first.** Scan `grooming/` and `todo/` for an existing card on the same topic. If found → do NOT create another; apply triage (step 2) against that card — if fix-now criteria hold → fix now and log/note on it; else leave work on that card (groom later).
-2. **Triage — fix now vs file grooming:**
-   - **Fix now** when ANY of: in-scope of the active task; OR cplx ≤ 3/10; OR standard-subagent-sized.
-     - Active task → log on the card (Execution Log / `**Decisions:**`).
-     - No active task → mention in the commit msg.
-   - **File a new `grooming/` card** only when ALL hold: (oos of active task OR no active task) AND cplx > 3/10 AND not standard-subagent-sized.
-   - **Append to the nits dump** when the finding is oos of the active task AND is
-     NOT being taken into work now AND is too small to deserve its own card. This
-     is the catch-all: a finding is never dropped silently — it is fixed, carded,
-     or dumped.
-3. **Wrap-up report.** On task completion (hand-off / ready), surface to the user a short list of: (a) side-filed grooming cards created during the work, (b) en-route fixes that were done (no new card), (c) nits appended to the dump.
-
-#### Nits dump — `.agents/kanban/grooming/TODO.md`
-
-Running scratch list of small out-of-scope findings picked up in passing. Create
-the file if absent.
-
-- **One line per finding:** `<date> — <file>:<line> — what's wrong`, grouped
-  under a dated heading `## <YYYY-MM-DD> — from <what you were doing>`.
-- **Small findings only.** Anything substantial gets its own `grooming/` card
-  instead. Mark a borderline entry `CANDIDATE FOR ITS OWN CARD` so the next
-  grooming pass promotes it rather than re-triaging it from scratch.
-- **Include the evidence**, not just the symptom: how it was confirmed, and what
-  it was confirmed NOT to be (a ruled-out cause is the expensive part to redo).
-- **Promoted to a card → DELETE the line.** Leave no back-pointer: the card is
-  the single source, and a pointer stub only clutters the dump and goes stale.
-  The file holds ONLY what has no card yet. Same when a nit gets fixed in
-  passing — delete it, don't annotate it as done.
-- **Project-local scratch.** Projects commonly git-exclude this file — follow the
-  project's convention, and never slip it into a task branch or PR.
+Distinguish a finding from authorization to change it. Fix it only when it is
+within the active task or otherwise authorized; small size or suitability for a
+subagent is not permission to expand scope. Before creating a new card, search
+for a related card to avoid duplicates. Create or update a card or a project
+scratch list only when that write is in scope and follows the board policy;
+otherwise report the finding, location and evidence without mutating the board.
+Preserve existing entries and project conventions. Summarize in-scope repairs
+and unresolved findings in the handoff.
 
 ### 1a. Groom (grooming/ → todo/)
 
-Grooming is a **user consultation**, not autonomous execution. Surface choices; don't resolve them silently.
+Read the card's open questions and identify decisions needed for a safe,
+implementable task. Resolve routine choices from the existing request and
+project policy when those provide sufficient authority; record the rationale.
+Ask the user only when a material choice or authorization is genuinely missing,
+using an available runtime question interface, and continue independent work
+where possible. Do not invent missing approval or silently decide a required
+user preference. Record decisions and keep genuinely unresolved questions on
+the card; move to `todo/` only when the applicable readiness criteria are met.
 
-- Read the card's `**Open questions:**` and raise each with the user (options + trade-off + recommendation). Use `AskUserQuestion` for discrete choices (recommended first). Do not guess.
-- If new ambiguities surface → append to `**Open questions:**` and raise them too.
-- Record every resolution in `**Decisions:**` before moving to `todo/`. Remove `**Open questions:**` on transition.
-- Only when **nothing ambiguous remains** (scope, acceptance, approach all settled) → move `grooming/ → todo/`.
-
-See [reference.md](reference.md) for the full grooming protocol.
+See [reference.md](reference.md) for the grooming protocol.
 
 ### 2. Start (todo → progress)
 
@@ -176,12 +156,12 @@ See [reference.md](reference.md) for the full grooming protocol.
 
 ### 3. Implement (progress/)
 
-- Read task file. Plan via `TaskCreate` (atomic subtasks, 1-5 iterations each); track with `TaskUpdate`.
+- Read the task file. Plan and track appropriately scoped subtasks using the runtime interface available for this task.
 - Add "Execution Log" section to the task file; update after each significant step.
 
 ### 4. Test (progress → test)
 
-Move card to `test/`. Run QA checks (lint/tests per project `CLAUDE.md`).
+Move card to `test/`. Run the QA checks required by the project's applicable instructions and test configuration.
 
 ### 5. Ready (test → ready)
 
@@ -282,8 +262,9 @@ a task is worked **in its own branch** (an epic's subtasks share the epic branch
 
 - **Branch.** By default work the task in a NEW branch `task/<ID>` (aligns with
   schedule-tasks). Create it at start.
-- **Sub-agents commit.** Each sub-agent commits its OWN zone's work into that
-  branch (git-flow format + `Agent: <zone>` footer).
+- **Sub-agent commits.** When local commits are authorized, each sub-agent
+  commits only its own work, following the repository's message and trailer
+  policy. Preserve another actor's staged changes.
 - **Normal local commits.** Commit coherent, validated progress proactively
   when useful; a separate user-approval gate is not required for ordinary local
   task commits. At `test → ready`, the orchestrator makes a verified wrap-up
@@ -313,13 +294,11 @@ See [reference.md](reference.md) for the autonomous-run commit contract.
   explicitly covering that action and target; do not ask again when a valid
   recorded grant already covers it.
 - Do NOT start a card from `grooming/` — resolve open questions, move to `todo/` first.
-- Do NOT silently resolve `grooming/` questions — ask the user; record in `**Decisions:**`.
+- Resolve routine grooming choices from the authorized context; ask when a
+  material user choice or required authorization is missing, and record decisions.
 - Do NOT move to `ready/` while tests are red.
-- Do NOT file a new card for an en-route/user-suggested fix until `grooming/`+`todo/` are scanned for a duplicate.
-- Do NOT file when the fix is in-scope OR cplx ≤ 3/10 OR standard-subagent-sized — fix now; log on card or commit msg if no active task.
-- Do NOT drop an oos finding silently — fix it, card it, or append it to `.agents/kanban/grooming/TODO.md`.
-- Do NOT commit the nits dump into a task branch/PR when the project git-excludes it.
-- MUST surface wrap-up list (side-filed grooming + en-route fixes + dumped nits) on hand-off/ready.
+- Do NOT fix out-of-scope findings solely because they are small. Search for a
+  duplicate before any authorized card creation; otherwise report the finding.
 
 ## Task Delegation Rules
 

@@ -1,0 +1,9 @@
+# Mirrored state and one-shot recovery
+
+Trace every writer and reader of related durable representations. A pair of atomic individual file writes is not an atomic pair. Define valid schema and ownership, versioned state, lock or journal authority, byte-preservation rules for rejected input and exact failure windows before making changes. Record enough durable intent before the first partial effect for the documented recovery protocol to decide correctly.
+
+Exercise corruption, valid positive controls, crash between writes, restart, rollback and conflicting writers using actual storage boundaries where supported. Distinguish the mere existence of a journal from verified replay or recovery. For a security-sensitive one-shot operation, validate the approved envelope and authorized scope before mutation, atomically claim its nonce or capability at the intended boundary and clean only attempt-owned state; a capability is not an open-ended permission to alter unrelated resources.
+
+For SQL-to-queue or other cross-store publication, explicitly test the window after the authoritative commit but before message delivery. A database row and a successful happy-path publish do not guarantee that a worker can discover the committed work after a crash. Verify the actual outbox, retry or reconciliation mechanism and its duplicate behavior; do not assume a distributed transaction that the system does not have.
+
+Do not treat no-op, validation failure, selection count or an empty backlog as equivalent to an external execution. Model typed executed/not-executed/unknown outcomes with the actual stable reason and update schedule/accounting only as specified. Preserve original bytes on refused corrupted input when required and test the absence of transport, persistence and cleanup effects on every rejection.

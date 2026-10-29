@@ -1,0 +1,9 @@
+# Bounded and observation-only subprocesses
+
+Identify the approved process ownership and cleanup authority before launch. A diagnostic deadline by itself does not authorize signaling or abandoning a process. For observation-only work, establish an actual continuing supervisor or supported handoff before the foreground budget expires, persist sanitized progress, report overrun and continue tracking the same attempt to its natural outcome. Do not infer that terminating an exec client stopped its workload or repeat an uncertain one-shot operation.
+
+Where owned-process termination is expressly permitted, record process identity and relevant group/start metadata, retain one bounded total budget and cleanup grace, and revalidate targets before signaling. Direct-child exit, descendant settlement, pipe EOF, reader completion and sink finalization are separate predicates; a descendant can hold a pipe open after the leader exits. Report incomplete or unavailable cleanup evidence rather than fabricated zero counts. Do not signal unowned processes.
+
+Bound stdout and stderr during reading, not after an unbounded capture, and apply privacy rules to all persisted output. Preserve explicit partial/overflow/finalization failures; a short successful write is not proof of complete evidence. For line-oriented readiness, ensure the observer drains its own buffering rather than combining fd readiness with a prefetched text buffer. Require observers ready before arming a one-shot attempt.
+
+Test actual production lifecycle and opt-in diagnostics with inert external fakes; emitted markers must originate at the real boundary. Cover stubborn or late descendants, timeout, inherited pipe holders, read overflow, short writes, sink failure, cancellation and identity-check failure. Report process exit, capture completeness and cleanup as separate observations; synthetic tests do not prove a live provider or deployment.

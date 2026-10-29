@@ -1,50 +1,5 @@
-# model-tiers — settings.json reference
+# Claude model-tier configuration
 
-Override `AI_MODEL_*` in the active runtime's `settings.json` `env` block. Same
-three keys across Claude Code, Cursor, and Codex when the runtime supports an `env`
-block.
+Use this reference only when the active runtime is Claude Code and its supported model selectors and configuration mechanism have been verified. The plugin's `defaults.env` contains Claude-family aliases; they are not defaults for Codex, Cursor, Hermes or Prime.
 
-## View current values (Claude Code)
-
-```bash
-jq '.env | {
-  AI_MODEL_CHEAP,
-  AI_MODEL_STANDARD,
-  AI_MODEL_JUDGMENT
-}' ~/.claude/settings.json
-```
-
-## Set overrides (Claude Code)
-
-Merge into `env` without clobbering other keys:
-
-```bash
-SETTINGS=~/.claude/settings.json
-jq '.env += {
-  "AI_MODEL_CHEAP": "haiku",
-  "AI_MODEL_STANDARD": "sonnet",
-  "AI_MODEL_JUDGMENT": "opus"
-}' "$SETTINGS" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
-```
-
-Remove a single override (fall back to plugin defaults):
-
-```bash
-SETTINGS=~/.claude/settings.json
-jq 'del(.env.AI_MODEL_CHEAP)' "$SETTINGS" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
-```
-
-## Cursor / Codex
-
-Use the same keys in:
-
-- Cursor: `~/.cursor/settings.json` → `env`
-- Codex: `~/.codex/settings.json` → `env` (when supported)
-
-View / set with the same `jq` patterns, substituting the settings path.
-
-## Precedence reminder
-
-Process env from `settings.json` wins over `skills/model-tiers/defaults.env`.
-SessionStart hook `hooks/model-tiers-inject.sh` resolves and injects the final
-slugs into every session's context.
+Explicit `AI_MODEL_CHEAP`, `AI_MODEL_STANDARD` and `AI_MODEL_JUDGMENT` environment values override the Claude defaults in the hook. Set only values authorized and supported by the active runtime, preserve unrelated settings, and confirm what a newly started session actually receives. Do not assume that other agents share Claude's configuration file or accept these aliases.

@@ -1,30 +1,22 @@
 ---
 name: git-move
-description: Move/rename or delete a file or directory while preserving git tracking. Uses `git mv` / `git rm` when the path is tracked, else plain `mv` / `rm`. Use this instead of bare mv/rm whenever relocating, renaming, or removing files/dirs that may be under git — e.g. moving kanban cards between stage dirs, renaming source files, deleting tracked docs.
+description: Move or explicitly remove project paths while preserving Git and local work.
 ---
 
-# git-move — file ops that respect git
+# Git-aware moves and removal
 
-When moving, renaming, or deleting a file/directory that **might be tracked by
-git**, never use bare `mv` / `rm` — that drops git's rename/delete tracking and
-leaves the index inconsistent. Use the helper:
+Use for an authorized path move or removal when tracked and untracked work may coexist. Inspect the actual source, destination, repository status and ownership first. Git infers renames by comparing content; a plain filesystem move does not inherently destroy history, but it leaves staging to a separate operation. This helper uses `git mv` or `git rm` for tracked paths and filesystem operations for untracked paths, so tracked operations change the index. It does not commit.
 
-```bash
-ROOT="${AI_AGENTS_SKILLS_ROOT:-${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-${CURSOR_PLUGIN_ROOT:-}}}}"
-"$ROOT"/skills/git-move/git-move.sh <src> <dst>        # move / rename
-"$ROOT"/skills/git-move/git-move.sh --rm <path> [path…] # delete
-```
-
-Behaviour:
-- Tracked path inside a work tree → `git mv` / `git rm` (history + index stay clean).
-- Untracked path, or not in a git repo → plain `mv` / `rm -rf` (fallback).
-- Destination parent dirs are created automatically (`mkdir -p`).
-- **Staging only — it never commits.** You commit separately when asked,
-  following the [git-flow](../git-flow/SKILL.md) core.
-
-Examples:
+Resolve the plugin root through the current runtime's supported interface:
 
 ```bash
-"$ROOT"/skills/git-move/git-move.sh .claude/kanban/grooming/foo.md .claude/kanban/todo/foo.md
-"$ROOT"/skills/git-move/git-move.sh --rm .claude/kanban/todo/old.md .claude/kanban/todo/dup.md
+"$PLUGIN_ROOT"/skills/git-move/git-move.sh <source> <destination>
+"$PLUGIN_ROOT"/skills/git-move/git-move.sh --rm <explicit-file>
+"$PLUGIN_ROOT"/skills/git-move/git-move.sh --rm --recursive <untracked-directory>
 ```
+
+Examples of moves include `.agents/kanban/grooming/card.md` to `.agents/kanban/todo/card.md` when the board's own lifecycle rules authorize the transition. Prefer the board's canonical lifecycle helper when it maintains status, approval gates or allocation state.
+
+The helper refuses an existing destination, overlapping removal paths, the current directory or an ancestor, and a tracked directory containing untracked, ignored or empty entries. Deleting an untracked directory requires the explicit `--recursive` flag. It validates every requested removal before starting; native Git safety checks still apply. These checks do not make a multi-path operation atomic or protect against concurrent writers. The implementation currently requires GNU `realpath` and `mv`; macOS/BSD compatibility is unverified. Do not use it to delete anything without the user's applicable authorization, and do not bypass hooks or Git safety checks.
+
+Afterward verify actual filesystem paths, staged and unstaged changes, and preserved unrelated work. Follow the [Git workflow](../git-flow/SKILL.md) for any separately authorized commit.

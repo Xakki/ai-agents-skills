@@ -1,0 +1,7 @@
+# Feature lifecycle and failure behavior
+
+Classify the requested action first: marking a feature deprecated, holding it, removing a management switch while retaining the feature, removing the feature, or retiring one named alias require different assertions and authority. A label alone does not authorize removal, probes or restart. Preserve independent authentication, ownership, admission, encryption, privacy and persistence controls unless a separately approved contract changes them.
+
+Before an authorized removal, map all entrypoints, dependency wiring, configuration, tests and active planning references. For a removed feature test its actual production surface is absent; for a removed switch prove the retained operation remains available, including relevant startup and stale-configuration paths. Preserve unrelated work and historical records; do not disable regression checks merely to remove a failing assertion. Verify intended remaining references and complete staged/working changes only within the authorized scope.
+
+At typed input and execution boundaries, distinguish invalid, absent, partial, failed and successful outcomes according to the real contract; do not coerce errors into success. Preserve actionable, bounded diagnostics without leaking secrets. Cleanup is an observable outcome, not automatic evidence of completion; keep the primary failure and cleanup status distinct. Deadlines and process cleanup require the actual task's authority and ownership, not a universal command or shell setting.

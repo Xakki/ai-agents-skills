@@ -1,54 +1,17 @@
 ---
 name: git-flow
-description: THE shared git core every other git-using skill follows — commits, branches, push, merge, PR, force-push. Use whenever git work happens. Триггеры RU — «закоммить», «коммит», «ветка», «пуш», «смержить», «пулреквест», «форс-пуш»; EN — commit, branch, push, merge, pull request, force-push, rebase.
+description: Safely inspect and perform scoped Git work, including commits, branches, merges, pushes and pull requests; коммит, ветка, пуш, слияние, пулреквест.
 ---
 
-# git-flow — shared git core
+# Git workflow
 
-Single source of truth for how agents do git in this plugin. Other git-using
-skills (kanban, schedule-tasks, prepare-pr, qa-check, git-move) follow this CORE
-and document only their own context-specific deltas. Edge cases and longer
-examples → [reference.md](reference.md).
+Use for Git operations when the task needs a clear scope, preservation of existing work, or verification of a commit or ref. Follow the user, repository and runtime policy for the current task; loading this skill does not grant permission to commit, rewrite history, push, merge, deploy or contact others.
 
-## CORE rules
+1. Resolve the exact repository, worktree, current branch, destination and requested operation. Preserve the current branch unless the task or project policy requires another; do not infer a branch, remote or publication target from an example.
+2. Before mutation, inspect the authorized worktree and staged state at an appropriate scope. Distinguish existing changes, other agents' work and private files; do not read or stage content outside the permitted boundary. Coordinate overlapping writers and preserve pre-existing index entries.
+3. Stage only the authorized paths and changes. Check the complete staged diff and path list before committing: selecting paths to add does not remove other entries already staged. Handle mixed hunks and partially staged files without silently adding unrelated work.
+4. Preserve the requested commit subject, body and trailers exactly; do not add attribution or other trailers unless requested or required by applicable project policy. Keep normal hooks and signing requirements enabled. Use [message and staging guidance](reference.md) when the message or index needs careful handling.
+5. For an authorized commit, verify its ID, message, parents and affected paths against the intended result; separately report remaining work and failed or skipped checks. Do not amend or rewrite history without the necessary authorization.
+6. For merge, rebase, push, PR or deployment, verify the actual source and target and the authorization for each effect. Recheck the relevant refs before an authorized publication and confirm its result. A successful commit or local check is not evidence of remote publication or deployment.
 
-1. **Default = commit to the default branch.** An agent commits its work
-   directly to the default branch; the user reviews via commit history. Create a
-   `feature/`·`fix/`·`chore/` branch **only** when the user explicitly asks, OR
-   when another skill defines its own branch model (kanban does — per-task
-   `task/<ID>` branch; schedule-tasks runs an autonomous branch+park model).
-2. **Branch naming** (when branches are used): `feature/<short>`, `fix/<short>`,
-   `chore/<short>`.
-3. **Who commits.** Each sub-agent / teammate commits its OWN zone's changes when
-   it finishes that zone. End every commit message with a footer line naming the
-   zone: `Agent: <zone>` (e.g. `Agent: backend`). This `Agent: <zone>` marker is
-   the ONLY allowed trailer — do NOT add `Co-Authored-By:`, `Generated with …`,
-   or any other signature. Prompt and execution evidence belongs in Kanban
-   records, never extra Git trailers.
-4. **Commit message format.** `<scope>: <imperative summary>`. Subject ≤72 chars,
-   imperative mood. Body optional (may be in Russian) — include it only when it
-   adds meaning not visible from the diff. Keep the whole message readable.
-5. **Scopes** (generic default set): `api | db | infra | docs | task`. Projects
-   extend/override this list in their own `CLAUDE.md` (e.g. a Go-client project
-   may add `goclient`; a browser-extension project may add `ext`). Do NOT treat
-   project-specific scopes as the canonical set.
-6. **Staging — explicit paths only.** `git add <path> …`. Never `git add .`,
-   `git add -A`, `git add -u`, or `git commit -a`. (Resume-context exception →
-   schedule-tasks documents it.)
-7. **Never force-push to the default branch. Never `git commit --no-verify`.**
-8. **Moving / renaming / deleting tracked files** → use the
-   [`git-move`](../git-move/SKILL.md) skill (`git mv` / `git rm`). Do not
-   duplicate its mechanics.
-9. **PR.** Title in English; body may be in Russian.
-
-## How other skills relate to git-flow
-
-| Skill | Follows CORE + its delta |
-|---|---|
-| [kanban](../kanban/SKILL.md) | Per-task `task/<ID>` branch; each sub-agent commits its zone; orchestrator finalizes; required review/gates must pass, `done` and merge each need valid action-specific authorization; verify the merge before renaming to `done/<ID>` (strip the `task/` prefix — archive is `done/<ID>`, NOT `done/task/<ID>`). Keep the task branch when merge is ungranted or unverified. |
-| [schedule-tasks](../schedule-tasks/SKILL.md) | Autonomous per-task `task/<NAME>` branch + park-commit model; a valid approved exact scope manifest permits merge-at-ready after green QA + independent review, without granting `done`, push or deploy. Those actions may proceed automatically under independently valid action-specific authorization. No card-scope expansion; only the scoped helper chains. Archive as `done/<NAME>` only after a successful verified merge; otherwise retain the task branch/card and safely return to base before chaining. |
-| [prepare-pr](../prepare-pr/SKILL.md) | PR assembly — sanity-check diff, run the gate, draft description. Draft-only by default. |
-| [qa-check](../qa-check/SKILL.md) | Quality gate scoped by `git diff`; green checks alone are not authorization; execute merge/push automatically when separately authorized and all gates pass. |
-| [git-move](../git-move/SKILL.md) | Mechanics for `git mv` / `git rm` (rule 8). |
-
-Each documents ONLY its context-specific deltas; everything else here is binding.
+Resolve specialized skills through the runtime when needed: use a scoped move/remove workflow for file relocation, the project's Kanban policy for card lifecycle, and the project's own review or test gates for acceptance. A skill name or a stated role does not grant additional authority.
