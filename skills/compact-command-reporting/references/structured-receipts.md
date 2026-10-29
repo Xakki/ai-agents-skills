@@ -1,0 +1,9 @@
+# Structured capture and receipt verification
+
+Bind every receipt to the actual invocation, finalized input and authorized scope. Trace the real producer, outer reader, parser and verifier rather than proving only that a helper or source-text assertion exists. On an authorized disposable fixture, pass producer-created files through the sanctioned reader and its deciding verification. Preserve separate results for each stage; a checksum establishes bytes, not schema validity or execution of an omitted reader.
+
+For streamed or decorated test output, first establish the producer's format, framing and completion. Retain native footer totals and compare parsed identities, statuses and counts, including duplicates, deselections, mixed outcomes, malformed frames and multiline records. Strip only known display decoration; a successful projection or empty search does not prove zero failures. Repair a failed projection over the same authorized retained artifact rather than rerunning a successful or side-effecting gate merely because its display was clipped.
+
+Recover the deciding test, assertion or exception, and complete review verdict from finalized authorized evidence before assigning a repair or accepting a candidate. Preserve an unknown result if evidence is unavailable; do not infer process completion from an acknowledgement, a quiet interval or an old event. Do not restart an active worker or read sibling captures without permission. Store raw evidence according to its sensitivity and report only needed safe metadata.
+
+For protocol probes, distinguish the transport exit, protocol status and test assertion. Expected rejection may be a valid negative case; test doubles must match the real client's output contract. When a command is interrupted, retain its actual status and partial output and do not relabel a parser failure or timeout as an application finding.

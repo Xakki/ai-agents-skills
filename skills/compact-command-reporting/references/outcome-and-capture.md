@@ -1,0 +1,8 @@
+# Outcome and capture checks
+
+- Capture each invocation, argument boundaries, cwd, environment constraints, start/end and completion status. Distinguish child exit, signal, timeout, wrapper or logger failure, and unknown completion. A batch loop's final shell code is not every command's outcome.
+- Confirm the retained file is complete and belongs to the specific invocation before parsing it. Do not treat empty, clipped, overwritten or stale output as a clean result. Preserve mixed stdout/stderr ordering only when the capture mechanism can actually establish it.
+- For JSON or framed output, verify complete frames and schemas before aggregating; malformed, interleaved, truncated or omitted records make conclusions partial. Preserve failure names, diagnostic details, skipped/deselected counts and explicit totals. A zero-status wrapper that records failed tests is not a passing gate.
+- Count the full output or structured records, not the displayed prefix. Search with appropriate normalization and a known-positive control when asserting absence. Apply both byte and line bounds to displayed excerpts and visibly mark omissions.
+- Verify that output paths are private enough for their content and do not collide across concurrent runs. Keep access and retention proportional to sensitivity; delete or overwrite evidence only under the applicable retention policy and separate authorization when needed. Never print raw secrets or trust redaction without checking the permitted observation boundary.
+- Tie conclusions to the candidate, test scope and timestamp. If a run was interrupted or the capture system failed, classify it as incomplete and do not silently rerun side-effecting operations.
