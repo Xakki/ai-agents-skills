@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import subprocess
@@ -42,9 +43,9 @@ def _job_command(runner: str, task_file: str, scope_id: str) -> str:
 
 def _repo(tmp_path: Path) -> Path:
     repo = tmp_path / "project"
-    todo = repo / ".claude" / "kanban" / "todo"
+    todo = repo / ".agents" / "kanban" / "todo"
     for stage in ("todo", "progress", "test", "ready", "done"):
-        (repo / ".claude" / "kanban" / stage).mkdir(parents=True, exist_ok=True)
+        (repo / ".agents" / "kanban" / stage).mkdir(parents=True, exist_ok=True)
     subprocess.run(["git", "init", "--initial-branch=main", str(repo)], check=True, capture_output=True)
     subprocess.run(
         [
@@ -67,7 +68,7 @@ def _repo(tmp_path: Path) -> Path:
 
 
 def _card(repo: Path, name: str, body: str = "") -> Path:
-    path = repo / ".claude" / "kanban" / "todo" / name
+    path = repo / ".agents" / "kanban" / "todo" / name
     path.write_text(body, encoding="utf-8")
     return path
 
@@ -104,6 +105,10 @@ def _create_scope(
     assert result.returncode == 0, result.stderr
     match = re.search(r"^scope-id=([a-f0-9]{64})$", result.stdout, re.MULTILINE)
     assert match, result.stdout
+    # Disposable fixture: commit the synthetic cards so clean-start checks test
+    # the intended branch, not untracked setup artifacts.
+    subprocess.run(['git', '-C', str(repo), 'add', '--', '.agents'], check=True, capture_output=True)
+    subprocess.run(['git', '-C', str(repo), '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '--allow-empty', '-m', 'synthetic cards'], check=True, capture_output=True)
     return match.group(1), env
 
 
@@ -121,7 +126,7 @@ def test_scope_creation_requires_explicit_approval_and_exact_todo_cards(tmp_path
     assert "--approved" in denied.stderr
     assert not list((Path(env["HOME"]) / ".local/state/claude-auto-runs").rglob("*.manifest"))
 
-    outside = repo / ".claude" / "kanban" / "ready" / "CNV-11-not-todo.md"
+    outside = repo / ".agents" / "kanban" / "ready" / "CNV-11-not-todo.md"
     outside.write_text("not a todo card\n", encoding="utf-8")
     rejected = _run(
         [
@@ -140,7 +145,7 @@ def test_scope_creation_requires_explicit_approval_and_exact_todo_cards(tmp_path
     assert rejected.returncode != 0
     assert "todo" in rejected.stderr.lower()
 
-    escaped = repo / ".claude" / "kanban" / "todo" / "CNV-12-escape.md"
+    escaped = repo / ".agents" / "kanban" / "todo" / "CNV-12-escape.md"
     external_card = tmp_path / "outside-card.md"
     external_card.write_text("outside todo root\n", encoding="utf-8")
     escaped.symlink_to(external_card)
@@ -189,10 +194,10 @@ def test_scope_selector_skips_blocked_and_finished_cards_without_falling_back(tm
     assert after_allowed.returncode == 0, after_allowed.stderr
     assert after_allowed.stdout.strip() == following.name
 
-    (repo / ".claude" / "kanban" / "todo" / allowed.name).unlink()
-    (repo / ".claude" / "kanban" / "todo" / following.name).unlink()
-    (repo / ".claude" / "kanban" / "todo" / blocked.name).unlink()
-    (repo / ".claude" / "kanban" / "todo" / "CNV-30-outside.md").write_text("outside\n", encoding="utf-8")
+    (repo / ".agents" / "kanban" / "todo" / allowed.name).unlink()
+    (repo / ".agents" / "kanban" / "todo" / following.name).unlink()
+    (repo / ".agents" / "kanban" / "todo" / blocked.name).unlink()
+    (repo / ".agents" / "kanban" / "todo" / "CNV-30-outside.md").write_text("outside\n", encoding="utf-8")
     exhausted = _run([str(SELECT_NEXT), str(repo), str(parked), "", scope_id], env=env)
 
     assert exhausted.returncode == 0, exhausted.stderr
@@ -205,8 +210,8 @@ def test_scope_selector_never_returns_to_an_earlier_card_after_progress(tmp_path
     blocked = _card(repo, "CNV-10-blocked.md", "Depends on K-9\n")
     later = _card(repo, "CNV-20-later.md")
     scope_id, env = _create_scope(tmp_path, repo, [finished, blocked, later])
-    (repo / ".claude" / "kanban" / "todo" / finished.name).unlink()
-    (repo / ".claude" / "kanban" / "ready" / finished.name).write_text("ready\n", encoding="utf-8")
+    (repo / ".agents" / "kanban" / "todo" / finished.name).unlink()
+    (repo / ".agents" / "kanban" / "ready" / finished.name).write_text("ready\n", encoding="utf-8")
     parked = Path(env["HOME"]) / ".local/state/claude-auto-runs/project/.parked"
     parked.mkdir(parents=True)
     parked_entry = parked / "K-9.md"
@@ -229,8 +234,8 @@ def test_chain_helper_enqueues_only_selector_result_with_same_scope(tmp_path: Pa
     next_card = _card(repo, "CNV-20-next.md")
     _card(repo, "CNV-01-outside.md")
     scope_id, env = _create_scope(tmp_path, repo, [finished, next_card])
-    (repo / ".claude" / "kanban" / "todo" / finished.name).unlink()
-    (repo / ".claude" / "kanban" / "ready" / finished.name).write_text("ready\n", encoding="utf-8")
+    (repo / ".agents" / "kanban" / "todo" / finished.name).unlink()
+    (repo / ".agents" / "kanban" / "ready" / finished.name).write_text("ready\n", encoding="utf-8")
 
     fake_bin = Path(env["HOME"]) / ".local/bin"
     fake_bin.mkdir(parents=True)
@@ -246,6 +251,8 @@ def test_chain_helper_enqueues_only_selector_result_with_same_scope(tmp_path: Pa
     (fake_bin / "at").chmod(0o755)
     env["PATH"] = f"{fake_bin}:{env['PATH']}"
 
+    subprocess.run(['git', '-C', str(repo), 'add', '--', '.agents'], check=True, capture_output=True)
+    subprocess.run(['git', '-C', str(repo), '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-m', 'synthetic move'], check=True, capture_output=True)
     baseline = tmp_path / "baseline"
     status = subprocess.run(["git", "-C", str(repo), "status", "--porcelain"], check=True, capture_output=True, text=True)
     baseline.write_text(status.stdout, encoding="utf-8")
@@ -269,7 +276,7 @@ def test_chain_helper_enqueues_only_selector_result_with_same_scope(tmp_path: Pa
         env=env,
     )
     assert dirty_result.returncode == 0, dirty_result.stderr
-    assert "uncommitted task changes" in dirty_result.stdout
+    assert "uncommitted repository changes" in dirty_result.stderr
     assert "AUTO-RUN-NEXT: none" in dirty_result.stdout
     assert at_log.read_text(encoding="utf-8") == queued_before_dirty
 
@@ -345,7 +352,7 @@ def test_scope_loader_rejects_wrong_repository_and_base_branch(tmp_path: Path) -
 
 def test_scope_job_match_requires_exact_card_and_scope_arguments() -> None:
     scope_file = str(ROOT / "scripts" / "task-scope.sh")
-    task_file = "/repo/.claude/kanban/todo/CNV-20-next.md"
+    task_file = "/repo/.agents/kanban/todo/CNV-20-next.md"
     runner = str(RUNNER)
     scope_id = "a" * 64
 
@@ -369,7 +376,7 @@ def test_scope_job_match_requires_exact_card_and_scope_arguments() -> None:
     false_scope_job = f"header\n{wrong_scope.stdout.strip()}\n"
     assert helper("task_scope_job_matches", exact_job, exact_line).returncode == 0
     assert helper("task_scope_job_matches", false_card_job, exact_line).returncode != 0
-    todo_dir = "/repo/.claude/kanban/todo"
+    todo_dir = "/repo/.agents/kanban/todo"
     card_name = Path(task_file).name
     assert helper("task_scope_job_scope_matches", exact_job, runner, scope_id, todo_dir, card_name).returncode == 0
     assert helper("task_scope_job_scope_matches", false_scope_job, runner, scope_id, todo_dir, card_name).returncode != 0
@@ -424,7 +431,7 @@ printf '%s\n' "$FAKE_JSONL" > "$HOME/.claude/projects/$project_path/$session.jso
     at_script = tmp_path / "queued-at-script"
     at_script.write_text(f"#!/bin/sh\n{at_command}\n", encoding="utf-8")
     if lock_symlink_target is not None:
-        lock_file = Path(env["HOME"]) / ".local/state/claude-auto-runs/project/scopes" / f"{scope_id}.lock"
+        lock_file = Path(env["HOME"]) / ".local/state/claude-auto-runs/project/scopes" / f"{hashlib.sha256(('repo:' + str(repo.resolve())).encode()).hexdigest()}.lock"
         lock_file.symlink_to(lock_symlink_target)
     child_env = env.copy()
     child_env["PATH"] = f"{fake_bin}:{child_env['PATH']}"
@@ -450,7 +457,7 @@ def test_inner_does_not_accept_card_basename_substring_as_queued_job(tmp_path: P
     next_card = _card(repo, "CNV-20-next.md")
     scope_id, env = _create_scope(tmp_path, repo, [current, next_card])
     runner = str(tmp_path / "inner-scripts" / "run-claude-task.sh")
-    wrong_card = str(repo / ".claude" / "kanban" / "todo" / f"{next_card.name}-suffix")
+    wrong_card = str(repo / ".agents" / "kanban" / "todo" / f"{next_card.name}-suffix")
     at_command = _job_command(runner, wrong_card, scope_id)
 
     result, _ = _run_inner_with_fake_job(
@@ -474,7 +481,7 @@ def test_inner_does_not_cancel_job_for_scope_id_substring(tmp_path: Path) -> Non
     next_card = _card(repo, "CNV-20-next.md")
     scope_id, env = _create_scope(tmp_path, repo, [current, next_card])
     runner = str(tmp_path / "inner-scripts" / "run-claude-task.sh")
-    task_file = str(repo / ".claude" / "kanban" / "todo" / next_card.name)
+    task_file = str(repo / ".agents" / "kanban" / "todo" / next_card.name)
     wrong_scope_id = f"{scope_id}f"
     at_command = _job_command(runner, task_file, wrong_scope_id)
 
@@ -489,7 +496,7 @@ def test_inner_does_not_cancel_job_for_scope_id_substring(tmp_path: Path) -> Non
     )
 
     assert result.returncode == 0, result.stderr
-    assert "chain ended cleanly" in result.stdout
+    assert "no continuation" in result.stdout
     assert not atrm_log.exists()
 
 
@@ -499,7 +506,7 @@ def test_inner_does_not_cancel_modified_command_in_scope(tmp_path: Path) -> None
     next_card = _card(repo, "CNV-20-next.md")
     scope_id, env = _create_scope(tmp_path, repo, [current, next_card])
     runner = str(tmp_path / "inner-scripts" / "run-claude-task.sh")
-    task_file = str(repo / ".claude" / "kanban" / "todo" / next_card.name)
+    task_file = str(repo / ".agents" / "kanban" / "todo" / next_card.name)
     at_command = _job_command(runner, task_file, scope_id).replace(
         f" '{scope_id}'",
         f" '--unexpected-argument' '{scope_id}'",
@@ -516,7 +523,7 @@ def test_inner_does_not_cancel_modified_command_in_scope(tmp_path: Path) -> None
     )
 
     assert result.returncode == 0, result.stderr
-    assert "chain ended cleanly" in result.stdout
+    assert "no continuation" in result.stdout
     assert not atrm_log.exists()
 
 
@@ -618,7 +625,7 @@ touch "$HOME/claude.finished"
     )
     deadline = time.monotonic() + 10
     finished_marker = Path(env["HOME"]) / "claude.finished"
-    lock_file = Path(env["HOME"]) / ".local/state/claude-auto-runs/project/scopes" / f"{scope_id}.lock"
+    lock_file = Path(env["HOME"]) / ".local/state/claude-auto-runs/project/scopes" / f"{hashlib.sha256(('repo:' + str(repo.resolve())).encode()).hexdigest()}.lock"
     probe = None
     while time.monotonic() < deadline and process.poll() is None:
         if finished_marker.exists():

@@ -2,11 +2,9 @@
 # Runs INSIDE the spawned tmux window. Launches interactive claude with an
 # autonomous prompt. Window stays open after claude exits.
 #
-# Universal: SCRIPT_DIR locates sibling scripts (works from the plugin cache
-# too). PROJECT_DIR is derived from the task-file argument, not from this
-# script's location — the card always lives at
-# <repo>/.claude/kanban/<stage>/<name>.md, so the repo is three levels up.
+# Repository and board are resolved from the task and scope interface.
 set -uo pipefail
+umask 077
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -37,7 +35,8 @@ case "$BASE_BRANCH" in
 esac
 # shellcheck source=task-scope.sh
 source "$SCRIPT_DIR/task-scope.sh"
-LOG_DIR="${HOME:-/home/coder}/.local/state/claude-auto-runs/${PROJECT_NAME}"
+: "${HOME:?HOME must be set}"
+LOG_DIR="$HOME/.local/state/claude-auto-runs/${PROJECT_NAME}"
 task_scope_load "$REPO" "$LOG_DIR" "$SCOPE_ID" || exit 1
 task_scope_contains "$TASK_BASENAME" || {
     printf 'ERROR: task is outside the approved scope: %s\n' "$TASK_BASENAME" >&2
@@ -47,93 +46,47 @@ task_scope_card_is_todo "$REPO" "$TASK_FILE" || {
     printf 'ERROR: scheduled task is no longer in todo/: %s\n' "$TASK_BASENAME" >&2
     exit 1
 }
+TODO_DIR="$(task_scope_todo_dir "$REPO")" || exit 1
+BOARD_DIR="$(dirname -- "$TODO_DIR")"
 SCOPE_TEXT="$(printf '  - %s\n' "${SCOPE_CARDS[@]}")"
 TS="$(date +%Y%m%d_%H%M%S)"
 # Logs MUST live OUTSIDE the repo. The autonomous prompt previously ran
 # `git stash push -u`, which stashed the open --debug-file mid-write and
 # crashed claude with ENOENT (appendFileSync to a vanished file).
-DEBUG_LOG="$LOG_DIR/${TS}_${TASK_NAME}.debug.log"
-META_LOG="$LOG_DIR/${TS}_${TASK_NAME}.meta.log"
-# Baseline dirty-set captured before claude runs; read by chain step 9 + end-of-run
-# auto-commit to distinguish pre-existing dirt from uncommitted task work.
-BASELINE_FILE="$LOG_DIR/.baseline-dirty-${TS}"
 # Predetermined session ID so user can `claude --resume <id>` to inspect history.
 SESSION_ID="$(cat /proc/sys/kernel/random/uuid)"
+DEBUG_LOG="$LOG_DIR/${TS}_${TASK_NAME}_${SESSION_ID}.debug.log"
+META_LOG="$LOG_DIR/${TS}_${TASK_NAME}_${SESSION_ID}.meta.log"
 
 mkdir -p "$LOG_DIR"
-task_scope_acquire_lock "$REPO" "$LOG_DIR" "$SCOPE_ID" || exit 1
+# Serialize the runner across different approved scopes in this repository.
+# The manifest remains scope-specific; only the lock key is repo-wide.
+REPOSITORY_LOCK_ID="$(printf 'repo:%s' "$REPO" | sha256sum | cut -d ' ' -f 1)"
+task_scope_acquire_lock "$REPO" "$LOG_DIR" "$REPOSITORY_LOCK_ID" || exit 1
 cd "$REPO"
-git status --porcelain > "$BASELINE_FILE" 2>/dev/null || true
+STATUS="$(git status --porcelain --untracked-files=normal)" || { echo "ERROR: cannot inspect repository state" >&2; exit 1; }
+if [ -n "$STATUS" ]; then
+    echo "ERROR: staged, unstaged or untracked work exists; preserve it and stop the scheduled run" >&2
+    exit 1
+fi
+BASELINE_FILE="$(mktemp "$LOG_DIR/.baseline-dirty.XXXXXXXXXX")" || {
+    echo "ERROR: could not create an exclusive baseline file" >&2; exit 1;
+}
+
+BASE_BRANCH="$SCOPE_BASE_BRANCH"
+export SCHEDULE_SCOPE_ID="$SCOPE_ID"
 
 PROMPT=$(cat <<PROMPT_EOF
-Выполни задачу из файла \`${TASK_FILE}\`. Автономный запуск — мелкие вопросы решай сам; останавливайся только через парковку (триггеры ниже).
-
-Approved scope ID: \`${SCOPE_ID}\`. Authorized card basenames, in order:
+Complete the authorized card at \`${TASK_FILE}\`. The resolved board root is \`${BOARD_DIR}\`.
+Approved scope identifier: \`${SCOPE_ID}\`. The listed card basenames are:
 ${SCOPE_TEXT}
-Scope is immutable for this chain. Process/merge/chain only listed cards. Never infer permission from other \`todo/\` cards. The manifest grants the narrow merge-at-ready exception after green QA and independent review; by itself it does not grant \`done\`, push, or deploy. Additional actions require independent valid action-specific authorization and cannot expand this card allowlist or override explicit task restrictions or native guards.
+The manifest is an integrity-checked record of supplied scope, not independent proof of user consent. Honor the actual user's instructions and all project rules. Do not add cards from the backlog. Read the actual board helper and project instructions through the available interface; do not assume a particular agent file, host, branch or board layout.
 
-Сабагенты и kanban-правила → CLAUDE.md + \`.claude/skills/kanban/SKILL.md\`.
+Work only within the authorized action and path scope. Preserve unrelated staged, unstaged and untracked data. Before any commit inspect the entire index, not only the paths you just added; do not commit unrelated staged content. Do not stash, reset, clean, force a branch switch, bypass hooks, or use bulk staging. Review the card's prerequisites and required test and review gates before any stage transition. A timeout or a native security/approval refusal is not consent. The required explicit user approval for \`done\` remains separate from merge, push, deploy, scheduling or notification authority. When scope, consent, a safe checkpoint or an independent reviewer is missing, stop and report the actual blocker, preserving all work. Do not infer that a hash or a successful test grants any extra action.
 
-**Парковка (вместо любой остановки).** Триггеры: (а) проблема-блокер (нет credentials, неразрешимый конфликт, потенциально разрушительная операция, дорогая неоднозначность); (б) решение, меняющее архитектуру/контракт/публичное поведение; (в) qa-check красный (reason=\`qa-fail\`), ревью нашло проблемы (reason=\`review-fail\`), конфликт при мерже (reason=\`merge-conflict\`).
+To checkpoint work that cannot continue (QA failure, review failure, blocker, question or merge conflict) you may run once \`${SCRIPT_DIR}/park-task.sh '${TASK_FILE}' '${BASE_BRANCH}' '${BASELINE_FILE}' '${SESSION_ID}' '${LOG_DIR}' <reason>\`, where reason is qa-fail, review-fail, blocker, question or merge-conflict. It snapshots the working-tree changes to a new side branch task/<card> and records .parked/<card> without switching branches, staging, stashing or cleaning; the working tree stays as it is. Never run park-task-clean.sh or otherwise restore, reset or clean the tree: that is a separate owner-run step. Afterwards stop, report the blocker and end with AUTO-RUN-RESULT: park. A refusal means nothing was parked: report it and stop.
 
-Процедура парковки (reason ∈ qa-fail|review-fail|blocker|question|merge-conflict):
-  1. Если на базовой ветке (только merge-conflict): \`git switch "task/${TASK_NAME}"\`.
-  2. Аннотируй карточку (в текущей стадии — progress/|test/|ready/): добавь \`## ⏸ Parked — <reason>\` с веткой \`task/${TASK_NAME}\`, описанием проблемы и вариантами.
-  3. Один Bash-вызов: \`"${SCRIPT_DIR}/park-task.sh" ".claude/kanban/<stage>/${TASK_NAME}.md" "${BASE_BRANCH}" "${BASELINE_FILE}" "${SESSION_ID}" "${LOG_DIR}" <reason>\` (подставь реальную стадию: \`progress\`, \`test\` или \`ready\` для merge-conflict).
-  4. tg-notify (только главный поток, навык tg-notify): заголовок \`auto-run ${TASK_NAME}: parked (<reason>)\`, тело — проблема + варианты + \`claude --resume ${SESSION_ID}\`.
-  5. → **шаг 9**, затем **шаг 10** с \`AUTO-RUN-RESULT: park: ${TASK_NAME}: parked (<reason>)\`.
-
-**tg-notify:** только главный поток; только при park (шаг 4 выше). ok и skip — не слать.
-
-Алгоритм:
-
-1. **Dirty tree — не повод останавливаться.** НЕ стэшь, не сбрасывай. Стейдж ТОЛЬКО явными путями: \`git add <пути>\` → \`git commit\`. НИКОГДА \`git add -A\`, \`git add .\`, \`git add -u\`, \`git commit -a\`.
-
-2. **Sanity.** Если \`${TASK_FILE}\` не существует или не в \`todo/\` → сразу **шаг 9**, затем **шаг 10** с \`AUTO-RUN-RESULT: skip: ${TASK_NAME}: not in todo/\`.
-
-3. **Start** (на базовой ветке):
-   \`git mv ${TASK_FILE} .claude/kanban/progress/\$(basename ${TASK_FILE})\`
-   \`git commit -m "task: start ${TASK_NAME} (todo→progress)"\`
-   \`git switch -c "task/${TASK_NAME}"\`
-   Далее вся работа — на ветке \`task/${TASK_NAME}\`.
-
-4. **Имплементация.** Делегируй подходящему сабагенту, только если его роль явно описана в CLAUDE.md целевого проекта; иначе реализуй сам. Каждое подзадание → Execution Log + path-scoped коммит: git add <явные пути> → git commit -m "<scope>: …" (scope: api|goclient|ext|infra|db|docs).
-
-5. **qa-check** (skill qa-check). Красный → Execution Log + коммит \`task: ${TASK_NAME} qa-check failed\` → **парковка (qa-fail)**.
-
-6. **progress → test:**
-   \`git mv .claude/kanban/progress/\$(basename ${TASK_FILE}) .claude/kanban/test/\$(basename ${TASK_FILE})\`
-   \`git commit -m "task: review ${TASK_NAME} (progress→test)"\`
-
-7. **Тесты и независимое ревью.** Проверь AC и релевантные тесты по CLAUDE.md (делегируй тестовую роль, если она объявлена). Затем передай diff отдельному свежему read-only reviewer-контексту; исполнитель не может сам одобрить свою работу. Запиши результаты в Execution Log. Замечания или отсутствие независимого reviewer → **парковка (review-fail)**.
-
-8. **Finalize (test → ready checkpoint, then authorized actions):**
-   Resolve the canonical helper root in this order: \`AI_AGENTS_SKILLS_ROOT\`, \`CLAUDE_PLUGIN_ROOT\`, \`PLUGIN_ROOT\`, \`CURSOR_PLUGIN_ROOT\`. Set \`KANBAN_ROOT="\${AI_AGENTS_SKILLS_ROOT:-\${CLAUDE_PLUGIN_ROOT:-\${PLUGIN_ROOT:-\${CURSOR_PLUGIN_ROOT:-}}}}"\` and \`KANBAN_MOVE="\${KANBAN_ROOT}/skills/kanban/scripts/kanban-move.sh"\`; verify that exact helper path is executable. If the root/helper cannot be resolved, stop and report the blocker. Invoke the helper only by \`"\${KANBAN_MOVE}"\`; never use a bare \`kanban-move.sh\` command.
-   Move the card with \`"\${KANBAN_MOVE}" --repo "${REPO}" "${TASK_BASENAME}" ready\`. Refresh the latest ready-card body and any remaining owned task files. Stage only exact owned paths; inspect cached name-status and run \`git diff --cached --check\`. Keep normal hooks enabled; never bypass a native refusal. Commit coherent validated task progress and the ready wrap-up when useful, without a separate permission request; do not create an empty/redundant commit when this exact owned state is already committed and verified. Verify commit SHA, message, paths, reviewed bytes, and no task-owned uncommitted changes.
-   Check authorization separately for \`done\`, merge, push, and deploy: explicit current user approval, recorded upfront task/EPIC/workflow authorization, or recorded profile/agent authorization. These actions may and should proceed automatically when that valid grant covers the action, target, and limits and all applicable gates pass; do not request redundant confirmation for a valid existing grant. Record source/reference, executing profile/agent, covered actions, and results in the card. Profile name, credentials, green tests, and stage transition alone are not a grant; native guards and task restrictions remain binding. \`ready\` is a mandatory evidence/verified-local-commit checkpoint, not a compulsory human stop.
-   If \`done\` authorization covers this card and all acceptance/review/quality gates pass, move it with \`"\${KANBAN_MOVE}" --repo "${REPO}" "${TASK_BASENAME}" done --approved\`, preserving the parent-before-child EPIC gate; refresh/read back the card and commit its exact owned update. Otherwise leave it at \`ready\` and identify the missing grant. A \`done\` grant does not authorize merge, push, or deploy.
-   Merge only after clean-branch verification and independent merge authorization. The hash-verified approved manifest permits scoped merge-at-ready after green QA and independent review, without requiring a \`done\` grant; otherwise the normal finalization path requires \`done\` first. Whenever merge cannot proceed because its authorization or another prerequisite is missing, retain \`task/${TASK_NAME}\`, do not archive it, and report the missing action(s) plus that the \`ready\`/\`done\` acceptance card exists on the task branch while the canonical base still has its pre-merge state. After verifying the owned commit and preserving pre-existing dirty work, safely run \`git switch "${BASE_BRANCH}"\` before step 9; never force a switch. Verify the base branch and preserved dirt. If switching is unsafe, blocked, or dirt preservation cannot be verified, stop without running the next-task chain.
-   When merge is authorized, run \`git switch "${BASE_BRANCH}"\`, then \`git merge --squash "task/${TASK_NAME}"\`. On merge failure, inspect whether \`MERGE_HEAD\` exists: if it does, run \`git merge --abort\`, verify the abort restored the pre-merge index/worktree without losing unrelated work, then use the existing park flow to switch to the task branch and park for merge-conflict; if abort fails, stop and report the unresolved merge. If \`MERGE_HEAD\` does not exist, the merge did not start: do not run abort; return to the task branch as required by the existing park flow and park directly for merge-conflict. After a successful merge, create the single squash commit \`task: ${TASK_NAME} merged (ready)\` when the card remains ready, or \`task: ${TASK_NAME} done\` when authorized done finalization occurred; verify the exact base commit and canonical card path/body. Rename the archive to \`done/${TASK_NAME}\` only after this successful verified authorized merge; otherwise keep the task branch. The archive name records a merged branch, not a card-stage transition.
-   Push and deploy are independent, separately authorized actions and must use the sanctioned project workflow, with all applicable operational gates satisfied. After any actual authorized push, read back the exact remote target/ref and verify it points to the expected commit. After any actual authorized deploy, read back the exact deployment target and verify the expected version/state. If exact read-back is unavailable or mismatches, report the action as unverified, never successful. Do not force-push; report ungranted actions as pending.
-   Run step 9 only after the task branch is successfully merged or, when merge is ungranted, after the verified safe return to base above. The final result must distinguish a merged card from a ready/done card retained on the task branch; never imply base merge, push, or deployment without its evidence.
-
-9. **Chain (for any result: ok/park/skip).** Required before step 10. Call this shell helper exactly once:
-   \`${SCRIPT_DIR}/chain-next-task.sh "${REPO}" "${LOG_DIR}/.parked" "${TASK_BASENAME}" "${SCOPE_ID}" "${BASELINE_FILE}"\`
-   The helper checks the baseline, selects only the next unblocked card from the approved allowlist, and queues one \`at\` job with the same scope ID. Do not run \`at\` or \`select-next-task.sh\` directly, and do not choose from the general \`todo/\` backlog.
-
-10. **Finish.** Perform only authorized actions; do not perform ungranted actions and list deferred actions with the missing scope. Do not request redundant confirmation when a valid grant applies. Final response line:
-    \`AUTO-RUN-RESULT: <ok|park|skip>: ${TASK_NAME}: <причина>\`
-
-Жёсткие запреты:
-- \`git add -A\`, \`git add .\`, \`git add -u\`, \`git commit -a\` — только явные пути.
-- \`git stash\`, \`git checkout -- .\`, \`git reset --hard\`, \`git clean\`.
-- Пропуски стадий (todo→test и т. п.).
-- Один \`git mv\` = один коммит (не смешивать с контент-правками, кроме fail-коммитов).
-- \`--no-verify\`.
-- Direct \`at\` calls or scope expansion from the prompt; only \`chain-next-task.sh\` may enqueue the next card.
-- Any lifecycle/release action without valid action-specific authorization and required gates.
-- \`wip(park)\` коммит на базовой ветке — только через park-task.sh на \`task/*\`.
-- \`AskUserQuestion\` в автономном потоке.
+If this specific run and exact card allowlist authorize a subsequent scheduled continuation, the existing helper can be invoked only within those instructions; do not enqueue further tasks directly. Do not send notifications unless specifically authorized. Report the actual checks and action results, including unrun gates and whether changes remain staged. End with AUTO-RUN-RESULT: <ok|park|skip>: ${TASK_NAME}: <reason> only after the work and any authorized continuation are complete.
 PROMPT_EOF
 )
 
@@ -151,7 +104,7 @@ PROMPT_EOF
 } | tee -a "$META_LOG"
 
 START_EPOCH=$(date +%s)
-claude --dangerously-skip-permissions \
+claude \
     --session-id "$SESSION_ID" \
     --debug-file "$DEBUG_LOG" \
     "$PROMPT"
@@ -162,10 +115,13 @@ WALL_SEC=$(( $(date +%s) - START_EPOCH ))
 # Agent often wraps the marker in backticks (`AUTO-RUN-RESULT: ok: ...`); accept
 # any preceding char, anchor on canonical "AUTO-RUN-RESULT: <verdict>:" shape.
 RESULT="unknown"
-JSONL="${HOME:-/home/coder}/.claude/projects/${CLAUDE_PROJECT_PATH}/${SESSION_ID}.jsonl"
+JSONL="$HOME/.claude/projects/${CLAUDE_PROJECT_PATH}/${SESSION_ID}.jsonl"
 if [ -f "$JSONL" ]; then
     LAST_RESULT=$(grep -hoE 'AUTO-RUN-RESULT: (ok|skip|park):' "$JSONL" | tail -1 | sed -E 's/.*: ([a-z]+):/\1/')
     [ -n "$LAST_RESULT" ] && RESULT="$LAST_RESULT"
+fi
+if [ "$EXIT" -ne 0 ]; then
+    RESULT="unknown"
 fi
 
 {
@@ -180,67 +136,18 @@ echo
 echo "================================================================"
 echo "=== USAGE SUMMARY"
 echo "================================================================"
-"$SCRIPT_DIR/summarize-task-usage.sh" "$SESSION_ID" "$TASK_FILE" "$WALL_SEC" "$EXIT" "$RESULT" 2>&1 | tee -a "$META_LOG"
+TASK_USAGE_READ_ONLY=1 "$SCRIPT_DIR/summarize-task-usage.sh" "$SESSION_ID" "$TASK_FILE" "$WALL_SEC" "$EXIT" "$RESULT" 2>&1 | tee -a "$META_LOG"
 
-# Commit only the usage-stats append (new kanban .md changes not in baseline).
-# Never bulk-stage: only paths that (a) weren't dirty before this run and
-# (b) are kanban .md files get staged and committed.
-cd "$REPO"
-DIRTY_PATHS=$(git status --porcelain 2>/dev/null | cut -c4- | sort -u)
-if [ -n "$DIRTY_PATHS" ]; then
-    BASE_PATHS=$(cut -c4- "$BASELINE_FILE" 2>/dev/null | sort -u)
-    EXTRA_PATHS=$(comm -23 \
-        <(printf '%s\n' "$DIRTY_PATHS") \
-        <([ -n "$BASE_PATHS" ] && printf '%s\n' "$BASE_PATHS" || true))
-    if [ -z "$EXTRA_PATHS" ]; then
-        echo "[inner] all dirty paths pre-existed at task start — no auto-commit needed"
-    else
-        SAFE=true
-        KANBAN_PATHS=()
-        while IFS= read -r path; do
-            [ -z "$path" ] && continue
-            case "$path" in
-                .claude/kanban/*/*.md) KANBAN_PATHS+=("$path") ;;
-                *) SAFE=false; break ;;
-            esac
-        done <<< "$EXTRA_PATHS"
-        if [ "$SAFE" = true ]; then
-            for path in "${KANBAN_PATHS[@]}"; do
-                git add -- "$path"
-            done
-            git commit -m "chore(auto-run): append usage stats for $TASK_NAME" \
-                       -m "session: $SESSION_ID, result: $RESULT, wall: ${WALL_SEC}s, exit: $EXIT" \
-                >> "$META_LOG" 2>&1 \
-                && echo "[inner] committed usage-stats append" \
-                || echo "[inner] WARN: could not commit usage-stats append (see meta.log)"
-        else
-            echo "[inner] WARN: working tree has non-kanban task changes — leaving as-is for manual review"
-            git status --short
-        fi
-    fi
-fi
+# A scheduler cannot prove ownership of all staged entries or task-output paths.
+# Do not automatically stage or commit any content. Leave the exact state for
+# the authorized project workflow to inspect and report.
+echo "[inner] automatic staging and commit disabled; inspect repository state"
 
 # Cancel only this scope's queued task, used if a prompt ever emits an invalid marker.
 cancel_scope_jobs() {
-    local expected_task="${1:-}" job job_command runner todo_dir expected_command
-    command -v atq >/dev/null 2>&1 || return 0
-    runner="$SCRIPT_DIR/run-claude-task.sh"
-    todo_dir="$(task_scope_todo_dir "$REPO" 2>/dev/null)" || return 0
-    for job in $(atq 2>/dev/null | awk '{print $1}'); do
-        job_command="$(at -c "$job" 2>/dev/null)"
-        if [ -n "$expected_task" ] && task_scope_valid_card_name "$expected_task"; then
-            expected_command="$(task_scope_job_command "$runner" "$todo_dir/$expected_task" "$SCOPE_ID")"
-            task_scope_job_matches "$job_command" "$expected_command" || continue
-        else
-            if [ "$SCOPE_VALID" != true ]; then
-                echo "[chain] WARN: cannot safely match queued jobs because scope validation failed"
-                return 0
-            fi
-            task_scope_job_scope_matches "$job_command" "$runner" "$SCOPE_ID" "$todo_dir" "${SCOPE_CARDS[@]}" || continue
-        fi
-        atrm "$job" 2>/dev/null || true
-        echo "[chain] cancelled at-job #$job for scope $SCOPE_ID"
-    done
+    # This process does not have immutable receipts for jobs created by itself.
+    # Matching scope or commands is not proof that an existing job is ours.
+    echo "[chain] WARN: continuation state requires manual review; no queued jobs were cancelled"
 }
 
 SCOPE_VALID=true
@@ -264,7 +171,7 @@ task_scope_load "$REPO" "$LOG_DIR" "$SCOPE_ID" || SCOPE_VALID=false
     case "$RESULT:$NEXT_MARK" in
         ok:none|park:none|skip:none)
             cancel_scope_jobs ""
-            echo "[chain] result=$RESULT, AUTO-RUN-NEXT=none — chain ended cleanly"
+            echo "[chain] untrusted session text reports result=$RESULT and no continuation; verify actual state independently"
             ;;
         ok:|park:|skip:)
             cancel_scope_jobs ""
@@ -289,7 +196,7 @@ task_scope_load "$REPO" "$LOG_DIR" "$SCOPE_ID" || SCOPE_VALID=false
                     fi
                 done
                 if [ -n "$FOUND" ]; then
-                    echo "[chain] verified scoped at-job #$FOUND for next card: $NEXT_MARK"
+                    echo "[chain] matching at-job #$FOUND exists for $NEXT_MARK; origin and authorization require independent verification"
                     atq | sort -k 2
                 else
                     echo "[chain] WARN: scoped helper reported $NEXT_MARK but no matching at-job is queued"
@@ -311,4 +218,8 @@ task_scope_release_lock
 
 echo
 echo ">>> Window kept open. Press Enter to close."
-read -r _
+read -r _ || true
+# A failed Claude process or a missing result is not a successful scheduler run.
+if [ "$EXIT" -ne 0 ] || [ "$RESULT" = unknown ]; then
+    exit 1
+fi

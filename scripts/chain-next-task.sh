@@ -22,7 +22,7 @@ JUST_FINISHED="$3"
 SCOPE_ID="$4"
 BASELINE_FILE="$5"
 PROJECT_NAME="$(basename -- "$REPO")"
-LOG_DIR="${HOME:-/home/coder}/.local/state/claude-auto-runs/${PROJECT_NAME}"
+LOG_DIR="${HOME:?HOME must be set}/.local/state/claude-auto-runs/${PROJECT_NAME}"
 
 if ! task_scope_load "$REPO" "$LOG_DIR" "$SCOPE_ID"; then
     echo 'AUTO-RUN-NEXT: none'
@@ -45,16 +45,20 @@ if [ ! -f "$BASELINE_FILE" ]; then
     exit 0
 fi
 
-CURRENT_PATHS="$(git -C "$REPO" status --porcelain 2>/dev/null | cut -c4- | sort -u)"
-BASELINE_PATHS="$(cut -c4- "$BASELINE_FILE" 2>/dev/null | sort -u)"
-if [ -n "$CURRENT_PATHS" ]; then
-    NEW_DIRT="$(comm -23 <(printf '%s\n' "$CURRENT_PATHS") <([ -n "$BASELINE_PATHS" ] && printf '%s\n' "$BASELINE_PATHS" || true))"
-    if [ -n "$NEW_DIRT" ]; then
-        printf '[chain] WARN: uncommitted task changes beyond baseline — chain stops\n'
-        printf '%s\n' "$NEW_DIRT"
-        echo 'AUTO-RUN-NEXT: none'
-        exit 0
-    fi
+if [ -s "$BASELINE_FILE" ]; then
+    printf '[chain] WARN: baseline is not clean; ownership cannot be established — chain stops\n' >&2
+    echo 'AUTO-RUN-NEXT: none'
+    exit 0
+fi
+CURRENT_STATUS="$(git -C "$REPO" status --porcelain --untracked-files=normal)" || {
+    printf '[chain] ERROR: cannot inspect repository state — chain stops\n' >&2
+    echo 'AUTO-RUN-NEXT: none'
+    exit 1
+}
+if [ -n "$CURRENT_STATUS" ]; then
+    printf '[chain] WARN: uncommitted repository changes exist — chain stops\n' >&2
+    echo 'AUTO-RUN-NEXT: none'
+    exit 0
 fi
 
 NEXT="$("$SCRIPT_DIR/select-next-task.sh" "$REPO" "$PARKED_DIR" "$JUST_FINISHED" "$SCOPE_ID")"

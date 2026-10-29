@@ -2,9 +2,7 @@
 # Aggregate token usage + approximate cost from a claude session JSONL,
 # print to stdout and append an "Auto-run usage" block to the task file.
 #
-# Universal: derives PROJECT_DIR / CLAUDE_PROJECT_PATH from the task-file
-# argument (card lives at <repo>/.claude/kanban/<stage>/<name>.md → repo is
-# three levels up). Script itself runs from the plugin cache.
+# Derives repository and board from the task-file argument.
 #
 # Usage: summarize-task-usage.sh <session-id> <task-file> [<wall-seconds>] [<exit-code>] [<result>]
 set -uo pipefail
@@ -13,13 +11,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 SESSION_ID="${1:?session id required}"
 TASK_FILE_HINT="${2:?task file path required}"
-PROJECT_DIR="$(cd "$(dirname "$TASK_FILE_HINT")/../../.." && pwd)"
+PROJECT_DIR="$(git -C "$(dirname -- "$TASK_FILE_HINT")" rev-parse --show-toplevel 2>/dev/null)" || {
+    echo 'ERROR: task path is not in a Git repository' >&2; exit 1;
+}
+BOARD_DIR="$(cd "$(dirname -- "$TASK_FILE_HINT")/.." && pwd -P)"
 CLAUDE_PROJECT_PATH="$(printf '%s' "$PROJECT_DIR" | tr '/' '-')"
 WALL_SEC="${3:-?}"
 EXIT_CODE="${4:-?}"
 RESULT="${5:-unknown}"
 
-PROJ_DIR="${HOME:-/home/coder}/.claude/projects/${CLAUDE_PROJECT_PATH}"
+PROJ_DIR="${HOME:?HOME must be set}/.claude/projects/${CLAUDE_PROJECT_PATH}"
 JSONL="$PROJ_DIR/$SESSION_ID.jsonl"
 
 if [ ! -f "$JSONL" ]; then
@@ -29,15 +30,17 @@ fi
 
 # Resolve current task-file location (claude may have moved it to progress/)
 TASK_FILE=""
-if [ -f "$TASK_FILE_HINT" ]; then
-    TASK_FILE="$TASK_FILE_HINT"
-else
-    BASE="$(basename "$TASK_FILE_HINT")"
-    for d in done test progress todo; do
-        cand="${PROJECT_DIR}/.claude/kanban/$d/$BASE"
-        if [ -f "$cand" ]; then TASK_FILE="$cand"; break; fi
-    done
-fi
+BASE="$(basename "$TASK_FILE_HINT")"
+for d in done ready test progress todo grooming freeze closed; do
+    cand="${BOARD_DIR}/$d/$BASE"
+    if [ -f "$cand" ]; then
+        if [ -n "$TASK_FILE" ]; then
+            echo 'ERROR: task exists in multiple stages; refusing to append' >&2
+            exit 1
+        fi
+        TASK_FILE="$cand"
+    fi
+done
 
 python3 - "$JSONL" "${TASK_FILE:-}" "$SESSION_ID" "$WALL_SEC" "$EXIT_CODE" "$RESULT" <<'PY'
 import json, sys, os
@@ -151,8 +154,10 @@ block.append("")
 text = "\n".join(block)
 print(text)
 
-# Append to task file (if found and not already appended for this session)
-if task_file and os.path.isfile(task_file):
+# Scheduled invocations can request a report without changing board content.
+if os.environ.get("TASK_USAGE_READ_ONLY") == "1":
+    print("\n[summarize] read-only mode; task file not changed", file=sys.stderr)
+elif task_file and os.path.isfile(task_file):
     existing = open(task_file, encoding="utf-8").read()
     marker = f"**Session**: `{sid}`"
     if marker in existing:

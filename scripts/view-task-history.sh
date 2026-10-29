@@ -16,8 +16,8 @@ PROJECT_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 PROJECT_NAME="$(basename "$PROJECT_DIR")"
 CLAUDE_PROJECT_PATH="$(printf '%s' "$PROJECT_DIR" | tr '/' '-')"
 
-LOG_DIR="${HOME:-/home/coder}/.local/state/claude-auto-runs/${PROJECT_NAME}"
-PROJ_DIR="${HOME:-/home/coder}/.claude/projects/${CLAUDE_PROJECT_PATH}"
+LOG_DIR="${HOME:?HOME must be set}/.local/state/claude-auto-runs/${PROJECT_NAME}"
+PROJ_DIR="${HOME:?HOME must be set}/.claude/projects/${CLAUDE_PROJECT_PATH}"
 
 if [ "${1:-}" = "--list" ] || [ -z "${1:-}" ]; then
     echo "Recent auto-runs in $LOG_DIR:"

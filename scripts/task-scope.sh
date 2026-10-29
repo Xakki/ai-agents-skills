@@ -17,24 +17,23 @@ task_scope_valid_card_name() {
 }
 
 task_scope_todo_dir() {
-    local repo="$1" candidate
-    for candidate in "$repo/.claude/kanban/todo" "$repo/.agents/kanban/todo"; do
-        if [ -d "$candidate" ]; then
-            realpath -e -- "$candidate"
-            return 0
-        fi
-    done
-    _task_scope_error "no Kanban todo directory in $repo"
+    local repo="$1" candidate="$1/.agents/kanban/todo" repo_real todo_real
+    if [ -d "$candidate" ]; then
+        repo_real="$(realpath -e -- "$repo")" || return 1
+        todo_real="$(realpath -e -- "$candidate")" || return 1
+        case "$todo_real" in
+            "$repo_real"/*) printf '%s\n' "$todo_real"; return 0 ;;
+            *) _task_scope_error 'Kanban todo directory resolves outside the repository'; return 1 ;;
+        esac
+    fi
+    _task_scope_error "no canonical .agents Kanban todo directory in $repo"
 }
 
 task_scope_card_is_todo() {
     local repo="$1" card="$2" todo_dir card_real
     todo_dir="$(task_scope_todo_dir "$repo")" || return 1
     card_real="$(realpath -e -- "$card" 2>/dev/null)" || return 1
-    case "$card_real" in
-        "$todo_dir"/*) [ -f "$card_real" ] ;;
-        *) return 1 ;;
-    esac
+    [ -f "$card_real" ] && [ "$(dirname -- "$card_real")" = "$todo_dir" ]
 }
 
 task_scope_contains() {
@@ -97,7 +96,7 @@ task_scope_acquire_lock() {
         _task_scope_error "repository root does not resolve for scope lock"
         return 1
     }
-    home_real="$(realpath -e -- "${HOME:-/home/coder}")" || {
+    home_real="$(realpath -e -- "${HOME:?HOME must be set}")" || {
         _task_scope_error "home directory does not resolve for scope lock"
         return 1
     }
@@ -208,7 +207,7 @@ task_scope_load() {
         return 1
     }
 
-    home_real="$(realpath -e -- "${HOME:-/home/coder}")" || {
+    home_real="$(realpath -e -- "${HOME:?HOME must be set}")" || {
         _task_scope_error "home directory does not resolve"
         return 1
     }

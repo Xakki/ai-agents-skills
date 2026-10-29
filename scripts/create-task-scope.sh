@@ -106,7 +106,7 @@ for card_path in "${CARDS[@]}"; do
 done
 
 PROJECT_NAME="$(basename -- "$REPO")"
-HOME_REAL="$(realpath -e -- "${HOME:-/home/coder}")" || {
+HOME_REAL="$(realpath -e -- "${HOME:?HOME must be set}")" || {
     printf 'ERROR: home directory does not resolve\n' >&2
     exit 1
 }

@@ -1,57 +1,32 @@
 #!/usr/bin/env bash
-# Park a task: switch to task/<NAME> branch, stage new WIP (baseline-aware,
-# no bulk-stage), commit, return to base, write .parked index.
+# Checkpoint an unfinished scheduled card: snapshot its working-tree changes to a
+# side branch task/<card> from a throw-away index and write .parked/<card>.
+# The current branch, the real index and the working tree are never modified.
+# Usable only inside an approved scheduled run: SCHEDULE_SCOPE_ID must name a
+# valid scope that lists the card.
 #
-# The agent writes the ## ⏸ Parked section into the card BEFORE calling this.
-#
-# Args: <TASK_FILE> <BASE_BRANCH> <BASELINE_FILE> <SESSION_ID> <LOG_DIR> <REASON>
+# Args: <CARD> <BASE_BRANCH> <BASELINE_FILE> <SESSION_ID> <LOG_DIR> <REASON>
 # REASON: qa-fail | review-fail | blocker | question | merge-conflict
-set -uo pipefail
+set -euo pipefail
 
-TASK_FILE="$1"
-BASE_BRANCH="$2"
-BASELINE_FILE="$3"
-SESSION_ID="$4"
-LOG_DIR="$5"
-REASON="$6"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=task-scope.sh
+source "$SCRIPT_DIR/task-scope.sh"
 
-TASK_NAME="$(basename "$TASK_FILE" .md)"
-REPO="$(git rev-parse --show-toplevel 2>/dev/null || (cd "$(dirname "$TASK_FILE")/../../.." && pwd))"
-TASK_BRANCH="task/${TASK_NAME}"
-
-cd "$REPO"
-
-# 1. Ensure on the task branch (create if first park; switch if already exists).
-git switch -c "$TASK_BRANCH" 2>/dev/null || git switch "$TASK_BRANCH"
-
-# 2. Stage new paths (beyond baseline) explicitly — never bulk-stage.
-DIRTY_PATHS="$(git status --porcelain 2>/dev/null | cut -c4- | sort -u)"
-BASE_PATHS="$(cut -c4- "$BASELINE_FILE" 2>/dev/null | sort -u || true)"
-if [ -n "$DIRTY_PATHS" ]; then
-    EXTRA="$(comm -23 \
-        <(printf '%s\n' "$DIRTY_PATHS") \
-        <([ -n "$BASE_PATHS" ] && printf '%s\n' "$BASE_PATHS" || true))"
-    while IFS= read -r p; do
-        [ -z "$p" ] && continue
-        git add -- "$p"
-    done <<< "$EXTRA"
+if [ "$#" -ne 6 ]; then
+    printf 'Usage: %s <card> <base-branch> <baseline> <session> <log-dir> <reason>\n' "$0" >&2
+    exit 2
 fi
+CARD="$1"; BASE_BRANCH="$2"; LOG_DIR="$5"
 
-# 3. Commit WIP (skip if nothing staged — annotation may already have been committed).
-git diff --cached --quiet || git commit -m "wip(park): ${TASK_NAME} (${REASON})"
+SCOPE_ID="${SCHEDULE_SCOPE_ID:-}"
+[ -n "$SCOPE_ID" ] || { printf '%s\n' 'ERROR: parking refused: SCHEDULE_SCOPE_ID is not set; park only from an approved scheduled run' >&2; exit 1; }
+REPO="$(git -C "$(dirname -- "$CARD")" rev-parse --show-toplevel 2>/dev/null)" || {
+    printf '%s\n' 'ERROR: parking refused: card is not inside a Git repository' >&2; exit 1; }
+task_scope_load "$REPO" "$LOG_DIR" "$SCOPE_ID" || exit 1
+task_scope_contains "$(basename -- "$CARD")" || {
+    printf '%s\n' 'ERROR: parking refused: card is outside the approved scope' >&2; exit 1; }
+[ "$BASE_BRANCH" = "$SCOPE_BASE_BRANCH" ] || {
+    printf '%s\n' 'ERROR: parking refused: base branch differs from the approved scope' >&2; exit 1; }
 
-# 4. Return to base branch (baseline dirt carries back untouched).
-git switch "$BASE_BRANCH"
-
-# 5. Write .parked index (questions live in the card annotation; index keeps the reason).
-mkdir -p "${LOG_DIR}/.parked"
-CARD_REL="${TASK_FILE#${REPO}/}"
-cat > "${LOG_DIR}/.parked/${TASK_NAME}" <<EOF
-branch=${TASK_BRANCH}
-base=${BASE_BRANCH}
-session=${SESSION_ID}
-reason=${REASON}
-card=${CARD_REL}
-EOF
-
-echo "[park] parked ${TASK_NAME} on ${TASK_BRANCH} (reason=${REASON}); base restored to ${BASE_BRANCH}"
+exec python3 -I "$SCRIPT_DIR/park_task.py" "$@"

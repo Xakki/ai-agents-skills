@@ -2,10 +2,7 @@
 # Schedule entrypoint: opens a new byobu/tmux window and launches the inner runner.
 # Invoked by `at` jobs. Idempotent re session existence.
 #
-# Universal: SCRIPT_DIR locates the sibling inner script (works from the plugin
-# cache too). PROJECT_DIR/PROJECT_NAME come from the task-file argument — the
-# card lives at <repo>/.claude/kanban/<stage>/<name>.md, so the repo is three
-# levels up.
+# The task resolves its Git repository and the board through the scope interface.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -27,7 +24,8 @@ PROJECT_NAME="$(basename "$PROJECT_DIR")"
 
 # shellcheck source=task-scope.sh
 source "$SCRIPT_DIR/task-scope.sh"
-LOG_DIR="${HOME:-/home/coder}/.local/state/claude-auto-runs/${PROJECT_NAME}"
+: "${HOME:?HOME must be set}"
+LOG_DIR="$HOME/.local/state/claude-auto-runs/${PROJECT_NAME}"
 task_scope_load "$PROJECT_DIR" "$LOG_DIR" "$SCOPE_ID" || exit 1
 task_scope_contains "$TASK_BASENAME" || {
     printf 'ERROR: task is outside the approved scope: %s\n' "$TASK_BASENAME" >&2
@@ -38,17 +36,27 @@ task_scope_card_is_todo "$PROJECT_DIR" "$TASK_FILE" || {
     exit 1
 }
 
-SOCKET="/tmp/tmux-1000/default"
-SESSION="1"
+STATUS="$(git -C "$PROJECT_DIR" status --porcelain --untracked-files=normal)" || {
+    printf 'ERROR: cannot inspect repository state\n' >&2; exit 1;
+}
+if [ -n "$STATUS" ]; then
+    printf 'ERROR: repository has staged, unstaged or untracked changes; preserve them and resolve the scheduling boundary before starting\n' >&2
+    exit 1
+fi
+
+SESSION="${SCHEDULE_TMUX_SESSION:-ai-agents-scheduler}"
+[[ "$SESSION" =~ ^[A-Za-z0-9_.-]+$ ]] || { printf 'ERROR: invalid tmux session name\n' >&2; exit 1; }
+TMUX_ARGS=()
+if [ -n "${SCHEDULE_TMUX_SOCKET:-}" ]; then
+    TMUX_ARGS=(-S "$SCHEDULE_TMUX_SOCKET")
+fi
 INNER="$SCRIPT_DIR/run-claude-task-inner.sh"
 
-export HOME="${HOME:-/home/coder}"
-export USER="${USER:-coder}"
-export PATH="$HOME/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+export PATH="$HOME/.local/bin:${PATH:-/usr/local/bin:/usr/bin:/bin}"
 
 # Ensure target session exists (in case byobu was killed).
-if ! tmux -S "$SOCKET" has-session -t "$SESSION" 2>/dev/null; then
-    tmux -S "$SOCKET" new-session -d -s "$SESSION"
+if ! tmux "${TMUX_ARGS[@]}" has-session -t "$SESSION" 2>/dev/null; then
+    tmux "${TMUX_ARGS[@]}" new-session -d -s "$SESSION" || exit 1
 fi
 
 # Window name ≤10 chars: 2-letter project prefix + card ID (e.g. avito-fix /
@@ -58,5 +66,5 @@ fi
 CARD_ID="$(printf '%s' "$TASK_NAME" | grep -oE '^[A-Za-z]+-[0-9]+' || printf '%s' "${TASK_NAME:0:7}")"
 WIN_NAME="${PROJECT_NAME:0:2}:${CARD_ID}"
 WIN_NAME="${WIN_NAME:0:10}"
-tmux -S "$SOCKET" new-window -t "${SESSION}:" -n "$WIN_NAME" \
+tmux "${TMUX_ARGS[@]}" new-window -t "${SESSION}:" -n "$WIN_NAME" \
     "exec $(task_scope_shell_quote "$INNER") $(task_scope_shell_quote "$TASK_FILE") $(task_scope_shell_quote "$SCOPE_ID")"

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import re
 from pathlib import Path
 
@@ -13,9 +12,6 @@ def _read(path: Path) -> str:
 
 PROMPT_START = b"PROMPT=$(cat <<PROMPT_EOF\n"
 PROMPT_END = b"\nPROMPT_EOF\n)"
-# Retained source baseline: 91ea2b2c0a5c34874e7dd76e70bffa8971385124.
-# Independently compared with the pre-merge snapshot and committed source bytes.
-BASELINE_OUTSIDE_PROMPT_SHA256 = "f8e50049f96af9d6b65d12f2419cdf8c0e2e1a00fedadd64b5a3af9ef62fb316"
 
 
 def _prompt_bounds(source: bytes) -> tuple[int, int]:
@@ -27,12 +23,6 @@ def _prompt_bounds(source: bytes) -> tuple[int, int]:
 def _prompt(source: bytes) -> bytes:
     start, end = _prompt_bounds(source)
     return source[start:end]
-
-
-def _outside_prompt_sha256(source: bytes) -> str:
-    start, end = _prompt_bounds(source)
-    outside = source[:start] + b"\0<PROMPT>\0" + source[end + len(PROMPT_END) :]
-    return hashlib.sha256(outside).hexdigest()
 
 
 def test_all_action_scopes_allow_automation_on_valid_profile_authorization() -> None:
@@ -105,7 +95,8 @@ def test_authorization_forms_and_gates_are_consistent() -> None:
     assert "does not validate authorization evidence" in " ".join(scripts.split())
     assert "it is not an\n    authorization grant" in scripts
     assert "parent `ready → done`, eligible subtasks to `done`, verify `epic/<id>` clean" in reference
-    assert "never force-push" in git_flow
+    assert "do not amend or rewrite history without the necessary authorization" in git_flow
+    assert "authorization for each effect" in git_flow
     assert "review" in epic and "full project quality gate" in epic
     assert "read back the exact target" in kanban
 
@@ -124,49 +115,49 @@ def test_helper_diagnostic_lists_all_authorization_sources_without_changing_gate
     assert 'all mandatory gates remain binding)" 2' in normalized
 
 
-def test_scheduler_prompt_keeps_execution_outside_prompt_unchanged_by_contract() -> None:
-    source = (ROOT / "scripts/run-claude-task-inner.sh").read_bytes()
-    prompt = _prompt(source).decode()
-    assert _outside_prompt_sha256(source) == BASELINE_OUTSIDE_PROMPT_SHA256
-
-    assert "AUTO-RUN-RESULT: <ok|park|skip>" in prompt
-    assert "--approved" in prompt
-    assert "MERGE_HEAD" in prompt
-    assert "git merge --abort" in prompt
-    assert "does not exist, the merge did not start: do not run abort" in prompt.lower()
-    assert "git diff --cached --check" in prompt
-    assert "only after this successful verified authorized merge" in prompt
-    assert "safely run" in prompt and "before step 9" in prompt
-    assert "ready/done" in prompt and "canonical base still has its pre-merge state" in prompt
-    assert "whenever merge cannot proceed because" in prompt.lower()
-    assert "retain" in prompt.lower() and "do not archive it" in prompt.lower()
-    assert r'kanban_move="\${kanban_root}/skills/kanban/scripts/kanban-move.sh"' in prompt.lower()
-    assert r'"\${kanban_move}"' in prompt.lower()
-    for root_var in ("AI_AGENTS_SKILLS_ROOT", "CLAUDE_PLUGIN_ROOT", "PLUGIN_ROOT", "CURSOR_PLUGIN_ROOT"):
-        assert root_var in prompt
-    assert "never use a bare" in prompt.lower() and "kanban-move.sh" in prompt
-    assert "not a compulsory human stop" in prompt
-    assert "after any actual authorized push, read back the exact remote target/ref" in prompt.lower()
-    assert "after any actual authorized deploy, read back the exact deployment target" in prompt.lower()
-
-
-def test_scheduler_integration_preserves_scoped_merge_at_ready_and_chain_helper() -> None:
+def test_scheduler_prompt_requires_action_scoped_authorization_and_preservation() -> None:
     source = (ROOT / "scripts/run-claude-task-inner.sh").read_bytes()
     prompt = _prompt(source).decode().lower()
-
-    assert "hash-verified approved manifest permits scoped merge-at-ready" in prompt
-    assert "without requiring a \\`done\\` grant" in prompt
-    assert "cannot expand this card allowlist" in prompt
-    assert "override explicit task restrictions or native guards" in prompt
-    assert "chain-next-task.sh" in prompt
-    assert "${script_dir}/select-next-task.sh" not in prompt
-    assert "| at -t" not in prompt
-    assert r'"${scope_id}" "${baseline_file}"' in prompt
-    assert 'task_scope_load "$repo" "$log_dir" "$scope_id"' in source.decode().lower()
-    assert 'task_scope_contains "$task_basename"' in source.decode().lower()
+    assert "manifest is an integrity-checked record" in prompt
+    assert "not independent proof of user consent" in prompt
+    assert "explicit user approval for" in prompt and "done" in prompt
+    assert "merge, push, deploy" in prompt
+    assert "inspect the entire index" in prompt
+    assert "do not commit unrelated staged content" in prompt
+    assert "native security/approval refusal is not consent" in prompt
+    assert "do not send notifications unless specifically authorized" in prompt
+    assert "--dangerously-skip-permissions" not in source.decode()
 
 
-def test_scheduler_card_moves_use_repo_and_scoped_basename_not_legacy_path() -> None:
-    prompt = _prompt((ROOT / "scripts/run-claude-task-inner.sh").read_bytes()).decode().lower()
-    assert r'"\${kanban_move}" --repo "${repo}" "${task_basename}" ready' in prompt
-    assert r'"\${kanban_move}" --repo "${repo}" "${task_basename}" done --approved' in prompt
+def test_scheduler_scope_is_validated_and_automatic_git_actions_are_disabled() -> None:
+    source_bytes = (ROOT / "scripts/run-claude-task-inner.sh").read_bytes()
+    source = source_bytes.decode().lower()
+    prompt = _prompt(source_bytes).decode().lower()
+    assert 'task_scope_load "$repo" "$log_dir" "$scope_id"' in source
+    assert 'task_scope_contains "$task_basename"' in source
+    assert 'task_scope_card_is_todo "$repo" "$task_file"' in source
+    assert 'automatic staging and commit disabled' in source
+    assert 'task_usage_read_only=1' in source
+    assert 'atrm ' not in source
+    assert 'git commit -m' not in source
+    assert 'do not enqueue further tasks directly' in prompt
+    park = (ROOT / 'scripts/park-task.sh').read_text().lower()
+    assert 'schedule_scope_id' in park and 'task_scope_contains' in park
+    assert 'git switch' not in park and 'git add' not in park and 'git commit' not in park
+    assert 'never run park-task-clean.sh' in prompt
+    clean = (ROOT / 'scripts/park_task_clean.py').read_text()
+    assert 'SCHEDULE_SCOPE_ID' in clean and '--plan-sha256' in clean
+    impl = (ROOT / 'scripts/park_task.py').read_text().lower()
+    assert 'git_index_file' in impl and 'commit-tree' in impl
+    for forbidden in ('"switch"', '"checkout"', '"stash"', '"reset"', '"clean"', '"commit"', '"restore"', '"rm"'):
+        assert forbidden not in impl
+
+
+def test_scheduler_resolves_board_via_scope_interface() -> None:
+    source_bytes = (ROOT / "scripts/run-claude-task-inner.sh").read_bytes()
+    source = source_bytes.decode().lower()
+    prompt = _prompt(source_bytes).decode().lower()
+    assert 'task_scope_todo_dir "$repo"' in source
+    assert '${board_dir}' in prompt
+    assert '.claude/kanban' not in prompt
+    assert 'the actual board helper' in prompt

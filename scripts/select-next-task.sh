@@ -22,7 +22,7 @@ PARKED_DIR="$2"
 JUST_FINISHED="$3"
 SCOPE_ID="$4"
 PROJECT_NAME="$(basename -- "$REPO")"
-LOG_DIR="${HOME:-/home/coder}/.local/state/claude-auto-runs/${PROJECT_NAME}"
+LOG_DIR="${HOME:?HOME must be set}/.local/state/claude-auto-runs/${PROJECT_NAME}"
 task_scope_load "$REPO" "$LOG_DIR" "$SCOPE_ID" || exit 1
 if [ -n "$JUST_FINISHED" ] && ! task_scope_contains "$JUST_FINISHED"; then
     printf 'scope error: completed card is outside the approved scope\n' >&2
