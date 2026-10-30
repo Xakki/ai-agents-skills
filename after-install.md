@@ -2,16 +2,15 @@
 
 The Hermes plugin is installed. Its shared skills are read-only, namespaced
 plugin skills and can be loaded by their namespace. Start a new Hermes session
-(or run `/reload-skills`) and call `skill_view("ai-agents-skills:kanban")` for
-the plugin's Kanban workflow or `skill_view("ai-agents-skills:knbn")` for its
-portable alias. The built-in `/kanban` board command remains separate.
+(or run `/reload-skills`) and call `skill_view("ai-agents-skills:kanban-card-run")` for
+the plugin's Kanban workflow. The built-in `/kanban` board command remains separate.
 
 Load a workflow explicitly:
 
 ```text
-skill_view("ai-agents-skills:qa-check")
-skill_view("ai-agents-skills:git-flow")
-skill_view("ai-agents-skills:epic-lead")
+skill_view("ai-agents-skills:quality-change-verify")
+skill_view("ai-agents-skills:git-repo-run")
+skill_view("ai-agents-skills:kanban-epic-coordinate")
 ```
 
 The prompts from `agents/` are exposed as skills too:
@@ -27,10 +26,10 @@ Check plugin state with:
 hermes plugins list --plain --no-bundled
 ```
 
-Telegram hooks are optional and remain no-ops until `tg-notify` is configured.
+Telegram hooks are optional and remain no-ops until `agent-telegram-notify` is configured.
 Hermes has no permission/idle plugin event, so only prompt-start, task-finished,
 and stale-notification cancellation hooks are mapped. To turn them off for
-Hermes only, keeping `tg-notify` for other runtimes:
+Hermes only, keeping `agent-telegram-notify` for other runtimes:
 
 ```bash
 hermes config set plugins.entries.ai-agents-skills.settings.telegram_hooks false

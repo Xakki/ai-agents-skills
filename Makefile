@@ -1,7 +1,7 @@
 SHELL = /bin/bash
 
 INSTALL_DIR ?= $(HOME)/.claude/plugins/cache/ai-agents-skills/ai-agents-skills/$(shell awk '/^version:/{gsub(/"/,"",$$2);print $$2}' plugin.yaml)
-ACT        ?= skills/agent-config-test
+ACT        ?= skills/agent-hook-verify
 
 .PHONY: help test test-hooks test-lint sync install-path
 .DEFAULT_GOAL := help

@@ -6,13 +6,13 @@
 #
 # Test isolation: any test that exercises tg-on-stop.sh (which schedules a
 # real, detached `setsid` background job) MUST run through a *sandboxed*
-# TG_SKILL_DIR, not just an exported TG_SENDER. skills/tg-notify/runtime.sh
+# TG_SKILL_DIR, not just an exported TG_SENDER. skills/agent-telegram-notify/runtime.sh
 # derives TG_SENDER from its OWN script location
-# (`TG_SENDER="$TG_SKILL_DIR/tg-notify.sh"`, unconditional assignment, not
+# (`TG_SENDER="$TG_SKILL_DIR/agent-telegram-notify.sh"`, unconditional assignment, not
 # `${TG_SENDER:-...}`) every time it is sourced, so an exported TG_SENDER is
-# silently clobbered and the REAL tg-notify.sh's executable bit is what gets
+# silently clobbered and the REAL agent-telegram-notify.sh's executable bit is what gets
 # checked. Fix: invoke the target script through a throwaway directory tree
-# that mirrors hooks/ + skills/tg-notify/ via symlinks, with tg-notify.sh
+# that mirrors hooks/ + skills/agent-telegram-notify/ via symlinks, with agent-telegram-notify.sh
 # itself replaced by a local stub — this changes no shared script (runtime.sh
 # is off-limits per AGENTS.md/plan) and is a pure test-side injection.
 set -euo pipefail
@@ -153,25 +153,25 @@ unset TG_NOTIFY_HOME
 # 3. stop -> tg-on-stop.sh cwd derivation + scheduling
 #
 # Runs through a SANDBOXED TG_SKILL_DIR (see header comment) so the delayed
-# job invokes a local stub instead of the real skills/tg-notify/tg-notify.sh,
+# job invokes a local stub instead of the real skills/agent-telegram-notify/agent-telegram-notify.sh,
 # and uses a short, explicit TG_NOTIFY_STOP_DELAY so the background job
 # finishes (and we can positively confirm it exited) in well under a second
 # — no shared script is modified, only a parallel symlink tree in $TMP.
 # ---------------------------------------------------------------------------
 SANDBOX="$TMP/sandbox"
-mkdir -p "$SANDBOX/hooks" "$SANDBOX/skills/tg-notify"
+mkdir -p "$SANDBOX/hooks" "$SANDBOX/skills/agent-telegram-notify"
 ln -s "$HOOKS_DIR/cursor-adapter.sh" "$SANDBOX/hooks/cursor-adapter.sh"
 ln -s "$HOOKS_DIR/tg-on-stop.sh" "$SANDBOX/hooks/tg-on-stop.sh"
-ln -s "$REPO_ROOT/skills/tg-notify/context-header.sh" "$SANDBOX/skills/tg-notify/context-header.sh"
-ln -s "$REPO_ROOT/skills/tg-notify/runtime.sh" "$SANDBOX/skills/tg-notify/runtime.sh"
+ln -s "$REPO_ROOT/skills/agent-telegram-notify/context-header.sh" "$SANDBOX/skills/agent-telegram-notify/context-header.sh"
+ln -s "$REPO_ROOT/skills/agent-telegram-notify/runtime.sh" "$SANDBOX/skills/agent-telegram-notify/runtime.sh"
 
 STUB_CALL_LOG="$TMP/stub-tg-sender.calls"
-cat > "$SANDBOX/skills/tg-notify/tg-notify.sh" <<EOF
+cat > "$SANDBOX/skills/agent-telegram-notify/agent-telegram-notify.sh" <<EOF
 #!/usr/bin/env bash
 printf '%s\t%s\n' "\$(date -Iseconds)" "\$*" >> "$STUB_CALL_LOG"
 exit 0
 EOF
-chmod +x "$SANDBOX/skills/tg-notify/tg-notify.sh"
+chmod +x "$SANDBOX/skills/agent-telegram-notify/agent-telegram-notify.sh"
 
 export TG_NOTIFY_HOME="$TMP/home2"
 mkdir -p "$TG_NOTIFY_HOME/state"
@@ -211,7 +211,7 @@ for _ in $(seq 1 40); do
     sleep 0.25
 done
 [ -n "$DONE" ] || fail "background stop job did not clean up its payload within ~10s — would linger"
-[ -f "$STUB_CALL_LOG" ] || fail "expected the sandboxed stub sender to have been invoked (real tg-notify.sh must never run in tests)"
+[ -f "$STUB_CALL_LOG" ] || fail "expected the sandboxed stub sender to have been invoked (real agent-telegram-notify.sh must never run in tests)"
 echo "PASS delayed stop job completed via sandboxed stub sender, no real sender invoked"
 
 # Final proof of no lingering process: nothing on the system should still

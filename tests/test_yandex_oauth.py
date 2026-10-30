@@ -12,7 +12,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-SCRIPTS = Path(__file__).resolve().parents[1] / "skills/yandex-oauth-token/scripts"
+SCRIPTS = Path(__file__).resolve().parents[1] / "skills/api-yandex-oauth-run/scripts"
 SPEC = importlib.util.spec_from_file_location("yandex_oauth", SCRIPTS / "yandex_oauth.py")
 Y = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(Y)

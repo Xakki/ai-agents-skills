@@ -91,8 +91,8 @@ def _run_script(name: str, payload: dict[str, Any]) -> None:
 
 
 def _abbreviations_context() -> str:
-    skill = _ROOT / "skills" / "abbreviations" / "SKILL.md"
-    dictionary = _ROOT / "skills" / "abbreviations" / "dictionary.tsv"
+    skill = _ROOT / "skills" / "agent-terms-define" / "SKILL.md"
+    dictionary = _ROOT / "skills" / "agent-terms-define" / "dictionary.tsv"
     parts = ["## Abbreviations"]
     try:
         text = skill.read_text(encoding="utf-8")

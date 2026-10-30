@@ -21,9 +21,9 @@ if len(sys.argv) != 2:
 root = Path(__file__).resolve().parent.parent
 destination = Path(sys.argv[1]).absolute()
 extra_path = root / 'scripts/codex-package-extra-files.json'
-build_only = {'scripts/build-codex-package.py', 'scripts/codex-package-extra-files.json'}
+build_only = {'scripts/build-codex-package.py', 'scripts/codex-package-extra-files.json', 'scripts/skills_registry.py'}
 # Pre-existing user material outside the reviewed plugin runtime.
-excluded = {'skills/tg-notify-timers/README_RU.md'}
+excluded = {'skills/agent-telegram-notify/README_RU.md'}
 extras = json.loads(extra_path.read_text())
 if not isinstance(extras, list) or not all(isinstance(x, str) for x in extras) or len(extras) != len(set(extras)):
     raise SystemExit('extra file list must contain unique strings')

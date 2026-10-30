@@ -16,36 +16,197 @@ plugin (`plugin.yaml` + `__init__.py`) — see [Install (Hermes)](#install-herme
 All four integrations share the same `skills/` tree; see
 [AGENTS.md](AGENTS.md) for the repo conventions that keep them in sync.
 
+## Skills
+
+Skill names follow `<area>-<object>-<goal>`: the **area** (first part) says where the skill applies, the **object** narrows it, and the **goal** says what the skill achieves. Areas and goals come from the closed lists in [skills-registry.json](skills-registry.json), enforced by `python3 scripts/skills_registry.py check`.
+
+**Loading.** Only the skills marked * are described to the agent at session start; every other skill is hidden from implicit selection and is found through `agent-skill-find`, whose [catalog](skills/agent-skill-find/references/catalog.md) lists them all by area. Hidden skills still load when you invoke them by name (`/ai-agents-skills:<name>` in Claude Code, `$<name>` in Codex) or when the agent reads their `SKILL.md`. Change the always-on list in `skills-registry.json`, then run `python3 scripts/skills_registry.py apply` (it rewrites `disable-model-invocation` in each `SKILL.md`, `agents/openai.yaml` and the catalog).
+
+### agent
+
+Agents themselves: skills, context, models, hooks, mcp, delegation, notifications.
+
 | Skill | What it does |
-|-------|--------------|
-| **kanban** | Manage a `.claude/kanban/` board in your project: create, start, review, and complete task cards across `grooming → todo → progress → test → ready → done`. |
-| **knbn** | Portable invocation alias for **kanban**. It loads the canonical Kanban workflow and adds no separate behavior. |
-| **epic-lead** | Lead one approved Kanban EPIC through governed integration, review, authorized finalization, and handoff. |
-| **schedule-tasks** | Schedule autonomous `claude` runs of `todo/` cards via `at`/tmux. Each card opens in its own byobu window and self-chains the next card on success. |
-| **tg-notify** | Send a Telegram notification with a short report to a **DM, group, or channel** (configurable). Ships hooks that also auto-notify on long task completion and on permission/idle prompts. |
-| **tg-notify-timers** | View/tune the tg-notify hook timers (thresholds, delays, debounce) via `TG_NOTIFY_*` env vars in `settings.json`. |
-| **tg-report** | Send a structured **completion** or **task** report to a Telegram **notify group** topic (concise/full modes). Routes by keyword; destination/topics from `TELEGRAM_NOTIFY_*` env (separate from the DM hooks); asks if a value is unset — nothing hardcoded. |
-| **git-flow** | The shared git core every other git-using skill follows: commit format (`<scope>: …` + `Agent: <zone>` footer), branch model, explicit-path staging, no force-push to default, PR conventions. |
-| **git-move** | Move/rename/delete files while preserving git tracking (`git mv`/`git rm` when tracked, else plain `mv`/`rm`). |
-| **setup-claude** | Stack-agnostic template to set up Claude Code in any repo: `CLAUDE.md`, sub-agents, skills, `.mcp.json`, `settings.json`, `Makefile`. Token-economy focused. |
-| **new-project-docker** | Scaffold any new project Dockerized from day one: `Dockerfile` + `docker-compose.yml` + `Makefile` + fluent-logging wiring. Templates in `templates.md`. |
-| **qa-check** | Quality gate before marking a task done: scopes by `git diff`, runs the project's lint/type/test targets via `make`, reports Pass/Fail. Bans the usual "make it pass" anti-patterns; asks for the target mapping on first use. |
-| **prepare-pr** | Get a branch ready for review: sanity-check the diff, delegate the gate to `qa-check`, draft a PR description from commits. Draft-only by default (no auto-push/PR), secret-leak guard, no commit trailers. |
-| **fluent-logging** | Cross-project structured-logging standard: containers emit JSON to stdout → fluent-bit → Graylog (GELF), via [`xakki/fluent-log`](https://github.com/Xakki/FluentLog). |
-| **skill-import** | Discover & import skills from external git repos into a project's `.claude/skills/`, matched to the project (a subagent picks fits from a built catalog); supports updating imported skills. |
-| **model-tiers** | Map cheap / standard / judgment work to model slugs via `AI_MODEL_*` env; SessionStart injects tier labels; plugin agents and delegation pick tiers, not hardcoded slugs. |
+|---|---|
+| **agent-command-run** | Run a noisy command and report compact output without losing failure evidence or confusing process outcomes. |
+| **agent-context-audit** | Assess agent context and agent-skill-find budgets using the real runtime interfaces. |
+| **agent-hook-verify** | Verify agent hook registration and behavior with safe allow/block cases. |
+| **agent-integration-audit** | Audit agent plugin, skill, hook and MCP integration across runtime boundaries. |
+| **agent-model-find** | Resolve optional model-tier settings through the active agent runtime. |
+| **agent-project-sync** | Resolve project identity or synchronize an installed asset using the runtime's authorized interfaces. |
+| **agent-skill-find*** | Find, compare and select agent skills for a task, preserving source, permissions and installation boundaries; includes the catalog of this plugin's skills. |
+| **agent-skill-sync** | Discover reviewed skills in configured Git sources and safely import or update a selected skill. |
+| **agent-telegram-notify** | Send an authorized Telegram notification or task/completion report to a configured chat or topic, and tune the notification hook timers. |
+| **agent-terms-define** | Authoritative dictionary of standard developer abbreviations for variables, functions, classes, CSS classes and terse technical writing, injected at session start. |
+| **agent-workspace-migrate** | Plan or perform authorized migration of agent skills, instructions, hooks and configuration across consumers. |
+
+### api
+
+Api contracts, protocols, api documentation, external provider and oauth integrations.
+
+| Skill | What it does |
+|---|---|
+| **api-contract-define** | Implement, repair or independently review API operations and cross-layer contracts, tracing producer to consumer wire behavior end to end. |
+| **api-docs-sync** | Reconcile API documentation, OpenAPI artifacts, documentation UIs and public capability catalogs (llms.txt, indexes) with the shipped implementation. |
+| **api-stream-diagnose** | Debug and verify streamed parsers, framing, terminal state and continuation requests. |
+| **api-yandex-oauth-run** | Research Yandex OAuth token flows, exchange or refresh tokens and diagnose authorization through approved interfaces. |
+
+### code
+
+Writing and restructuring source code: cli, configuration, concurrency, durable state, performance.
+
+| Skill | What it does |
+|---|---|
+| **code-async-review** | Design or review deadlines, cancellation, ownership handoffs and asynchronous lifecycles with tests. |
+| **code-cli-build** | Implement or review command-line behavior: parsing, output, state, operator actions and subprocess results. |
+| **code-config-audit** | Trace configuration, defaults, generated catalogs, startup wiring and readiness across services and environments. |
+| **code-durable-review** | Design or review durable jobs, leases, replay, recovery and ordered external effects. |
+| **code-performance-fix** | Measure and improve performance (web vitals, benchmarks, data access) using representative workloads and raw-sample evidence. |
+| **code-state-verify** | Validate persisted and in-memory state transitions, schemas, counters and authorization snapshots. |
+
+### deploy
+
+Rollouts, releases, cutovers, publishing.
+
+| Skill | What it does |
+|---|---|
+| **deploy-artifact-publish** | Publish a self-contained HTML artifact or page to a self-hosted static site via the project make target and return its public URL. Use when asked to publish a page. |
+| **deploy-rollout-run** | Plan, perform or verify authorized rollouts, cutovers and releases with scoped evidence and rollback. |
+
+### design
+
+Brand identity, graphics, visual design.
+
+| Skill | What it does |
+|---|---|
+| **design-brand-build** | Develop or review a brand identity, name, guidelines or approved visual asset family. |
+
+### docs
+
+Documentation, diagrams, documents, prose.
+
+| Skill | What it does |
+|---|---|
+| **docs-claims-verify** | Review or correct documentation claims against the authoritative implementation and dated evidence. |
+| **docs-diagram-build** | Design a legible architecture, deployment, infrastructure or data-flow diagram from the bundled template. |
+| **docs-prose-fix** | Edit text for natural, precise prose while preserving meaning and voice. |
+
+### git
+
+Version control: commits, branches, merges, worktrees, pull requests.
+
+| Skill | What it does |
+|---|---|
+| **git-branch-clean** | Audit, archive, rename or delete Git branches without losing work, with plan-hash-bound cleanup helpers. |
+| **git-merge-sync** | Reconcile merges and divergent histories while keeping both sides' behavior and a recoverable source state. |
+| **git-path-run** | Move or remove project paths while preserving Git history and local work, via the git-aware helper. |
+| **git-repo-run*** | Perform scoped Git work safely: inspect, stage, commit, branch, push, prepare a pull request. |
+| **git-worktree-guard*** | Preserve other actors' staged, unstaged and untracked work in a shared checkout. |
+
+### infra
+
+Hosts, vms, containers, networking, storage, project migration, runbooks.
+
+| Skill | What it does |
+|---|---|
+| **infra-container-setup** | Scaffold a project with containers when containerization is requested or required. |
+| **infra-network-diagnose** | Diagnose endpoint connectivity and proxy routing across the actual network boundaries. |
+| **infra-project-migrate** | Plan and verify an authorized migration of a named project, its services or data between hosts or runtimes. |
+| **infra-runbook-build** | Create evidence-based runbooks for operational tasks using supported project interfaces. |
+
+### kanban
+
+Task boards: cards, epics, grooming, queues, schedules, roadmaps.
+
+| Skill | What it does |
+|---|---|
+| **kanban-board-audit** | Audit Kanban cards for duplicate, completed, blocked and epic-ready work, and repair or reorganize a board while preserving scope and stages. |
+| **kanban-card-build** | Deliver an authorized Kanban queue autonomously while preserving scope and evidence, including measurement-backed cards. |
+| **kanban-card-plan*** | Groom a request or draft card into implementation-ready, measurable, dependency-safe cards and validate the grooming. |
+| **kanban-card-review*** | Read-only review of a card lifecycle or a proposed promotion against history, dependencies and evidence, returning APPROVE or REQUEST CHANGES. Use for independent.... |
+| **kanban-card-run*** | Operate the project Kanban board: create, groom, start, move, review and complete cards through the board helpers, with owner decisions and lifecycle rules. |
+| **kanban-card-verify*** | Record and verify acceptance evidence on a Kanban card, hand off an implemented child, verify lifecycle moves and keep helper effects, evidence and Git scope separate. |
+| **kanban-epic-coordinate*** | Plan, govern and deliver one approved Kanban epic: scoped execution, dependencies, pauses, review, integration and authorized handoff. |
+| **kanban-queue-coordinate** | Coordinate authorized autonomous execution of a project plan or queue with gates, independent review and checkpoints; delegation follows the superpowers subagent skills. |
+| **kanban-roadmap-plan** | Plan, track or execute a phased product roadmap. |
+| **kanban-schedule-run** | Plan or run explicitly authorized scheduled work on selected Kanban cards. |
+
+### monitor
+
+Logs, metrics, tracing, dashboards, alerts.
+
+| Skill | What it does |
+|---|---|
+| **monitor-telemetry-setup** | Design, configure or diagnose telemetry delivery, structured logging (Fluent Bit), storage and dashboards from observable runtime evidence. |
+
+### personal
+
+Notes, reminders, mail, calendar, career and household tasks.
+
+| Skill | What it does |
+|---|---|
+| **personal-action-plan** | Extract traceable decisions and proposed actions from documents or meeting notes. |
+| **personal-resume-build** | Populate career forms from a resume and verified experience without inventing qualifications. |
+
+### quality
+
+Review, acceptance, validation and risk of delivered work.
+
+| Skill | What it does |
+|---|---|
+| **quality-artifact-verify** | Review build and release artifacts, images and versioned deliverables against their actual inputs, packaging and runtime contracts. |
+| **quality-change-review*** | Independently review or accept a candidate change and verify defect claims with evidence, separating findings, gaps and hypotheses. |
+| **quality-change-verify*** | Run and report a final, post-repair or pre-completion validation pass with exact commands, exit codes and limits, discovering the project's sanctioned checks. |
+| **quality-risk-triage** | Assess observed and speculative technical risks, ownership and evidence before choosing mitigation or deferral. |
+
+### research
+
+Sources, citations, prior art, knowledge bases.
+
+| Skill | What it does |
+|---|---|
+| **research-claims-verify** | Ground externally sourced claims in direct, verifiable citations with explicit evidence limits. |
+| **research-knowledge-build** | Build a provenance-backed knowledge base from authorized training media and transcripts. |
+| **research-prior-art-find** | Find and compare existing implementations before designing or changing software. |
+| **research-source-audit** | Monitor requested sources or subjects for material changes using supported interfaces. |
+| **research-source-find** | Research documented API or data-source contracts, cite evidence, and recover permitted alternative sources when a source is inaccessible. |
+| **research-spike-run** | Run a scoped feasibility experiment and report evidence before committing to an implementation. |
+
+### security
+
+Boundaries, authorization, secrets, privacy, hardening.
+
+| Skill | What it does |
+|---|---|
+| **security-access-diagnose** | Diagnose an access refusal while preserving native approval and security boundaries. |
+| **security-api-harden** | Secure or review API ingress, transport, identity and response failure boundaries, plus resource, tenant and workspace authorization. |
+| **security-boundary-harden** | Harden a scoped security boundary while preserving behavior and verifying the actual controls. |
+| **security-boundary-review** | Independently review a claimed security repair or boundary contract with adversarial tests and current evidence, read-only. |
+| **security-filesystem-harden** | Secure filesystem artifacts, bounded reads and lifecycle state against replacement races. |
+| **security-ipc-verify** | Validate peer authority, framing and fail-closed broker IPC boundaries. |
+| **security-outbound-guard** | Bound external attempts and validate outbound work across retries and background paths. |
+| **security-privacy-review** | Review secret handling, redaction, no-read and privacy claims across application boundaries. |
+
+### test
+
+Testing strategy, harnesses, coverage, evaluation.
+
+| Skill | What it does |
+|---|---|
+| **test-coverage-audit** | Inventory tests and coverage gaps from evidence without implying permission to change or run them. |
+| **test-harness-verify** | Verify that a test runner, fixture, isolated runtime or generated artifact really ran what it claims, at the consumer boundary. |
+| **test-llm-scenario-run** | Design and run bounded, reproducible scenario evaluations for LLM applications. |
 
 ## Agents
 
 | Agent | What it does |
 |-------|--------------|
-| **ai-agents-skills:log-investigator** | Read-only incident triage. Pulls container logs (Portainer), app logs (Graylog), and metrics (Grafana/Prometheus) and returns a focused UTC timeline + likely root cause — not a raw log dump. `model:` frontmatter = plugin **standard**-tier default (`sonnet`); override via `AI_MODEL_*` / skill `model-tiers`. Mutations denied. On first use in a project it **asks** for the service/tag/endpoint context and offers to save it to your `.claude/`. |
-| **ai-agents-skills:db-schema** | Read-only DB schema introspection. Returns concise `table → columns → PK → indexes → FKs` summaries from the live DB, migrations, or config — always naming the source. `model:` frontmatter = plugin **standard**-tier default (`sonnet`); override via `AI_MODEL_*` / skill `model-tiers`. Mutations/migrations denied. Asks for ORM/stack/paths on first use. |
+| **ai-agents-skills:log-investigator** | Read-only incident triage. Pulls container logs (Portainer), app logs (Graylog), and metrics (Grafana/Prometheus) and returns a focused UTC timeline + likely root cause — not a raw log dump. `model:` frontmatter = plugin **standard**-tier default (`sonnet`); override via `AI_MODEL_*` / skill `agent-model-find`. Mutations denied. On first use in a project it **asks** for the service/tag/endpoint context and offers to save it to your `.claude/`. |
+| **ai-agents-skills:db-schema** | Read-only DB schema introspection. Returns concise `table → columns → PK → indexes → FKs` summaries from the live DB, migrations, or config — always naming the source. `model:` frontmatter = plugin **standard**-tier default (`sonnet`); override via `AI_MODEL_*` / skill `agent-model-find`. Mutations/migrations denied. Asks for ORM/stack/paths on first use. |
 
 Claude and Cursor auto-discover agents from `agents/` and address them as
 `ai-agents-skills:<name>`. The Codex package exposes the shared `skills/` tree;
-`setup-claude` additionally declares a Codex policy that prevents implicit
-invocation. The root `agents/` prompts are not declared by its Codex manifest.
+The root `agents/` prompts are not declared by its Codex manifest.
 Hermes exposes the same prompt bodies as read-only
 plugin skills named `ai-agents-skills:agent-<name>` (for example,
 `skill_view("ai-agents-skills:agent-log-investigator")`).
@@ -58,6 +219,20 @@ As a marketplace from this repo:
 /plugin marketplace add Xakki/ai-agents-skills
 /plugin install ai-agents-skills@ai-agents-skills
 ```
+
+### Dependency: superpowers
+
+This plugin also declares a dependency on the [superpowers](https://github.com/obra/superpowers)
+plugin from the official marketplace (`claude-plugins-official`, allowed through
+`allowCrossMarketplaceDependenciesOn`). Installing `ai-agents-skills` installs it too, and all of its
+skills stay auto-loaded exactly as superpowers ships them (its `SessionStart` hook injects
+`using-superpowers`). If the official marketplace is not added in your Claude Code, add it before
+installing, as for mempalace below. Skills in this plugin that duplicated superpowers (debugging,
+test-driven development, completion verification, delegation) were removed on purpose.
+
+Codex has no documented plugin-dependency mechanism: install superpowers separately
+(`/plugins`, search `superpowers`, Install Plugin) and confirm with `/skills` that both plugins' skills
+are listed. Cursor, Hermes and Prime are not covered by an automatic dependency.
 
 ### Dependency: mempalace
 
@@ -78,14 +253,14 @@ With the mempalace marketplace present, installing `ai-agents-skills` pulls in
 Or from a local checkout:
 
 ```
-/plugin marketplace add /home/xakki/ai-agents-skills
+/plugin marketplace add /path/to/ai-agents-skills
 /plugin install ai-agents-skills@ai-agents-skills
 ```
 
 Verify the manifest and skill frontmatter at any time:
 
 ```
-claude plugin validate /home/xakki/ai-agents-skills
+claude plugin validate /path/to/ai-agents-skills
 ```
 
 ## Install (Codex)
@@ -111,7 +286,7 @@ The Codex manifest explicitly selects `./hooks/codex-hooks.json`, rather than
 the Claude Code-specific default `hooks/hooks.json`. Codex requires the user
 to review and trust plugin hooks before executing them. Once trusted, these
 hooks can send the optional Telegram task-finished and needs-attention
-notifications configured by `tg-notify`; review the outbound commands before
+notifications configured by `agent-telegram-notify`; review the outbound commands before
 trusting them. Root `agents/` prompts remain available to the Claude, Cursor,
 and Hermes integrations only.
 
@@ -187,16 +362,15 @@ hermes plugins list --plain --no-bundled
 
 Hermes registers all `skills/*/SKILL.md` files read-only under
 `ai-agents-skills:<name>`. Plugin skills are explicit loads rather than
-slash-command registrations: use `skill_view("ai-agents-skills:knbn")` (or
-`skill_view("ai-agents-skills:kanban")`) when you want the workflow. The
+slash-command registrations: use `skill_view("ai-agents-skills:kanban-card-run")` when you want the workflow. The
 built-in `/kanban` board command remains separate. All `agents/*.md` prompts
 remain namespaced as `ai-agents-skills:agent-<name>`. You can also load skills
 explicitly, for example:
 
 ```text
-skill_view("ai-agents-skills:knbn")
-skill_view("ai-agents-skills:qa-check")
-skill_view("ai-agents-skills:epic-lead")
+skill_view("ai-agents-skills:kanban-card-run")
+skill_view("ai-agents-skills:quality-change-verify")
+skill_view("ai-agents-skills:kanban-epic-coordinate")
 skill_view("ai-agents-skills:agent-db-schema")
 ```
 
@@ -206,8 +380,8 @@ Hermes does not expose a plugin hook for permission/idle notifications, so that
 specific Telegram ping is not wired. Setting
 `plugins.entries.ai-agents-skills.settings.telegram_hooks: false` in the Hermes
 config turns the Telegram hooks off for Hermes only (absent = on); the
-abbreviation context is still injected. `schedule-tasks` and `setup-claude` remain
-Claude-specific workflows; `model-tiers` is informational under Hermes because
+abbreviation context is still injected. `kanban-schedule-run` remains a
+Claude-specific workflow; `agent-model-find` is informational under Hermes because
 Hermes subagents inherit the active model rather than accepting a per-call tier.
 The mempalace dependency in the Claude manifest is not installed by Hermes.
 
@@ -288,21 +462,12 @@ you want it there too.
 │   ├── cursor-hooks.json  # same hooks mapped to Cursor's event names, via cursor-adapter.sh
 │   ├── cursor-adapter.sh  # normalizes Cursor payloads for the shared tg-*.sh / abbr-inject.sh scripts
 │   └── tg-*.sh
-├── skills/
-│   ├── kanban/
-│   ├── schedule-tasks/
-│   ├── tg-notify/         # SKILL.md + tg-notify.sh + runtime/context helpers + .env.example
-│   ├── tg-notify-timers/
-│   ├── tg-report/         # completion/task reports → tg-notify, topics from env
-│   ├── git-flow/          # shared git core (commit/branch/PR conventions)
-│   ├── git-move/
-│   ├── setup-claude/
-│   ├── new-project-docker/
-│   └── fluent-logging/
+├── skills/                # one level only: <area>-<object>-<goal>/SKILL.md (+ references/, scripts/, agents/openai.yaml)
+├── skills-registry.json   # closed lists of areas and goals, always-on skill list
 ├── statusline/            # opt-in status-line renderers (see statusline/README.md)
 │   ├── statusline-command.sh
 │   └── subagent-statusline-command.sh
-└── scripts/               # runners used by schedule-tasks (run from the plugin cache)
+└── scripts/               # runners used by kanban-schedule-run, skills_registry.py (naming lint, tiers, catalog)
 ```
 
 ## Status line (opt-in)
@@ -330,52 +495,28 @@ same skill files without copying them for namespaced explicit discovery and
 loading via `skill_view("ai-agents-skills:<name>")`, and normalizes Hermes
 lifecycle callback arguments for the shared Telegram scripts.
 
-### Kanban alias: `knbn`
-
-`knbn` is a second, portable skill name for the canonical `kanban` workflow. It
-is a small real `skills/knbn/SKILL.md` forwarding skill—not a symlink—and adds
-no independent lifecycle or scripts. The real directory is intentional: Codex
-documents linked skill folders, but reliable symlink traversal is not a shared
-contract for every supported discovery surface (notably Cursor). Keeping both
-names as ordinary skill directories makes plugin installation and discovery
-portable across all five integrations.
-
-After installing or updating the plugin, start a fresh session (or use the
-runtime's reload action) and use the alias as follows:
-
-| Runtime | Discover / invoke `knbn` |
-|---|---|
-| Claude Code | Plugin folder discovery exposes the `skills/knbn/` directory; invoke `/knbn` or ask for `knbn`. |
-| Codex | The manifest exposes `./skills/`; start a new session and mention `$knbn` (or ask for `knbn`). |
-| Cursor | Plugin folder discovery exposes the `skills/knbn/` directory; start a fresh session and invoke or mention `knbn`. |
-| Hermes | The adapter registers `ai-agents-skills:knbn`; load it with `skill_view("ai-agents-skills:knbn")`. The built-in `/kanban` board command remains separate. |
-| Prime Agent | Its package scanner finds `skills/knbn/SKILL.md`; start a fresh session and use `/skill:knbn` (or ask for `knbn`). |
-
-Do not create downstream symlinks for this alias. Install the plugin normally;
-the included real alias directory is the compatible mechanism.
-
 ## Usage
 
 - **kanban** triggers on task-management requests ("create a task", "what's in
   progress", "mark done"). It operates on `.claude/kanban/` in your *current*
   project; the board is created on first use.
-- **schedule-tasks** triggers on "schedule tasks" / "запланируй задачи". It needs
+- **kanban-schedule-run** triggers on "schedule tasks" / "запланируй задачи". It needs
   `atd` active and a byobu/tmux session, and reads cards from
   `.claude/kanban/todo/` in your current project.
-- **tg-notify** triggers on "send to telegram" / "notify in TG" / "ping me when
+- **agent-telegram-notify** triggers on "send to telegram" / "notify in TG" / "ping me when
   done", and auto-sends via its hooks for long task completion and
-  permission/idle prompts. See [tg-notify](#tg-notify) for setup.
+  permission/idle prompts. See [agent-telegram-notify](#agent-telegram-notify) for setup.
 
-### schedule-tasks & the plugin cache
+### kanban-schedule-run & the plugin cache
 
-`schedule-tasks` invokes the runner scripts from `${CLAUDE_PLUGIN_ROOT}/scripts/`
+`kanban-schedule-run` invokes the runner scripts from `${CLAUDE_PLUGIN_ROOT}/scripts/`
 (the installed plugin's cache), not from your repo. The scripts derive the
 target repo from the task-file path they're given
 (`<repo>/.claude/kanban/<stage>/<name>.md`), so they work from any project
 without per-repo configuration. Your kanban board still lives in your project
 under `.claude/kanban/`.
 
-### tg-notify
+### agent-telegram-notify
 
 The bot token and destination come from the **environment** — nothing secret is
 committed. Configure once, then both the manual sender and the hooks use it.
@@ -386,7 +527,7 @@ committed. Configure once, then both the manual sender and the hooks use it.
    ```
    mkdir -p ~/.config/tg-notify
    ROOT="${AI_AGENTS_SKILLS_ROOT:-${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-${CURSOR_PLUGIN_ROOT:-}}}}"
-   cp "$ROOT/skills/tg-notify/.env.example" ~/.config/tg-notify/.env
+   cp "$ROOT/skills/agent-telegram-notify/.env.example" ~/.config/tg-notify/.env
    chmod 600 ~/.config/tg-notify/.env
    $EDITOR ~/.config/tg-notify/.env
    ```
@@ -404,8 +545,8 @@ committed. Configure once, then both the manual sender and the hooks use it.
 
 #### Two destinations: DM hooks vs. report group
 
-`tg-notify` (and its hooks) use **`TELEGRAM_CHAT_ID`** — typically your **DM**, so
-"task finished / needs attention" pings reach you privately. The **`tg-report`**
+`agent-telegram-notify` (and its hooks) use **`TELEGRAM_CHAT_ID`** — typically your **DM**, so
+"task finished / needs attention" pings reach you privately. The **`agent-telegram-notify`**
 skill sends explicit, on-request reports to a separate **`TELEGRAM_NOTIFY_*`**
 destination — a **group with topics**:
 
@@ -418,7 +559,7 @@ destination — a **group with topics**:
 Keep these out of `TELEGRAM_CHAT_ID` — topics need a group, and the DM is for the
 hooks. For a single user, the `TELEGRAM_NOTIFY_*` vars sit nicely in
 `~/.claude/settings.json` (`env` block); the bot token stays in the chmod-600
-creds file. If `tg-report` finds a required value unset, it **asks** rather than
+creds file. If `agent-telegram-notify` finds a required value unset, it **asks** rather than
 sending blind.
 
 The hooks fire on these events (auto-registered from `hooks/hooks.json`):
@@ -448,9 +589,9 @@ State, logs, and undelivered payloads live under `$TG_NOTIFY_HOME`
 
 ## Requirements
 
-- `schedule-tasks`: `atd` running (`systemctl is-active atd`), `at`/`atq`/`atrm`,
+- `kanban-schedule-run`: `atd` running (`systemctl is-active atd`), `at`/`atq`/`atrm`,
   a tmux/byobu session, and `claude` on `PATH`.
-- `tg-notify`: `curl`, `jq`, `python3`, and (for the context header in hooks) a
+- `agent-telegram-notify`: `curl`, `jq`, `python3`, and (for the context header in hooks) a
   tmux/byobu session. A `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` as above.
 
 ## Recommendation skills
@@ -462,7 +603,7 @@ State, logs, and undelivered payloads live under `$TG_NOTIFY_HOME`
 
 A debugged, **universal** skill / agent / rule belongs in this plugin. Criteria:
 it works correctly **and** carries no personal data. Parameterize it via env/config
-following the `tg-notify` pattern:
+following the `agent-telegram-notify` pattern:
 
 - secrets in `~/.config/<tool>/.env` (chmod 600) + a placeholder `.env.example` in git;
 - the skill body references env vars only — no hardcoded chat ids, threads, tokens,

@@ -8,7 +8,7 @@
 set -uo pipefail
 
 HOOK_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
-DEFAULTS="$HOOK_DIR/../skills/model-tiers/defaults.env"
+DEFAULTS="$HOOK_DIR/../skills/agent-model-find/defaults.env"
 
 read_default() {
     local key="$1"

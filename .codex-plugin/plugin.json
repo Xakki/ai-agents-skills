@@ -1,7 +1,7 @@
 {
   "name": "ai-agents-skills",
-  "version": "0.2.20",
-  "description": "Reusable Codex skills and lifecycle hooks for task planning, Git workflows, optional Telegram notifications, project scaffolding, artifact publishing, logging, and skill import.",
+  "version": "0.3.0",
+  "description": "Reusable Codex skills and lifecycle hooks: Kanban boards, Git safety, review and verification, security, deployment, monitoring, research, Telegram notifications and reviewed skill import. Skills are named <area>-<object>-<goal>; only a small always-on set is described to the model and the rest are found through agent-skill-find. Install the superpowers plugin alongside it.",
   "author": {
     "name": "Xakki"
   },
@@ -24,11 +24,14 @@
   "hooks": "./hooks/codex-hooks.json",
   "interface": {
     "displayName": "ai-agents-skills",
-    "shortDescription": "Kanban, scheduled tasks, Telegram notifications, git helpers, and more.",
-    "longDescription": "Kanban task management, optional Telegram notifications and reports, artifact publishing, Git, project-scaffolding utilities, structured logging, and reviewed local skill imports. The scheduled-run prototype is Claude-specific. Codex lifecycle hooks use the dedicated Codex event map and require review before execution.",
+    "shortDescription": "Kanban, Git safety, verification, security, deployment and more, with a small always-on skill set.",
+    "longDescription": "Kanban boards, Git safety, review and verification, security, deployment, monitoring, research, Telegram notifications and reviewed skill import. Skills are named <area>-<object>-<goal>; only a small always-on set is described to the model and the rest are found through agent-skill-find. Codex lifecycle hooks use the dedicated Codex events. The scheduled-run prototype is Claude-specific.",
     "developerName": "Xakki",
     "category": "Productivity",
-    "capabilities": ["Read", "Write"],
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
     "defaultPrompt": [
       "Help me manage a coding task with the ai-agents-skills workflows."
     ]

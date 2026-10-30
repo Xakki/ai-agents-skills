@@ -1,0 +1,63 @@
+{
+  "grammar": "<area>-<object>-<goal>; area and goal come from the closed lists below, object is 1-3 lowercase words describing what the skill acts on",
+  "areas": {
+    "agent": "agents themselves: skills, context, models, hooks, MCP, delegation, notifications",
+    "api": "API contracts, protocols, API documentation, external provider and OAuth integrations",
+    "code": "writing and restructuring source code: CLI, configuration, concurrency, durable state, performance",
+    "database": "SQL, schemas, migrations, persistence",
+    "deploy": "rollouts, releases, cutovers, publishing",
+    "design": "brand identity, graphics, visual design",
+    "docs": "documentation, diagrams, documents, prose",
+    "frontend": "web UI, browser behavior, templates",
+    "git": "version control: commits, branches, merges, worktrees, pull requests",
+    "infra": "hosts, VMs, containers, networking, storage, project migration, runbooks",
+    "kanban": "task boards: cards, epics, grooming, queues, schedules, roadmaps",
+    "media": "audio and video processing",
+    "ml": "machine-learning and LLM tooling",
+    "mobile": "Android and other mobile platforms",
+    "monitor": "logs, metrics, tracing, dashboards, alerts",
+    "personal": "notes, reminders, mail, calendar, career and household tasks",
+    "quality": "review, acceptance, validation and risk of delivered work",
+    "research": "sources, citations, prior art, knowledge bases",
+    "security": "boundaries, authorization, secrets, privacy, hardening",
+    "test": "testing strategy, harnesses, coverage, evaluation"
+  },
+  "goals": {
+    "plan": "decide approach, scope or order before work",
+    "build": "create or change an artifact end to end",
+    "fix": "correct a known defect or regression",
+    "diagnose": "find the cause of an unknown failure",
+    "review": "judge a change or artifact against criteria",
+    "verify": "prove with evidence that work is done and correct",
+    "audit": "survey a whole state against a standard",
+    "guard": "prevent loss or harm: rules that must always hold",
+    "harden": "strengthen a system's defenses",
+    "run": "execute an operational procedure or helper",
+    "sync": "bring two states into agreement",
+    "clean": "remove what is obsolete",
+    "notify": "tell a person or channel",
+    "research": "gather external facts with sources",
+    "define": "fix contracts, conventions or terms",
+    "find": "locate the right skill, document or tool",
+    "migrate": "move systems, data or configuration",
+    "setup": "install or configure",
+    "triage": "classify and prioritize",
+    "publish": "release content to its audience",
+    "coordinate": "orchestrate several workers or streams"
+  },
+  "tiers": {
+    "always": [
+      "agent-skill-find",
+      "git-repo-run",
+      "git-worktree-guard",
+      "kanban-card-run",
+      "kanban-card-plan",
+      "kanban-card-verify",
+      "kanban-card-review",
+      "kanban-epic-coordinate",
+      "quality-change-verify",
+      "quality-change-review"
+    ],
+    "hide_on_demand_from_claude": true
+  }
+}

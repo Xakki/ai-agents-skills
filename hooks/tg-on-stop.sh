@@ -14,8 +14,8 @@ set -uo pipefail
 case "${TG_NOTIFY_ENABLED:-1}" in 0|[Ff][Aa][Ll][Ss][Ee]|[Nn][Oo]|[Oo][Ff][Ff]) exit 0 ;; esac
 
 HOOK_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
-# shellcheck source=../skills/tg-notify/runtime.sh
-source "$HOOK_DIR/../skills/tg-notify/runtime.sh"
+# shellcheck source=../skills/agent-telegram-notify/runtime.sh
+source "$HOOK_DIR/../skills/agent-telegram-notify/runtime.sh"
 
 STATE_DIR="$TG_STATE_DIR"
 PENDING_DIR="$TG_PENDING_DIR"
@@ -110,7 +110,7 @@ truncate_body() {
     printf '%s' "$1" | python3 -c '
 import sys
 t = sys.stdin.read()
-# Body budget: tg-notify.sh splits the wrapped HTML at 4000 chars. Header
+# Body budget: agent-telegram-notify.sh splits the wrapped HTML at 4000 chars. Header
 # (mention + title) + <pre></pre> wrapper ≈ 70 chars; leave slack for HTML
 # escaping (<, >, & expand). 3800 fits one Telegram message in practice.
 mx = 3800

@@ -72,9 +72,9 @@ def test_register_exposes_all_shared_skills_and_agent_adapters(monkeypatch):
     assert set(ctx.skills) == expected_skills | expected_agents
     assert all(item["path"].is_file() for item in ctx.skills.values())
     assert all(item["description"] for item in ctx.skills.values())
-    assert "epic-lead" in ctx.skills
-    assert "expose_as_command" not in ctx.skills["kanban"]["frontmatter"]
-    assert "command_name" not in ctx.skills["kanban"]["frontmatter"]
+    assert "kanban-epic-coordinate" in ctx.skills
+    assert "expose_as_command" not in ctx.skills["kanban-card-run"]["frontmatter"]
+    assert "command_name" not in ctx.skills["kanban-card-run"]["frontmatter"]
     assert set(ctx.hooks) == {
         "pre_llm_call",
         "post_llm_call",
@@ -121,7 +121,7 @@ def test_model_tier_runtime_prefers_specific_runtime_markers():
 
 
 def test_kanban_linked_docs_use_portable_plugin_root():
-    scripts_doc = (ROOT / "skills" / "kanban" / "scripts.md").read_text()
+    scripts_doc = (ROOT / "skills" / "kanban-card-run" / "scripts.md").read_text()
     assert "${CLAUDE_PLUGIN_ROOT}" not in scripts_doc
     assert "AI_AGENTS_SKILLS_ROOT" in scripts_doc
 

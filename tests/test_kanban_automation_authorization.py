@@ -27,13 +27,13 @@ def _prompt(source: bytes) -> bytes:
 
 def test_all_action_scopes_allow_automation_on_valid_profile_authorization() -> None:
     docs = [
-        _read(ROOT / "skills/kanban/SKILL.md"),
-        _read(ROOT / "skills/kanban/reference.md"),
-        _read(ROOT / "skills/epic-lead/SKILL.md"),
-        _read(ROOT / "skills/schedule-tasks/SKILL.md"),
-        _read(ROOT / "skills/schedule-tasks/lifecycle.md"),
+        _read(ROOT / "skills/kanban-card-run/SKILL.md"),
+        _read(ROOT / "skills/kanban-card-run/reference.md"),
+        _read(ROOT / "skills/kanban-epic-coordinate/SKILL.md"),
+        _read(ROOT / "skills/kanban-schedule-run/SKILL.md"),
+        _read(ROOT / "skills/kanban-schedule-run/lifecycle.md"),
     ]
-    docs.append(_read(ROOT / "skills/qa-check/SKILL.md"))
+    docs.append(_read(ROOT / "skills/quality-change-verify/SKILL.md"))
     docs.append(_prompt((ROOT / "scripts/run-claude-task-inner.sh").read_bytes()).decode())
     policy = " ".join(docs)
     for action in ("done", "merge", "push", "deploy"):
@@ -47,11 +47,11 @@ def test_all_action_scopes_allow_automation_on_valid_profile_authorization() -> 
 
 def test_ready_is_checkpoint_not_automatic_stop_and_authority_is_action_scoped() -> None:
     policy_docs = [
-        ROOT / "skills/kanban/SKILL.md",
-        ROOT / "skills/kanban/reference.md",
-        ROOT / "skills/epic-lead/SKILL.md",
-        ROOT / "skills/schedule-tasks/SKILL.md",
-        ROOT / "skills/schedule-tasks/lifecycle.md",
+        ROOT / "skills/kanban-card-run/SKILL.md",
+        ROOT / "skills/kanban-card-run/reference.md",
+        ROOT / "skills/kanban-epic-coordinate/SKILL.md",
+        ROOT / "skills/kanban-schedule-run/SKILL.md",
+        ROOT / "skills/kanban-schedule-run/lifecycle.md",
     ]
     policy = " ".join(_read(path) for path in policy_docs).lower()
     prompt = _prompt((ROOT / "scripts/run-claude-task-inner.sh").read_bytes()).decode().lower()
@@ -75,11 +75,11 @@ def test_ready_is_checkpoint_not_automatic_stop_and_authority_is_action_scoped()
 
 def test_authorization_forms_and_gates_are_consistent() -> None:
     docs = [
-        ROOT / "skills/kanban/SKILL.md",
-        ROOT / "skills/kanban/reference.md",
-        ROOT / "skills/kanban/scripts.md",
-        ROOT / "skills/kanban/task-template.md",
-        ROOT / "skills/epic-lead/SKILL.md",
+        ROOT / "skills/kanban-card-run/SKILL.md",
+        ROOT / "skills/kanban-card-run/reference.md",
+        ROOT / "skills/kanban-card-run/scripts.md",
+        ROOT / "skills/kanban-card-run/task-template.md",
+        ROOT / "skills/kanban-epic-coordinate/SKILL.md",
     ]
     for path in docs:
         text = _read(path).lower()
@@ -88,7 +88,7 @@ def test_authorization_forms_and_gates_are_consistent() -> None:
     reference = _read(docs[1]).lower()
     scripts = _read(docs[2]).lower()
     epic = _read(docs[4]).lower()
-    git_flow = _read(ROOT / "skills/git-flow/SKILL.md").lower()
+    git_flow = _read(ROOT / "skills/git-repo-run/SKILL.md").lower()
     assert "profile name" in kanban and "green tests" in kanban
     assert "not a grant" in kanban
     assert "checks only that the flag is present" in scripts
@@ -102,7 +102,7 @@ def test_authorization_forms_and_gates_are_consistent() -> None:
 
 
 def test_helper_diagnostic_lists_all_authorization_sources_without_changing_gates() -> None:
-    helper = _read(ROOT / "skills/kanban/scripts/kanban-move.sh").lower()
+    helper = _read(ROOT / "skills/kanban-card-run/scripts/kanban-move.sh").lower()
     normalized = " ".join(helper.split())
 
     assert "requires --approved" in normalized

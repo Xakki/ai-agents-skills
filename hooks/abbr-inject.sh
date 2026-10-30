@@ -12,8 +12,8 @@
 set -uo pipefail
 
 HOOK_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
-SKILL="$HOOK_DIR/../skills/abbreviations/SKILL.md"
-DICT="$HOOK_DIR/../skills/abbreviations/dictionary.tsv"
+SKILL="$HOOK_DIR/../skills/agent-terms-define/SKILL.md"
+DICT="$HOOK_DIR/../skills/agent-terms-define/dictionary.tsv"
 LOCAL_BUF="${ABBR_LOCAL:-$HOME/.config/abbr/local.tsv}"
 
 [ -r "$DICT" ] || exit 0

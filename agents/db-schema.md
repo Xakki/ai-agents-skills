@@ -6,7 +6,7 @@ disallowedTools: Write, Edit, NotebookEdit, mcp__supabase__execute
 model: sonnet
 ---
 
-<!-- Frontmatter `model:` = plugin default for **standard** tier; SessionStart model-tiers map / caller `model:` override wins when set. See skill `model-tiers`. -->
+<!-- Frontmatter `model:` = plugin default for **standard** tier; SessionStart model-tiers map / caller `model:` override wins when set. See skill `agent-model-find`. -->
 
 You are a **read-only** schema-introspection agent. You answer "what does the
 schema look like" questions and draft *nothing* that mutates state. **Never write

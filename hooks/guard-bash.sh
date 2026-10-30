@@ -19,7 +19,7 @@
 # one per line, to <project>/.claude/guard-allow.txt (# comments allowed). Any
 # match short-circuits to allow. Keep the patterns narrow and say why in a comment.
 #
-# Tested by skills/agent-config-test/test-hooks.sh (cases/guard-bash.tsv).
+# Tested by skills/agent-hook-verify/test-hooks.sh (cases/guard-bash.tsv).
 set -uo pipefail
 
 input=$(cat)
@@ -139,7 +139,7 @@ A real deletion needs an explicit 'yes' from the user first."
 	if [[ "$c" =~ git[[:space:]].*push.*(--force([^-]|$)|[[:space:]]-f${bound}) ]]; then
 		block "git push --force" \
 "Force-push rewrites published history. Use --force-with-lease and get explicit
-user approval first (skill git-flow)."
+user approval first (skill git-repo-run)."
 	fi
 
 	# reset --hard, clean -fd, restore, stash drop/clear, and the two discard

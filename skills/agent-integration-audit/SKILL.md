@@ -1,7 +1,8 @@
 ---
 name: agent-integration-audit
-description: Audit agent plugin, skill, hook and MCP integration across runtime boundaries.
+description: 'Audit agent plugin, skill, hook and MCP integration across runtime boundaries. Use when an integration is not discovered, loaded or executed as expected. RU: аудит интеграции агента, плагин не подхватывается.'
 license: MIT
+disable-model-invocation: true
 ---
 
 # Agent integration audit

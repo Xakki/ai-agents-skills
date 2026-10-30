@@ -1,7 +1,7 @@
 {
   "name": "ai-agents-skills",
-  "version": "0.2.20",
-  "description": "Skills and optional hooks for Cursor Agent CLI/IDE, including Kanban boards, task coordination, Git, Telegram notifications, documentation and artifact publishing. The scheduled-run prototype is Claude-specific. Skill import supports reviewed local caches; automatic replacement and direct external imports are disabled.",
+  "version": "0.3.0",
+  "description": "Skills and optional hooks for Cursor Agent CLI/IDE: Kanban boards, Git safety, review and verification, security, deployment, monitoring, research, Telegram notifications and reviewed skill import. Skills are named <area>-<object>-<goal>; only a small always-on set is described to the model and the rest are found through agent-skill-find. The scheduled-run prototype is Claude-specific.",
   "author": {
     "name": "Xakki"
   },

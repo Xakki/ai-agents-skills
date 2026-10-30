@@ -6,7 +6,7 @@ disallowedTools: Write, Edit, NotebookEdit, mcp__portainer__restart_container, m
 model: sonnet
 ---
 
-<!-- Frontmatter `model:` = plugin default for **standard** tier; SessionStart model-tiers map / caller `model:` override wins when set. See skill `model-tiers`. -->
+<!-- Frontmatter `model:` = plugin default for **standard** tier; SessionStart model-tiers map / caller `model:` override wins when set. See skill `agent-model-find`. -->
 
 You are a **read-only** incident-triage agent. You pull from logs and metrics and
 return a tight timeline with a likely root cause. **Never restart containers,

@@ -1,16 +1,19 @@
 {
   "name": "ai-agents-skills",
-  "description": "Skills + hooks for Claude Code: kanban board, autonomous timed task runner, Telegram notifications & reports, self-hosted artifact publishing, and utilities (git-move, setup-claude, new-project-docker, fluent-logging).",
+  "description": "Skills and hooks for Claude Code: Kanban boards, Git safety, review and verification, security, deployment, monitoring, research, Telegram notifications and reviewed skill import.",
   "owner": {
     "name": "Xakki",
     "url": "https://github.com/Xakki"
   },
-  "allowCrossMarketplaceDependenciesOn": ["mempalace"],
+  "allowCrossMarketplaceDependenciesOn": [
+    "mempalace",
+    "claude-plugins-official"
+  ],
   "plugins": [
     {
       "name": "ai-agents-skills",
       "source": "./",
-      "description": "Kanban task management, autonomous timed runs of kanban cards, Telegram notifications (tg-notify skill + hooks) and reports (tg-report), self-hosted artifact publishing (publish-artifact), utility skills (git-flow, git-move, setup-claude, new-project-docker, fluent-logging), and skill-import (discover & import skills from external git repos, matched by a subagent, with updates) for Claude Code."
+      "description": "Kanban boards, Git safety, review and verification, security, deployment, monitoring, research, Telegram notifications and reviewed skill import. Skills are named <area>-<object>-<goal>; only a small always-on set is described to the model and the rest are found through agent-skill-find."
     }
   ]
 }

@@ -19,15 +19,15 @@ class TelegramHooks(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory(prefix="tg-hook-test-")
         self.root = Path(self.temp.name)
         self.hooks = self.root / "hooks"
-        self.skill = self.root / "skills" / "tg-notify"
+        self.skill = self.root / "skills" / "agent-telegram-notify"
         self.hooks.mkdir()
         self.skill.mkdir(parents=True)
         for name in HOOKS:
             shutil.copy2(ROOT / "hooks" / name, self.hooks / name)
         shutil.copy2(ROOT / "hooks" / "cursor-adapter.sh", self.hooks / "cursor-adapter.sh")
         for name in ("runtime.sh", "context-header.sh"):
-            shutil.copy2(ROOT / "skills" / "tg-notify" / name, self.skill / name)
-        fake_sender = self.skill / "tg-notify.sh"
+            shutil.copy2(ROOT / "skills" / "agent-telegram-notify" / name, self.skill / name)
+        fake_sender = self.skill / "agent-telegram-notify.sh"
         fake_sender.write_text('#!/usr/bin/env bash\ncat > "$TEST_RESULT"\n', encoding="utf-8")
         fake_sender.chmod(0o700)
         self.state = self.root / "state-home"

@@ -9,8 +9,8 @@ import yaml
 
 
 ROOT = Path(__file__).resolve().parents[1]
-KANBAN = ROOT / "skills" / "kanban"
-SKILL = ROOT / "skills" / "epic-lead" / "SKILL.md"
+KANBAN = ROOT / "skills" / "kanban-card-run"
+SKILL = ROOT / "skills" / "kanban-epic-coordinate" / "SKILL.md"
 CANONICAL_AUTHORIZATION_FORMS = (
     "explicit user approval at hand-off",
     "recorded EPIC-scoped upfront autonomous authorization",
@@ -41,9 +41,9 @@ def test_epic_lead_has_valid_frontmatter_and_canonical_workflow_links() -> None:
     text = _skill_text()
     frontmatter = yaml.safe_load(text.split("---", 2)[1])
 
-    assert frontmatter["name"] == "epic-lead"
+    assert frontmatter["name"] == "kanban-epic-coordinate"
     assert frontmatter["description"]
-    for skill in ("kanban", "git-flow", "teamlead"):
+    for skill in ("kanban-card-run", "git-repo-run"):
         assert f"../{skill}/SKILL.md" in text
 
 
