@@ -7,7 +7,7 @@ description: 'Find, compare and select agent skills for a task, preserving sourc
 
 ## This plugin's skills
 
-Most skills of this plugin are not listed in the agent's context; only a small always-on set is. Names follow `<area>-<object>-<goal>` (for example `git-worktree-guard`: area git, object worktree, goal guard). To pick one, read [the catalog](references/catalog.md), which lists every skill by area with what it does and Russian trigger words, then open the chosen skill's `SKILL.md` at `../<name>/SKILL.md` relative to this directory (or invoke it by name where the runtime allows it). Skills hidden from implicit invocation can still be loaded this way and by the user.
+Names follow `<area>-<object>-<goal>` (for example `git-worktree-guard`: area git, object worktree, goal guard). Consult [the catalog](references/catalog.md) to identify a relevant skill. Skills marked `*` permit automatic invocation in Claude Code and Codex. For another skill, ask the user to invoke it manually through the runtime's supported interface; do not invoke it implicitly or read its `SKILL.md` to reproduce the blocked invocation. A catalog entry does not grant permission or override runtime settings. Respect native denials and report the limitation. Supporting files of an invoked skill may be read as its dependencies, subject to applicable permissions.
 
 ## External skills
 

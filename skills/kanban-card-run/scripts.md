@@ -21,8 +21,7 @@ variable.
 **Manual fallback.** These scripts are the default path, not a hard
 requirement — if a script is unavailable, allocate the ID by hand against
 the lock beside the resolved board root (format below), write the card from
-[task-template.md](task-template.md), and move it with
-[git-path-run](../git-path-run/SKILL.md) directly.
+[task-template.md](task-template.md), and request manual invocation of `git-path-run` when a separate path operation is needed. A native refusal is a stop boundary.
 
 ## Board-root resolution
 
@@ -224,7 +223,7 @@ kanban-move.sh <ID|path> <stage> [--force] [--approved] [--resume]
     Use sparingly; it prints a stderr warning when used. It is not an
     authorization grant and must never be used to evade a missing grant or
     native security/approval control.
-- On success, moves the card via [git-path-run](../git-path-run/SKILL.md) (stages the
+- On success, moves the card via its bundled Git-aware path helper (stages the
   rename, does **not** commit) and prints the suggested commit subject on
   stdout: `task: <verb> <ID> (<from>→<to>)`, where `<verb>` is
   `groom|start|review|ready|done` for the matching edge (or `move` for any

@@ -11,8 +11,7 @@ Use for one approved Kanban epic or ready task group: planning, governance, scop
 
 Coordinate one approved epic and its approved children. Resolve the active
 board, its lifecycle and required project instructions before action; consult
-[Kanban](../kanban-card-run/SKILL.md), [Git workflow](../git-repo-run/SKILL.md), and, when
-using delegation, [team lead](../kanban-queue-coordinate/SKILL.md). Their examples do not
+[Kanban](../kanban-card-run/SKILL.md) and [Git workflow](../git-repo-run/SKILL.md). When the separate team-lead skill is needed, ask the user to invoke `kanban-queue-coordinate` manually. Their examples do not
 supersede the user's scope, repository rules or runtime capabilities.
 
 Record the epic identity, approved children, dependencies, acceptance criteria,

@@ -10,7 +10,7 @@
     {
       "name": "ai-agents-skills",
       "source": "./",
-      "description": "Kanban boards, Git safety, review and verification, security, deployment, monitoring, research, Telegram notifications and reviewed skill import. Skills are named <area>-<object>-<goal>; only a small always-on set is described to the model and the rest are found through agent-skill-find."
+      "description": "Kanban boards, Git safety, review and verification, security, deployment, monitoring, research, Telegram notifications and reviewed skill import. Skills are named <area>-<object>-<goal>; skill descriptions support discovery and full instructions load on invocation."
     }
   ]
 }

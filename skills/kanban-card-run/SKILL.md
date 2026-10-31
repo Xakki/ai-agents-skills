@@ -106,14 +106,12 @@ Set `ROOT="${AI_AGENTS_SKILLS_ROOT:-${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-${CURSO
 |---|---|---|
 | `"$S"/kanban-id.sh` | allocate/inspect IDs (`next`\|`epic`\|`sub`\|`peek`\|`prefix`) | `sub <EPIC-ID>` |
 | `"$S"/kanban-new.sh` | allocate ID + render template + stage card | `--epic`\|`--sub <EPIC-ID>` |
-| `"$S"/kanban-move.sh` | validated stage transition (wraps [git-path-run](../git-path-run/SKILL.md)) | `--approved` for `→done`/`→closed`; `--resume` from `freeze/` |
+| `"$S"/kanban-move.sh` | validated stage transition (uses the bundled Git-aware path helper) | `--approved` for `→done`/`→closed`; `--resume` from `freeze/` |
 | `"$S"/kanban-status.sh` | board overview, subtasks grouped under their epic | `--epic ID` |
 | `"$S"/kanban-lint.sh` | card validation (shape, template, dupes, counter drift) | — |
 
 Full CLI, flags, exit codes, worked examples → [scripts.md](scripts.md). Manual
-fallback (hand-written card using the resolved board's adjacent `kanban.lock` +
-[git-path-run](../git-path-run/SKILL.md) directly) still works if a script is
-unavailable.
+fallback requires the resolved board's adjacent `kanban.lock`; if the Git-aware path skill is needed separately, ask the user to invoke it manually. Never bypass a native refusal.
 
 ### Task Lifecycle
 
@@ -190,7 +188,7 @@ authorization, and must cover this card. Record its source and scope. A grant
 for `done` alone never implies merge, push, deploy, later-EPIC work, scope
 expansion, or bypassing tests/review. Order matters — card first, merge last:
 
-1. Move the card `ready/ → done/` (`kanban-move.sh <ID> done --approved` or git-path-run manually).
+1. Move the card `ready/ → done/` (`kanban-move.sh <ID> done --approved`).
 2. Verify the task branch is clean (`git status --short` empty — everything
    committed, nothing stray left uncommitted).
 3. Only then squash-merge the branch into the default branch if merge is also
@@ -289,7 +287,7 @@ a task is worked **in its own branch** (an epic's subtasks share the epic branch
   not archive-rename it. After any authorized push/deploy, read back the exact
   target and verify the expected remote revision/deployed version or state
   before reporting success.
-- Moving cards between stage dirs → `kanban-move.sh` (wraps [git-path-run](../git-path-run/SKILL.md), validates the transition); manual fallback → `git-path-run` directly.
+- Moving cards between stage dirs → `kanban-move.sh` (uses the bundled Git-aware path helper, validates the transition); if a separate path operation is needed, ask the user to invoke `git-path-run` manually.
 
 See [reference.md](reference.md) for the autonomous-run commit contract.
 

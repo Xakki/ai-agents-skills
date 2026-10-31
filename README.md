@@ -12,15 +12,16 @@ Codex CLI — see [Install (Codex)](#install-codex) below — and a
 [Cursor](https://cursor.com/docs/reference/plugins) Agent CLI/IDE plugin
 manifest (`.cursor-plugin/plugin.json`) — see [Install (Cursor)](#install-cursor)
 below — plus a [Hermes Agent](https://hermes-agent.nousresearch.com/docs/user-guide/features/plugins)
-plugin (`plugin.yaml` + `__init__.py`) — see [Install (Hermes)](#install-hermes).
-All four integrations share the same `skills/` tree; see
+plugin (`plugin.yaml` + `__init__.py`) — see [Install (Hermes)](#install-hermes) —
+and a [Prime Agent package](#install-prime-agent). All five integrations share
+the same `skills/` tree; see
 [AGENTS.md](AGENTS.md) for the repo conventions that keep them in sync.
 
 ## Skills
 
 Skill names follow `<area>-<object>-<goal>`: the **area** (first part) says where the skill applies, the **object** narrows it, and the **goal** says what the skill achieves. Areas and goals come from the closed lists in [skills-registry.json](skills-registry.json), enforced by `python3 scripts/skills_registry.py check`.
 
-**Loading.** Only the skills marked * are described to the agent at session start; every other skill is hidden from implicit selection and is found through `agent-skill-find`, whose [catalog](skills/agent-skill-find/references/catalog.md) lists them all by area. Hidden skills still load when you invoke them by name (`/ai-agents-skills:<name>` in Claude Code, `$<name>` in Codex) or when the agent reads their `SKILL.md`. Change the always-on list in `skills-registry.json`, then run `python3 scripts/skills_registry.py apply` (it rewrites `disable-model-invocation` in each `SKILL.md`, `agents/openai.yaml` and the catalog).
+**Loading.** The `always` list in [skills-registry.json](skills-registry.json) defines the skills that permit automatic model invocation in Claude Code and Codex. The other skills require the user to invoke them manually (`/ai-agents-skills:<name>` in Claude Code, `$<name>` in Codex). The [catalog](skills/agent-skill-find/references/catalog.md) marks the automatic tier with `*` and helps the agent suggest a manual invocation. Do not read a hidden skill's `SKILL.md` to reproduce a blocked invocation; supporting files of an invoked skill remain usable as its dependencies, subject to runtime permissions. Claude normally includes only permitted skill descriptions in the model context and loads full instructions when invoked; actual discovery and context cost depend on the runtime and its settings. Other integrations may interpret the metadata differently. Run `python3 scripts/skills_registry.py apply` after changing the list to update shared Claude frontmatter, Codex metadata and the catalog. These settings do not override native refusals or authorize side effects.
 
 ### agent
 
@@ -34,7 +35,7 @@ Agents themselves: skills, context, models, hooks, mcp, delegation, notification
 | **agent-integration-audit** | Audit agent plugin, skill, hook and MCP integration across runtime boundaries. |
 | **agent-model-find** | Resolve optional model-tier settings through the active agent runtime. |
 | **agent-project-sync** | Resolve project identity or synchronize an installed asset using the runtime's authorized interfaces. |
-| **agent-skill-find*** | Find, compare and select agent skills for a task, preserving source, permissions and installation boundaries; includes the catalog of this plugin's skills. |
+| **agent-skill-find** | Find, compare and select agent skills for a task, preserving source, permissions and installation boundaries; includes the catalog of this plugin's skills. |
 | **agent-skill-sync** | Discover reviewed skills in configured Git sources and safely import or update a selected skill. |
 | **agent-telegram-notify** | Send an authorized Telegram notification or task/completion report to a configured chat or topic, and tune the notification hook timers. |
 | **agent-terms-define** | Authoritative dictionary of standard developer abbreviations for variables, functions, classes, CSS classes and terse technical writing, injected at session start. |
@@ -100,8 +101,8 @@ Version control: commits, branches, merges, worktrees, pull requests.
 | **git-branch-clean** | Audit, archive, rename or delete Git branches without losing work, with plan-hash-bound cleanup helpers. |
 | **git-merge-sync** | Reconcile merges and divergent histories while keeping both sides' behavior and a recoverable source state. |
 | **git-path-run** | Move or remove project paths while preserving Git history and local work, via the git-aware helper. |
-| **git-repo-run*** | Perform scoped Git work safely: inspect, stage, commit, branch, push, prepare a pull request. |
-| **git-worktree-guard*** | Preserve other actors' staged, unstaged and untracked work in a shared checkout. |
+| **git-repo-run** | Perform scoped Git work safely: inspect, stage, commit, branch, push, prepare a pull request. |
+| **git-worktree-guard** | Preserve other actors' staged, unstaged and untracked work in a shared checkout. |
 
 ### infra
 
@@ -122,11 +123,11 @@ Task boards: cards, epics, grooming, queues, schedules, roadmaps.
 |---|---|
 | **kanban-board-audit** | Audit Kanban cards for duplicate, completed, blocked and epic-ready work, and repair or reorganize a board while preserving scope and stages. |
 | **kanban-card-build** | Deliver an authorized Kanban queue autonomously while preserving scope and evidence, including measurement-backed cards. |
-| **kanban-card-plan*** | Groom a request or draft card into implementation-ready, measurable, dependency-safe cards and validate the grooming. |
-| **kanban-card-review*** | Read-only review of a card lifecycle or a proposed promotion against history, dependencies and evidence, returning APPROVE or REQUEST CHANGES. Use for independent.... |
-| **kanban-card-run*** | Operate the project Kanban board: create, groom, start, move, review and complete cards through the board helpers, with owner decisions and lifecycle rules. |
-| **kanban-card-verify*** | Record and verify acceptance evidence on a Kanban card, hand off an implemented child, verify lifecycle moves and keep helper effects, evidence and Git scope separate. |
-| **kanban-epic-coordinate*** | Plan, govern and deliver one approved Kanban epic: scoped execution, dependencies, pauses, review, integration and authorized handoff. |
+| **kanban-card-plan** | Groom a request or draft card into implementation-ready, measurable, dependency-safe cards and validate the grooming. |
+| **kanban-card-review** | Read-only review of a card lifecycle or a proposed promotion against history, dependencies and evidence, returning APPROVE or REQUEST CHANGES. Use for independent.... |
+| **kanban-card-run** | Operate the project Kanban board: create, groom, start, move, review and complete cards through the board helpers, with owner decisions and lifecycle rules. |
+| **kanban-card-verify** | Record and verify acceptance evidence on a Kanban card, hand off an implemented child, verify lifecycle moves and keep helper effects, evidence and Git scope separate. |
+| **kanban-epic-coordinate** | Plan, govern and deliver one approved Kanban epic: scoped execution, dependencies, pauses, review, integration and authorized handoff. |
 | **kanban-queue-coordinate** | Coordinate authorized autonomous execution of a project plan or queue with gates, independent review and checkpoints; delegation follows the superpowers subagent skills. |
 | **kanban-roadmap-plan** | Plan, track or execute a phased product roadmap. |
 | **kanban-schedule-run** | Plan or run explicitly authorized scheduled work on selected Kanban cards. |
@@ -155,8 +156,8 @@ Review, acceptance, validation and risk of delivered work.
 | Skill | What it does |
 |---|---|
 | **quality-artifact-verify** | Review build and release artifacts, images and versioned deliverables against their actual inputs, packaging and runtime contracts. |
-| **quality-change-review*** | Independently review or accept a candidate change and verify defect claims with evidence, separating findings, gaps and hypotheses. |
-| **quality-change-verify*** | Run and report a final, post-repair or pre-completion validation pass with exact commands, exit codes and limits, discovering the project's sanctioned checks. |
+| **quality-change-review** | Independently review or accept a candidate change and verify defect claims with evidence, separating findings, gaps and hypotheses. |
+| **quality-change-verify** | Run and report a final, post-repair or pre-completion validation pass with exact commands, exit codes and limits, discovering the project's sanctioned checks. |
 | **quality-risk-triage** | Assess observed and speculative technical risks, ownership and evidence before choosing mitigation or deferral. |
 
 ### research
@@ -227,28 +228,15 @@ plugin from the official marketplace (`claude-plugins-official`, allowed through
 `allowCrossMarketplaceDependenciesOn`). Installing `ai-agents-skills` installs it too, and all of its
 skills stay auto-loaded exactly as superpowers ships them (its `SessionStart` hook injects
 `using-superpowers`). If the official marketplace is not added in your Claude Code, add it before
-installing, as for mempalace below. Skills in this plugin that duplicated superpowers (debugging,
+installing. Skills in this plugin that duplicated superpowers (debugging,
 test-driven development, completion verification, delegation) were removed on purpose.
 
 Codex has no documented plugin-dependency mechanism: install superpowers separately
 (`/plugins`, search `superpowers`, Install Plugin) and confirm with `/skills` that both plugins' skills
 are listed. Cursor, Hermes and Prime are not covered by an automatic dependency.
 
-### Dependency: mempalace
-
-This plugin declares a dependency on the [mempalace](https://github.com/MemPalace/mempalace)
-plugin (cross-marketplace). Claude Code resolves a dependency only from a
-marketplace you have already added — so add the mempalace marketplace **before**
-installing, otherwise the install fails with `dependency-unsatisfied`:
-
-```
-/plugin marketplace add MemPalace/mempalace
-/plugin marketplace add Xakki/ai-agents-skills
-/plugin install ai-agents-skills@ai-agents-skills
-```
-
-With the mempalace marketplace present, installing `ai-agents-skills` pulls in
-`mempalace` automatically.
+MemPalace is not required by this plugin. If you need it, install and configure
+it separately under its own authorization and data-retention policy.
 
 Or from a local checkout:
 
@@ -297,10 +285,7 @@ codex plugin marketplace list   # confirms the GitHub marketplace is registered
 codex plugin list               # lists ai-agents-skills in its marketplace snapshot
 ```
 
-Note: the `mempalace` cross-marketplace dependency declared in
-`.claude-plugin/plugin.json` is Claude Code–specific; install
-[mempalace](https://github.com/MemPalace/mempalace) separately as a Codex
-plugin if you want it there too.
+MemPalace is optional and must be installed separately if needed.
 
 ## Install (Prime Agent)
 
@@ -383,7 +368,7 @@ config turns the Telegram hooks off for Hermes only (absent = on); the
 abbreviation context is still injected. `kanban-schedule-run` remains a
 Claude-specific workflow; `agent-model-find` is informational under Hermes because
 Hermes subagents inherit the active model rather than accepting a per-call tier.
-The mempalace dependency in the Claude manifest is not installed by Hermes.
+MemPalace is optional and is not installed by this plugin.
 
 ## Install (Cursor)
 
@@ -433,10 +418,7 @@ input" ping does **not** fire under Cursor — there is no Cursor hook event
 for it. See [the design doc](docs/superpowers/specs/2026-07-31-cursor-plugin-design.md#safe-degradation-notification--permissionrequest)
 for why.
 
-Note: the `mempalace` cross-marketplace dependency declared in
-`.claude-plugin/plugin.json` is Claude Code–specific; install
-[mempalace](https://github.com/MemPalace/mempalace) separately for Cursor if
-you want it there too.
+MemPalace is optional and must be installed separately if needed.
 
 ## Layout
 
@@ -463,7 +445,7 @@ you want it there too.
 │   ├── cursor-adapter.sh  # normalizes Cursor payloads for the shared tg-*.sh / abbr-inject.sh scripts
 │   └── tg-*.sh
 ├── skills/                # one level only: <area>-<object>-<goal>/SKILL.md (+ references/, scripts/, agents/openai.yaml)
-├── skills-registry.json   # closed lists of areas and goals, always-on skill list
+├── skills-registry.json   # closed lists of areas and goals
 ├── statusline/            # opt-in status-line renderers (see statusline/README.md)
 │   ├── statusline-command.sh
 │   └── subagent-statusline-command.sh
