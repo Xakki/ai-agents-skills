@@ -2,7 +2,6 @@
 name: code-config-audit
 description: 'Trace configuration, defaults, generated catalogs, startup wiring and readiness across services and environments. Use when implementing or reviewing configuration. RU: конфигурация, настройки, готовность сервиса.'
 license: MIT
-disable-model-invocation: true
 ---
 
 # Configuration contracts

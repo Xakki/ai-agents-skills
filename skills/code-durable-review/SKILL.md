@@ -2,7 +2,6 @@
 name: code-durable-review
 description: 'Design or review durable jobs, leases, replay, recovery and ordered external effects. Use when an operation crosses persisted state, queues or scheduled execution. RU: очереди, повтор, восстановление.'
 license: MIT
-disable-model-invocation: true
 ---
 
 # Durable workflows

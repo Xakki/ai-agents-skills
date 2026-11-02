@@ -2,7 +2,6 @@
 name: code-async-review
 description: 'Design or review deadlines, cancellation, ownership handoffs and asynchronous lifecycles with tests. Use when work crosses async boundaries or must stop cleanly. RU: асинхронность, отмена, завершение.'
 license: MIT
-disable-model-invocation: true
 ---
 
 # Concurrency lifecycle

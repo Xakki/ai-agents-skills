@@ -1,6 +1,6 @@
 {
   "name": "ai-agents-skills",
-  "version": "0.3.2",
+  "version": "0.3.8",
   "description": "Skills and optional hooks for Claude Code: Kanban boards, Git safety, review and verification, security, deployment, monitoring, research, Telegram notifications and reviewed skill import. Skills are named <area>-<object>-<goal>; the registry selects automatically invocable skills; other skills require manual invocation. Depends on the superpowers plugin. Scheduled runs use a restricted Claude-specific prototype; automatic skill replacement and direct external imports are disabled.",
   "author": {
     "name": "Xakki"

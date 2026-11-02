@@ -1,33 +1,42 @@
 ---
 name: deploy-artifact-publish
-description: 'Publish a self-contained HTML artifact or page to a self-hosted static site via the project make target and return its public URL. Use when asked to publish a page. RU: опубликовать страницу.'
-disable-model-invocation: true
+description: Set up project-specific or shared artifact publication and publish self-contained HTML with verified public readback. Use when asked to configure or publish an artifact or page.
 ---
 
 # deploy-artifact-publish
 
-Copies a complete/standalone HTML file into the configured project's artifact directory; that
-project's nginx serves it at `<BASE_URL>/artifact/<slug>/`. No docker build/deploy involved — plain
-file copy, picked up immediately by an already-live static/alias location.
+Set up and use a publisher appropriate to the project and its actual infrastructure. A
+publisher may be a project command, static server, object store, or other supported
+backend; do not assume Make, nginx, a fixed route, or local file storage.
 
-## Config
+## Select and configure a destination
 
-Resolve the project directory from the runtime's supported configuration interface:
+1. Inspect the current project's instructions and existing publication, domain, storage
+   and deployment configuration. Reuse its supported publisher if suitable. A configured
+   project publisher and public HTTPS base URL take precedence over global settings.
+2. If the project has a public domain but no publisher, integrate one using its existing
+   conventions and durable storage. Keep routes isolated and preserve existing behavior.
+3. If it has no public domain, use the owner's configured global publisher and public
+   HTTPS base URL. A URL alone is not a publisher: verify its matching write interface,
+   routing, TLS, and project-specific namespace. If the global service is absent, set it
+   up within the authorized infrastructure; select an unused owned name after checking
+   DNS, TLS and routing. Wildcard resolution does not prove that a name is unused.
+4. Resolve settings from the runtime's supported environment/configuration interface.
+   On hosts that use `~/.bash_ai`, place owner-specific global settings there, without
+   embedding credentials, domain names, storage paths or implementation assumptions in this
+   shared skill. Existing processes may need a refreshed environment. Project settings
+   override global settings; do not silently fall back when a configured project publisher
+   fails. See [reference.md](reference.md) for the integration contract.
 
-```
-ARTIFACT_PROJECT_DIR=/path/to/project   # the project whose Makefile has `deploy-artifact-publish`
-```
+## Publish
 
-## Happy path (the one command)
-
-```bash
-make --no-print-directory -C "$ARTIFACT_PROJECT_DIR" deploy-artifact-publish ART=<abs-path-to.html> [SLUG=<slug>]
-```
-
-Capture the **last stdout line** — that's the public URL. `--no-print-directory`
-keeps Make's directory messages out of that position. Fetch the exact public URL
-and compare its body with the authored HTML before reporting publication success;
-account for intentional wrapping when publishing a fragment.
+Read the entire input before publication. Publish only self-contained HTML (inline CSS/JS,
+no external hosts). Never publish impersonation, fabricated records/reviews, or deceptive
+credential/payment collection. Invoke the selected publisher according to its documented
+contract, using a unique project namespace and a nonconflicting slug. Read back the exact
+public HTTPS URL and compare the complete response with the expected published document,
+including any intentional transformation, before claiming success. Report the URL and any
+incomplete verification. Publication is an external write and needs user authorization.
 
 ## Publication notifications
 
@@ -67,20 +76,3 @@ message readback separately. A saved Bot credential is not a successful prefligh
 If preflight is refused, preserve the published URL and report notification as not
 sent; do not change accounts, grants, API authorization or send paths to force the
 test through. Do not republish or resend solely to turn an incomplete check green.
-
-## Note on fragments vs. complete docs
-
-The target auto-wraps a headless Artifact-tool fragment (no `<html>`/`<head>`/`<body>`) into a full
-HTML5 document (charset, viewport, title). A file that already contains `<html` is copied as-is.
-
-## Safety (mirrors the Artifact-tool policy — keep it short)
-
-- Only publish self-contained HTML: inline CSS/JS, no external hosts (fonts/CDNs/fetch targets).
-- Never publish pages impersonating a real person/org, fabricated records/reviews, or flows that
-  collect credentials/payment under false pretenses — refuse, and don't suggest alternate hosting.
-- Read any file you didn't author yourself, in full, before publishing it.
-
-## Bootstrapping a new project
-
-See `reference.md` for adding this capability (script + Makefile target + nginx location) to a
-project that doesn't have it yet.

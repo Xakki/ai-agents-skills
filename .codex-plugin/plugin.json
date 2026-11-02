@@ -1,6 +1,6 @@
 {
   "name": "ai-agents-skills",
-  "version": "0.3.2",
+  "version": "0.3.8",
   "description": "Reusable Codex skills and lifecycle hooks: Kanban boards, Git safety, review and verification, security, deployment, monitoring, research, Telegram notifications and reviewed skill import. Skills are named <area>-<object>-<goal>; the registry selects automatically invocable skills; other skills require manual invocation. Install the superpowers plugin alongside it.",
   "author": {
     "name": "Xakki"

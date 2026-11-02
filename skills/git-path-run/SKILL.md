@@ -1,7 +1,6 @@
 ---
 name: git-path-run
 description: 'Move or remove project paths while preserving Git history and local work, via the git-aware helper. Use for authorized file or directory relocation where tracked and untracked work coexist. RU: перенос файлов, переместить, удалить путь.'
-disable-model-invocation: true
 ---
 
 # Git-aware moves and removal

@@ -23,7 +23,9 @@ destination = Path(sys.argv[1]).absolute()
 extra_path = root / 'scripts/codex-package-extra-files.json'
 build_only = {'scripts/build-codex-package.py', 'scripts/codex-package-extra-files.json', 'scripts/skills_registry.py'}
 # Pre-existing user material outside the reviewed plugin runtime.
-excluded = {'skills/agent-telegram-notify/README_RU.md'}
+excluded = set()
+removed_skills = {'agent-telegram-notify', 'research-knowledge-build', 'quality-risk-triage',
+                  'security-ipc-verify', 'research-claims-verify', 'personal-resume-build'}
 extras = json.loads(extra_path.read_text())
 if not isinstance(extras, list) or not all(isinstance(x, str) for x in extras) or len(extras) != len(set(extras)):
     raise SystemExit('extra file list must contain unique strings')
@@ -39,6 +41,9 @@ for entry in index.split(b'\0'):
         raise SystemExit('unmerged Git index; resolve it before packaging')
     path = os.fsdecode(raw)
     if path in build_only or path in excluded:
+        continue
+    parts = PurePosixPath(path).parts
+    if len(parts) >= 2 and parts[0] == 'skills' and parts[1] in removed_skills:
         continue
     if path.split('/')[0] in {'skills', 'hooks', 'scripts', 'agents'} or path in {
         '.agents/plugins/marketplace.json', '.codex-plugin/plugin.json', 'LICENSE'

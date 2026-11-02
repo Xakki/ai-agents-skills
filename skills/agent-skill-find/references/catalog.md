@@ -8,15 +8,14 @@ by reading its file. Supporting files of an invoked skill remain usable as its d
 
 ## agent: agents themselves: skills, context, models, hooks, MCP, delegation, notifications
 
-- `agent-command-run`: Run a noisy command and report compact output without losing failure evidence or confusing process outcomes [длинный вывод команды, сжать вывод]
+- `agent-command-run`*: Run a noisy command and report compact output without losing failure evidence or confusing process outcomes [длинный вывод команды, сжать вывод]
 - `agent-context-audit`: Assess agent context and agent-skill-find budgets using the real runtime interfaces [бюджет контекста, что съедает контекст]
-- `agent-hook-verify`: Verify agent hook registration and behavior with safe allow/block cases [проверка хуков, настройки агента]
-- `agent-integration-audit`: Audit agent plugin, skill, hook and MCP integration across runtime boundaries [аудит интеграции агента, плагин не подхватывается]
-- `agent-model-find`: Resolve optional model-tier settings through the active agent runtime [выбор модели, уровни моделей]
+- `agent-hook-verify`*: Verify agent hook registration and behavior with safe allow/block cases [проверка хуков, настройки агента]
+- `agent-integration-audit`*: Audit agent plugin, skill, hook and MCP integration across runtime boundaries [аудит интеграции агента, плагин не подхватывается]
+- `agent-model-find`*: Resolve optional model-tier settings through the active agent runtime [выбор модели, уровни моделей]
 - `agent-project-sync`: Resolve project identity or synchronize an installed asset using the runtime's authorized interfaces [реестр проектов]
 - `agent-skill-find`*: Find, compare and select agent skills for a task, preserving source, permissions and installation boundaries; includes the catalog of this plugin's skills [подобрать навык, какой скилл]
-- `agent-skill-sync`: Discover reviewed skills in configured Git sources and safely import or update a selected skill [импортировать скилл, обновить навык]
-- `agent-telegram-notify`: Send an authorized Telegram notification or task/completion report to a configured chat or topic, and tune the notification hook timers [уведомление в Telegram, отчёт в телеграм, таймеры уведомлений]
+- `agent-skill-sync`*: Discover reviewed skills in configured Git sources and safely import or update a selected skill [импортировать скилл, обновить навык]
 - `agent-terms-define`: Authoritative dictionary of standard developer abbreviations for variables, functions, classes, CSS classes and terse technical writing, injected at session start [сокращения, аббревиатуры, именование переменных]
 - `agent-workspace-migrate`: Plan or perform authorized migration of agent skills, instructions, hooks and configuration across consumers [перенос настроек агента]
 
@@ -24,21 +23,21 @@ by reading its file. Supporting files of an invoked skill remain usable as its d
 
 - `api-contract-define`: Implement, repair or independently review API operations and cross-layer contracts, tracing producer to consumer wire behavior end to end [контракт API, сквозная проверка]
 - `api-docs-sync`: Reconcile API documentation, OpenAPI artifacts, documentation UIs and public capability catalogs (llms.txt, indexes) with the shipped implementation [документация API, openapi, llms.txt]
-- `api-stream-diagnose`: Debug and verify streamed parsers, framing, terminal state and continuation requests [стриминг, SSE, потоковый ответ]
-- `api-yandex-oauth-run`: Research Yandex OAuth token flows, exchange or refresh tokens and diagnose authorization through approved interfaces [яндекс токен, metrika, refresh token]
+- `api-stream-diagnose`*: Debug and verify streamed parsers, framing, terminal state and continuation requests [стриминг, SSE, потоковый ответ]
+- `api-yandex-oauth-run`*: Research Yandex OAuth token flows, exchange or refresh tokens and diagnose authorization through approved interfaces [яндекс токен, metrika, refresh token]
 
 ## code: writing and restructuring source code: CLI, configuration, concurrency, durable state, performance
 
-- `code-async-review`: Design or review deadlines, cancellation, ownership handoffs and asynchronous lifecycles with tests [асинхронность, отмена, завершение]
+- `code-async-review`*: Design or review deadlines, cancellation, ownership handoffs and asynchronous lifecycles with tests [асинхронность, отмена, завершение]
 - `code-cli-build`: Implement or review command-line behavior: parsing, output, state, operator actions and subprocess results [консольная утилита, CLI]
-- `code-config-audit`: Trace configuration, defaults, generated catalogs, startup wiring and readiness across services and environments [конфигурация, настройки, готовность сервиса]
-- `code-durable-review`: Design or review durable jobs, leases, replay, recovery and ordered external effects [очереди, повтор, восстановление]
+- `code-config-audit`*: Trace configuration, defaults, generated catalogs, startup wiring and readiness across services and environments [конфигурация, настройки, готовность сервиса]
+- `code-durable-review`*: Design or review durable jobs, leases, replay, recovery and ordered external effects [очереди, повтор, восстановление]
 - `code-performance-fix`: Measure and improve performance (web vitals, benchmarks, data access) using representative workloads and raw-sample evidence [производительность, оптимизация скорости, бенчмарк]
 - `code-state-verify`: Validate persisted and in-memory state transitions, schemas, counters and authorization snapshots [проверка состояния]
 
 ## deploy: rollouts, releases, cutovers, publishing
 
-- `deploy-artifact-publish`: Publish a self-contained HTML artifact or page to a self-hosted static site via the project make target and return its public URL. Use when asked to publish a page [опубликовать страницу]
+- `deploy-artifact-publish`*: Set up project-specific or shared artifact publication and publish self-contained HTML with verified public readback
 - `deploy-rollout-run`: Plan, perform or verify authorized rollouts, cutovers and releases with scoped evidence and rollback [деплой, выкатка, релиз]
 
 ## design: brand identity, graphics, visual design
@@ -48,21 +47,21 @@ by reading its file. Supporting files of an invoked skill remain usable as its d
 ## docs: documentation, diagrams, documents, prose
 
 - `docs-claims-verify`: Review or correct documentation claims against the authoritative implementation and dated evidence [проверка документации]
-- `docs-diagram-build`: Design a legible architecture, deployment, infrastructure or data-flow diagram from the bundled template [схема архитектуры, диаграмма]
-- `docs-prose-fix`: Edit text for natural, precise prose while preserving meaning and voice [очеловечить текст, убрать признаки ИИ]
+- `docs-diagram-build`*: Design a legible architecture, deployment, infrastructure or data-flow diagram from the bundled template [схема архитектуры, диаграмма]
+- `docs-prose-fix`*: Edit text for natural, precise prose while preserving meaning and voice [очеловечить текст, убрать признаки ИИ]
 
 ## git: version control: commits, branches, merges, worktrees, pull requests
 
 - `git-branch-clean`: Audit, archive, rename or delete Git branches without losing work, with plan-hash-bound cleanup helpers [очистка веток, архив ветки, удалить ветки]
 - `git-merge-sync`: Reconcile merges and divergent histories while keeping both sides' behavior and a recoverable source state [слияние, конфликты, ребейз, расхождение истории]
-- `git-path-run`: Move or remove project paths while preserving Git history and local work, via the git-aware helper [перенос файлов, переместить, удалить путь]
+- `git-path-run`*: Move or remove project paths while preserving Git history and local work, via the git-aware helper [перенос файлов, переместить, удалить путь]
 - `git-repo-run`*: Perform scoped Git work safely: inspect, stage, commit, branch, push, prepare a pull request [коммит, ветка, пуш, пулреквест, выборочный коммит]
 - `git-worktree-guard`*: Preserve other actors' staged, unstaged and untracked work in a shared checkout [грязное дерево, чужие изменения, параллельные агенты]
 
 ## infra: hosts, VMs, containers, networking, storage, project migration, runbooks
 
 - `infra-container-setup`: Scaffold a project with containers when containerization is requested or required [новый Docker-проект, контейнеризация]
-- `infra-network-diagnose`: Diagnose endpoint connectivity and proxy routing across the actual network boundaries [сеть, прокси, недоступен]
+- `infra-network-diagnose`*: Diagnose endpoint connectivity and proxy routing across the actual network boundaries [сеть, прокси, недоступен]
 - `infra-project-migrate`: Plan and verify an authorized migration of a named project, its services or data between hosts or runtimes [перенос проекта на другой хост]
 - `infra-runbook-build`: Create evidence-based runbooks for operational tasks using supported project interfaces [ранбук, инструкция по эксплуатации]
 
@@ -77,7 +76,7 @@ by reading its file. Supporting files of an invoked skill remain usable as its d
 - `kanban-epic-coordinate`*: Plan, govern and deliver one approved Kanban epic: scoped execution, dependencies, pauses, review, integration and authorized handoff [эпик, выполнить эпик]
 - `kanban-queue-coordinate`: Coordinate authorized autonomous execution of a project plan or queue with gates, independent review and checkpoints; delegation follows the superpowers subagent skills [автономный тимлид, выполнить план]
 - `kanban-roadmap-plan`: Plan, track or execute a phased product roadmap [дорожная карта, этапы разработки, продолжить roadmap]
-- `kanban-schedule-run`: Plan or run explicitly authorized scheduled work on selected Kanban cards [запланировать задачи, расписание, планировщик]
+- `kanban-schedule-run`*: Plan or run explicitly authorized scheduled work on selected Kanban cards [запланировать задачи, расписание, планировщик]
 
 ## monitor: logs, metrics, tracing, dashboards, alerts
 
@@ -86,19 +85,15 @@ by reading its file. Supporting files of an invoked skill remain usable as its d
 ## personal: notes, reminders, mail, calendar, career and household tasks
 
 - `personal-action-plan`: Extract traceable decisions and proposed actions from documents or meeting notes [протокол встречи, список действий]
-- `personal-resume-build`: Populate career forms from a resume and verified experience without inventing qualifications [резюме, анкета]
 
 ## quality: review, acceptance, validation and risk of delivered work
 
 - `quality-artifact-verify`: Review build and release artifacts, images and versioned deliverables against their actual inputs, packaging and runtime contracts [проверка артефакта, релиз, сборка]
 - `quality-change-review`*: Independently review or accept a candidate change and verify defect claims with evidence, separating findings, gaps and hypotheses [ревью, проверка приёмки, проверка находки, мутационное тестирование]
 - `quality-change-verify`*: Run and report a final, post-repair or pre-completion validation pass with exact commands, exit codes and limits, discovering the project's sanctioned checks [проверка перед завершением, итоговая валидация, качество]
-- `quality-risk-triage`: Assess observed and speculative technical risks, ownership and evidence before choosing mitigation or deferral [оценка рисков, отложить или чинить]
 
 ## research: sources, citations, prior art, knowledge bases
 
-- `research-claims-verify`: Ground externally sourced claims in direct, verifiable citations with explicit evidence limits [цитаты, источники]
-- `research-knowledge-build`: Build a provenance-backed knowledge base from authorized training media and transcripts [база знаний из обучения]
 - `research-prior-art-find`: Find and compare existing implementations before designing or changing software [готовые решения, аналоги]
 - `research-source-audit`: Monitor requested sources or subjects for material changes using supported interfaces [мониторинг источников]
 - `research-source-find`: Research documented API or data-source contracts, cite evidence, and recover permitted alternative sources when a source is inaccessible [найти документацию, источник недоступен]
@@ -111,7 +106,6 @@ by reading its file. Supporting files of an invoked skill remain usable as its d
 - `security-boundary-harden`: Harden a scoped security boundary while preserving behavior and verifying the actual controls [усилить безопасность]
 - `security-boundary-review`: Independently review a claimed security repair or boundary contract with adversarial tests and current evidence, read-only [приёмка безопасности]
 - `security-filesystem-harden`: Secure filesystem artifacts, bounded reads and lifecycle state against replacement races [безопасность файловой системы]
-- `security-ipc-verify`: Validate peer authority, framing and fail-closed broker IPC boundaries [IPC, брокер, проверка пира]
 - `security-outbound-guard`: Bound external attempts and validate outbound work across retries and background paths [внешние запросы, аварийная остановка]
 - `security-privacy-review`: Review secret handling, redaction, no-read and privacy claims across application boundaries [приватность, секреты в логах]
 

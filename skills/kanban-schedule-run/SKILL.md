@@ -1,7 +1,6 @@
 ---
 name: kanban-schedule-run
 description: 'Plan or run explicitly authorized scheduled work on selected Kanban cards. Use when the user requests a scheduled run for specific cards. RU: запланировать задачи, расписание, планировщик.'
-disable-model-invocation: true
 ---
 
 # Schedule Kanban work

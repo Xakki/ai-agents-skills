@@ -1,7 +1,6 @@
 ---
 name: docs-diagram-build
 description: 'Design a legible architecture, deployment, infrastructure or data-flow diagram from the bundled template. Use when a diagram improves the requested explanation. RU: схема архитектуры, диаграмма.'
-disable-model-invocation: true
 ---
 
 # Architecture diagrams

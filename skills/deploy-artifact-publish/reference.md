@@ -1,53 +1,41 @@
-# Bootstrapping artifact publishing into a new project
+# Publisher integration contract
 
-Three pieces, all self-contained (no new runtime deps):
+Use the project's existing interfaces first. Record the chosen configuration in the
+appropriate project or owner-local environment, never in the shared skill. The following
+names describe settings, not a required implementation:
 
-## 1. `bin/deploy-artifact-publish.sh`
+- `ARTIFACT_BASE_URL`: project public HTTPS base URL, including any route prefix.
+- `ARTIFACT_PUBLISHER`: project publisher executable or supported integration.
+- `ARTIFACT_GLOBAL_BASE_URL`: shared public HTTPS base URL, including any route prefix.
+- `ARTIFACT_GLOBAL_PUBLISHER`: shared publisher executable or supported integration.
+- `ARTIFACT_GLOBAL_DIR`: storage directory, only when required by that publisher.
 
-Contract:
-- Usage: `deploy-artifact-publish.sh <html-file> [slug]`.
-- Config via env, with defaults: `ARTIFACT_DIR` (served dir), `ARTIFACT_BASE_URL` (public origin).
-- Validates the input file exists; warns (stderr) if it doesn't end in `.html` but still accepts it.
-- slug: `$2` if given, else the input's basename without `.html`; sanitized — lowercase,
-  spaces/underscores → `-`, strip anything outside `[a-z0-9-]`, collapse repeats, trim leading/
-  trailing `-`. Empty after sanitizing → error, exit 1.
-- dest = `$ARTIFACT_DIR/$slug/index.html`.
-- If the input already contains `<html` (case-insensitive) → copy verbatim. Else wrap it: a full
-  HTML5 doc (`<!doctype html>`, `lang`, charset + viewport meta, `<title>` — from the fragment's own
-  `<title>` if present, else the slug) with the fragment as the `<body>` (its own leading `<title>`
-  line stripped so it isn't duplicated). This is the important part — Artifact-tool output has no
-  html/head/body wrapper.
-- Regenerates a plain listing at `$ARTIFACT_DIR/index.html` (one `<a href="/artifact/<slug>/">` per
-  immediate subdir), rebuilt fresh every run.
-- Output discipline: all diagnostics to stderr; **only** the final public URL on stdout (last line),
-  so callers can capture it with `$(...)`.
+Resolve each destination as a pair: project publisher and project URL, otherwise global
+publisher and global URL when the project has no public domain. Partial or contradictory
+configuration is an error, not permission to mix a project publisher with a global URL.
+If the existing integration uses different variables or an API, adapt to its actual
+contract instead of assuming these names are already implemented. Do not execute arbitrary
+configuration as shell code; use an executable path and separate arguments, or the native
+integration. Do not expose credentials in command arguments, logs, or public output.
 
-It's self-contained: no dependency beyond bash + coreutils, safe to drop into any project's `bin/`.
+When adding a publisher, define how it accepts an absolute input path, a project namespace
+and a slug, reports the exact HTTPS URL and errors, and handles collisions and concurrent
+writes. Preserve existing artifacts; reject overwrite unless explicitly authorized. Ensure
+storage survives the project's ordinary deployments, and configure route, TLS, access and
+permissions for the chosen backend. Support complete HTML as-is; if fragments are accepted,
+document and verify their transformation. Avoid auto-generated directory listings unless
+explicitly requested. Do not assume a particular web server, filesystem, container, build
+tool, or URL path. Configuration changes do not by themselves prove live publication.
 
-## 2. Makefile target
+Check configuration and route ownership before activation. Verify the chosen hostname's
+actual DNS records, certificate, ingress and backend, including each advertised address
+family. Follow host and provider authorization rules for DNS and deployment. Verify an
+actual authorized publication with a unique nonsecret marker and exact public response;
+report separately any untested activation or readback. Do not publish a test page merely
+because setup was requested if publication was not authorized.
 
-```makefile
-deploy-artifact-publish: ## Publish an HTML artifact → <dir>, served at /artifact/<slug>/ (ART=file [SLUG=slug])
-	@test -n "$(ART)" || { echo "usage: make deploy-artifact-publish ART=path/to.html [SLUG=slug]" >&2; exit 1; }
-	@bin/deploy-artifact-publish.sh "$(ART)" "$(SLUG)"
-```
-
-Must not require docker — `ART=`/`SLUG=` only, plain shell. `SLUG` may be empty; the script already
-treats an empty/absent `$2` as unset (`${2:-}`), so an empty make var doesn't crash under `set -u`.
-
-## 3. nginx location + reload
-
-Point it at whatever directory is durable across deploys in that project (survives rebuilds/
-redeploys — a bind-mounted `public/`-style dir, not something wiped by CI). Add to the relevant
-server block(s):
-
-```nginx
-location /artifact/ {
-    alias /app-back/public/artifact/;
-    index index.html;
-    try_files $uri $uri/ =404;
-}
-```
-
-Adjust the `alias` target to match the project's actual served-dir mount path. Then reload nginx
-(project-specific — e.g. `make nginx-reload`) to pick up the new location.
+For an executable configured through `ARTIFACT_GLOBAL_PUBLISHER`, the shared file
+publisher contract accepts three separate arguments: absolute HTML input path, project
+namespace, and slug. The publisher reads its own global environment and prints the exact
+URL on stdout. For example: `"$ARTIFACT_GLOBAL_PUBLISHER" "$file" "$project" "$slug"`.
+This contract is optional for other backends: use their documented interface instead.

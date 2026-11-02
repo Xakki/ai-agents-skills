@@ -2,7 +2,6 @@
 name: docs-prose-fix
 description: 'Edit text for natural, precise prose while preserving meaning and voice. Use when asked to humanize, polish or remove mechanical writing patterns. RU: очеловечить текст, убрать признаки ИИ.'
 license: MIT
-disable-model-invocation: true
 ---
 
 # Edit for natural prose

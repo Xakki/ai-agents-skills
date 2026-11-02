@@ -1,7 +1,6 @@
 ---
 name: api-yandex-oauth-run
 description: 'Research Yandex OAuth token flows, exchange or refresh tokens and diagnose authorization through approved interfaces. Use for Yandex token, Metrika or refresh problems. RU: яндекс токен, metrika, refresh token.'
-disable-model-invocation: true
 ---
 
 # Yandex OAuth token handling

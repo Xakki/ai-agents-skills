@@ -1,7 +1,6 @@
 ---
 name: agent-skill-sync
 description: 'Discover reviewed skills in configured Git sources and safely import or update a selected skill. Use when importing, updating or comparing a skill from a source repository. RU: импортировать скилл, обновить навык.'
-disable-model-invocation: true
 ---
 
 # Skill import

@@ -37,7 +37,6 @@ Agents themselves: skills, context, models, hooks, mcp, delegation, notification
 | **agent-project-sync** | Resolve project identity or synchronize an installed asset using the runtime's authorized interfaces. |
 | **agent-skill-find** | Find, compare and select agent skills for a task, preserving source, permissions and installation boundaries; includes the catalog of this plugin's skills. |
 | **agent-skill-sync** | Discover reviewed skills in configured Git sources and safely import or update a selected skill. |
-| **agent-telegram-notify** | Send an authorized Telegram notification or task/completion report to a configured chat or topic, and tune the notification hook timers. |
 | **agent-terms-define** | Authoritative dictionary of standard developer abbreviations for variables, functions, classes, CSS classes and terse technical writing, injected at session start. |
 | **agent-workspace-migrate** | Plan or perform authorized migration of agent skills, instructions, hooks and configuration across consumers. |
 
@@ -147,7 +146,6 @@ Notes, reminders, mail, calendar, career and household tasks.
 | Skill | What it does |
 |---|---|
 | **personal-action-plan** | Extract traceable decisions and proposed actions from documents or meeting notes. |
-| **personal-resume-build** | Populate career forms from a resume and verified experience without inventing qualifications. |
 
 ### quality
 
@@ -158,7 +156,6 @@ Review, acceptance, validation and risk of delivered work.
 | **quality-artifact-verify** | Review build and release artifacts, images and versioned deliverables against their actual inputs, packaging and runtime contracts. |
 | **quality-change-review** | Independently review or accept a candidate change and verify defect claims with evidence, separating findings, gaps and hypotheses. |
 | **quality-change-verify** | Run and report a final, post-repair or pre-completion validation pass with exact commands, exit codes and limits, discovering the project's sanctioned checks. |
-| **quality-risk-triage** | Assess observed and speculative technical risks, ownership and evidence before choosing mitigation or deferral. |
 
 ### research
 
@@ -166,8 +163,6 @@ Sources, citations, prior art, knowledge bases.
 
 | Skill | What it does |
 |---|---|
-| **research-claims-verify** | Ground externally sourced claims in direct, verifiable citations with explicit evidence limits. |
-| **research-knowledge-build** | Build a provenance-backed knowledge base from authorized training media and transcripts. |
 | **research-prior-art-find** | Find and compare existing implementations before designing or changing software. |
 | **research-source-audit** | Monitor requested sources or subjects for material changes using supported interfaces. |
 | **research-source-find** | Research documented API or data-source contracts, cite evidence, and recover permitted alternative sources when a source is inaccessible. |
@@ -184,7 +179,6 @@ Boundaries, authorization, secrets, privacy, hardening.
 | **security-boundary-harden** | Harden a scoped security boundary while preserving behavior and verifying the actual controls. |
 | **security-boundary-review** | Independently review a claimed security repair or boundary contract with adversarial tests and current evidence, read-only. |
 | **security-filesystem-harden** | Secure filesystem artifacts, bounded reads and lifecycle state against replacement races. |
-| **security-ipc-verify** | Validate peer authority, framing and fail-closed broker IPC boundaries. |
 | **security-outbound-guard** | Bound external attempts and validate outbound work across retries and background paths. |
 | **security-privacy-review** | Review secret handling, redaction, no-read and privacy claims across application boundaries. |
 
@@ -274,7 +268,7 @@ The Codex manifest explicitly selects `./hooks/codex-hooks.json`, rather than
 the Claude Code-specific default `hooks/hooks.json`. Codex requires the user
 to review and trust plugin hooks before executing them. Once trusted, these
 hooks can send the optional Telegram task-finished and needs-attention
-notifications configured by `agent-telegram-notify`; review the outbound commands before
+Telegram lifecycle notifications; review the outbound commands before
 trusting them. Root `agents/` prompts remain available to the Claude, Cursor,
 and Hermes integrations only.
 
@@ -485,9 +479,7 @@ lifecycle callback arguments for the shared Telegram scripts.
 - **kanban-schedule-run** triggers on "schedule tasks" / "запланируй задачи". It needs
   `atd` active and a byobu/tmux session, and reads cards from
   `.claude/kanban/todo/` in your current project.
-- **agent-telegram-notify** triggers on "send to telegram" / "notify in TG" / "ping me when
-  done", and auto-sends via its hooks for long task completion and
-  permission/idle prompts. See [agent-telegram-notify](#agent-telegram-notify) for setup.
+
 
 ### kanban-schedule-run & the plugin cache
 
@@ -498,10 +490,10 @@ target repo from the task-file path they're given
 without per-repo configuration. Your kanban board still lives in your project
 under `.claude/kanban/`.
 
-### agent-telegram-notify
+### Telegram lifecycle hooks
 
 The bot token and destination come from the **environment** — nothing secret is
-committed. Configure once, then both the manual sender and the hooks use it.
+committed. Configure once, then the lifecycle hooks use it.
 
 1. Create a bot with [@BotFather](https://t.me/BotFather) and copy its token.
 2. Copy the template and fill it in (chmod 600):
@@ -509,7 +501,7 @@ committed. Configure once, then both the manual sender and the hooks use it.
    ```
    mkdir -p ~/.config/tg-notify
    ROOT="${AI_AGENTS_SKILLS_ROOT:-${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-${CURSOR_PLUGIN_ROOT:-}}}}"
-   cp "$ROOT/skills/agent-telegram-notify/.env.example" ~/.config/tg-notify/.env
+   cp "$ROOT/hooks/telegram/.env.example" ~/.config/tg-notify/.env
    chmod 600 ~/.config/tg-notify/.env
    $EDITOR ~/.config/tg-notify/.env
    ```
@@ -524,25 +516,6 @@ committed. Configure once, then both the manual sender and the hooks use it.
    | Private chat (DM) | numeric user id, e.g. `123456789` | start a chat with the bot first |
    | Group / supergroup | negative id, e.g. `-1001234567890` | add the bot to the group; set `TELEGRAM_THREAD_ID` for a forum topic |
    | Channel | `-100…` id or `@username` | add the bot as an **admin** |
-
-#### Two destinations: DM hooks vs. report group
-
-`agent-telegram-notify` (and its hooks) use **`TELEGRAM_CHAT_ID`** — typically your **DM**, so
-"task finished / needs attention" pings reach you privately. The **`agent-telegram-notify`**
-skill sends explicit, on-request reports to a separate **`TELEGRAM_NOTIFY_*`**
-destination — a **group with topics**:
-
-| Var | Purpose |
-|---|---|
-| `TELEGRAM_NOTIFY_CHAT_ID` | Report group/supergroup id (e.g. `-100…`). |
-| `TELEGRAM_NOTIFY_COMPLETION_THREAD` | Forum topic for completion reports. |
-| `TELEGRAM_NOTIFY_TASK_THREAD` | Forum topic for task reports. |
-
-Keep these out of `TELEGRAM_CHAT_ID` — topics need a group, and the DM is for the
-hooks. For a single user, the `TELEGRAM_NOTIFY_*` vars sit nicely in
-`~/.claude/settings.json` (`env` block); the bot token stays in the chmod-600
-creds file. If `agent-telegram-notify` finds a required value unset, it **asks** rather than
-sending blind.
 
 The hooks fire on these events (auto-registered from `hooks/hooks.json`):
 
@@ -573,7 +546,7 @@ State, logs, and undelivered payloads live under `$TG_NOTIFY_HOME`
 
 - `kanban-schedule-run`: `atd` running (`systemctl is-active atd`), `at`/`atq`/`atrm`,
   a tmux/byobu session, and `claude` on `PATH`.
-- `agent-telegram-notify`: `curl`, `jq`, `python3`, and (for the context header in hooks) a
+- Telegram lifecycle hooks: `curl`, `jq`, `python3`, and (for the context header in hooks) a
   tmux/byobu session. A `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` as above.
 
 ## Recommendation skills
@@ -585,7 +558,7 @@ State, logs, and undelivered payloads live under `$TG_NOTIFY_HOME`
 
 A debugged, **universal** skill / agent / rule belongs in this plugin. Criteria:
 it works correctly **and** carries no personal data. Parameterize it via env/config
-following the `agent-telegram-notify` pattern:
+following the Telegram hook configuration pattern:
 
 - secrets in `~/.config/<tool>/.env` (chmod 600) + a placeholder `.env.example` in git;
 - the skill body references env vars only — no hardcoded chat ids, threads, tokens,

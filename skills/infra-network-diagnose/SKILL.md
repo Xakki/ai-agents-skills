@@ -1,7 +1,6 @@
 ---
 name: infra-network-diagnose
 description: 'Diagnose endpoint connectivity and proxy routing across the actual network boundaries. Use when a service is unreachable or traffic is routed unexpectedly. RU: сеть, прокси, недоступен.'
-disable-model-invocation: true
 ---
 
 # Network boundary diagnostics
@@ -16,6 +15,6 @@ Use the smallest authorized observation or synthetic probe that distinguishes co
 
 Interpret only boundaries actually reached: a proxy tunnel rejection does not establish the origin's HTTP or TLS behavior, and a default verification field is not a successful handshake when that handshake never completed. Compare direct and proxied paths only when both are in the authorized probe scope.
 
-Report the first observed failing boundary, actual tested paths, time and limitations; mark untested alternatives as unknown. Use the superpowers `systematic-debugging` skill for general causal investigation and [deployment operations](../deploy-rollout-run/SKILL.md) only when an operational change is authorized.
+Report the first observed failing boundary, actual tested paths, time and limitations; mark untested alternatives as unknown. Use the superpowers `systematic-debugging` skill for general causal investigation and ask the user to invoke `deploy-rollout-run` when its separate operational procedure is needed and authorized.
 
 For a local service that invokes an existing command-line worker, consult [bounded worker service](references/bounded-worker-service.md) when that specific architecture is in scope.

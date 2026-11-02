@@ -11,8 +11,8 @@ set -uo pipefail
 case "${TG_NOTIFY_ENABLED:-1}" in 0|[Ff][Aa][Ll][Ss][Ee]|[Nn][Oo]|[Oo][Ff][Ff]) exit 0 ;; esac
 
 HOOK_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
-# shellcheck source=../skills/agent-telegram-notify/runtime.sh
-source "$HOOK_DIR/../skills/agent-telegram-notify/runtime.sh"
+# shellcheck source=telegram/runtime.sh
+source "$HOOK_DIR/telegram/runtime.sh"
 
 PENDING_DIR="$TG_PENDING_DIR"
 [[ -d "$PENDING_DIR" ]] || exit 0

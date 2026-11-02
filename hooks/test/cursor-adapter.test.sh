@@ -6,13 +6,13 @@
 #
 # Test isolation: any test that exercises tg-on-stop.sh (which schedules a
 # real, detached `setsid` background job) MUST run through a *sandboxed*
-# TG_SKILL_DIR, not just an exported TG_SENDER. skills/agent-telegram-notify/runtime.sh
+# TG_SKILL_DIR, not just an exported TG_SENDER. hooks/telegram/runtime.sh
 # derives TG_SENDER from its OWN script location
 # (`TG_SENDER="$TG_SKILL_DIR/agent-telegram-notify.sh"`, unconditional assignment, not
 # `${TG_SENDER:-...}`) every time it is sourced, so an exported TG_SENDER is
 # silently clobbered and the REAL agent-telegram-notify.sh's executable bit is what gets
 # checked. Fix: invoke the target script through a throwaway directory tree
-# that mirrors hooks/ + skills/agent-telegram-notify/ via symlinks, with agent-telegram-notify.sh
+# that mirrors hooks/ + hooks/telegram/ via symlinks, with agent-telegram-notify.sh
 # itself replaced by a local stub — this changes no shared script (runtime.sh
 # is off-limits per AGENTS.md/plan) and is a pure test-side injection.
 set -euo pipefail
@@ -118,9 +118,9 @@ OUT_MT=$(printf '%s' "$SESSION_START_PAYLOAD" | "$ADAPTER" model-tiers-inject.sh
 printf '%s' "$OUT_MT" | jq -e . >/dev/null 2>&1 || fail "model-tiers sessionStart output is not valid JSON: $OUT_MT"
 printf '%s' "$OUT_MT" | jq -e 'has("additional_context")' >/dev/null 2>&1 || fail "model-tiers sessionStart output missing additional_context key: $OUT_MT"
 CTX_MT=$(printf '%s' "$OUT_MT" | jq -r '.additional_context')
-printf '%s' "$CTX_MT" | grep -q 'cheap = haiku' || fail "model-tiers inject missing cheap = haiku: $CTX_MT"
-printf '%s' "$CTX_MT" | grep -q 'standard = sonnet' || fail "model-tiers inject missing standard = sonnet: $CTX_MT"
-printf '%s' "$CTX_MT" | grep -q 'judgment = opus' || fail "model-tiers inject missing judgment = opus: $CTX_MT"
+printf '%s' "$CTX_MT" | grep -q 'cheap = unconfigured' || fail "model-tiers inject missing cheap = unconfigured: $CTX_MT"
+printf '%s' "$CTX_MT" | grep -q 'standard = unconfigured' || fail "model-tiers inject missing standard = unconfigured: $CTX_MT"
+printf '%s' "$CTX_MT" | grep -q 'judgment = unconfigured' || fail "model-tiers inject missing judgment = unconfigured: $CTX_MT"
 printf '%s' "$CTX_MT" | grep -q 'runtime = cursor' || fail "model-tiers inject missing runtime = cursor: $CTX_MT"
 unset CURSOR_PLUGIN_ROOT
 echo "PASS sessionStart -> model-tiers-inject.sh reshaping"
@@ -153,25 +153,25 @@ unset TG_NOTIFY_HOME
 # 3. stop -> tg-on-stop.sh cwd derivation + scheduling
 #
 # Runs through a SANDBOXED TG_SKILL_DIR (see header comment) so the delayed
-# job invokes a local stub instead of the real skills/agent-telegram-notify/agent-telegram-notify.sh,
+# job invokes a local stub instead of the real hooks/telegram/agent-telegram-notify.sh,
 # and uses a short, explicit TG_NOTIFY_STOP_DELAY so the background job
 # finishes (and we can positively confirm it exited) in well under a second
 # — no shared script is modified, only a parallel symlink tree in $TMP.
 # ---------------------------------------------------------------------------
 SANDBOX="$TMP/sandbox"
-mkdir -p "$SANDBOX/hooks" "$SANDBOX/skills/agent-telegram-notify"
+mkdir -p "$SANDBOX/hooks" "$SANDBOX/hooks/telegram"
 ln -s "$HOOKS_DIR/cursor-adapter.sh" "$SANDBOX/hooks/cursor-adapter.sh"
 ln -s "$HOOKS_DIR/tg-on-stop.sh" "$SANDBOX/hooks/tg-on-stop.sh"
-ln -s "$REPO_ROOT/skills/agent-telegram-notify/context-header.sh" "$SANDBOX/skills/agent-telegram-notify/context-header.sh"
-ln -s "$REPO_ROOT/skills/agent-telegram-notify/runtime.sh" "$SANDBOX/skills/agent-telegram-notify/runtime.sh"
+ln -s "$REPO_ROOT/hooks/telegram/context-header.sh" "$SANDBOX/hooks/telegram/context-header.sh"
+ln -s "$REPO_ROOT/hooks/telegram/runtime.sh" "$SANDBOX/hooks/telegram/runtime.sh"
 
 STUB_CALL_LOG="$TMP/stub-tg-sender.calls"
-cat > "$SANDBOX/skills/agent-telegram-notify/agent-telegram-notify.sh" <<EOF
+cat > "$SANDBOX/hooks/telegram/agent-telegram-notify.sh" <<EOF
 #!/usr/bin/env bash
 printf '%s\t%s\n' "\$(date -Iseconds)" "\$*" >> "$STUB_CALL_LOG"
 exit 0
 EOF
-chmod +x "$SANDBOX/skills/agent-telegram-notify/agent-telegram-notify.sh"
+chmod +x "$SANDBOX/hooks/telegram/agent-telegram-notify.sh"
 
 export TG_NOTIFY_HOME="$TMP/home2"
 mkdir -p "$TG_NOTIFY_HOME/state"
@@ -299,7 +299,7 @@ fi
 echo "PASS regression guard: no Notification/PermissionRequest binding"
 
 # ---------------------------------------------------------------------------
-# 7. No drift in shared hooks not intentionally extended by another runtime
+# 7. No drift in shared hooks not intentionally changed by this migration
 #    adapter (staged AND unstaged, i.e.
 #    the full working-tree diff against HEAD — not just the unstaged diff
 #    against the index, which would miss a `git add`-ed regression).
@@ -308,9 +308,6 @@ cd "$REPO_ROOT"
 if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     DIFF=$(git diff HEAD --stat -- \
         hooks/abbr-inject.sh \
-        hooks/tg-prompt-start.sh \
-        hooks/tg-on-notification.sh \
-        hooks/tg-cancel-pending.sh \
         skills/agents 2>/dev/null || true)
     [ -z "$DIFF" ] || fail "pre-existing hook files/skills/agents must not change:
 $DIFF"

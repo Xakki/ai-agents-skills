@@ -1,1 +1,10 @@
-[]
+[
+  "hooks/telegram/.env.example",
+  "hooks/telegram/runtime.sh",
+  "hooks/telegram/context-header.sh",
+  "hooks/telegram/agent-telegram-notify.sh",
+  "skills/agent-integration-audit/references/plugin-hook-evidence.md",
+  "skills/agent-hook-verify/references/notification-hooks.md",
+  "skills/kanban-epic-coordinate/references/cross-repository-evidence.md",
+  "skills/kanban-epic-coordinate/references/continuity-and-evidence.md"
+]

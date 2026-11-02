@@ -14,7 +14,7 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SENDER = ROOT / "skills" / "agent-telegram-notify" / "agent-telegram-notify.sh"
+SENDER = ROOT / "hooks" / "telegram" / "agent-telegram-notify.sh"
 TOKEN = "123456:synthetic_token_value"
 CHAT = "-100424242"
 BODY = "synthetic private body"

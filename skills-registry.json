@@ -56,7 +56,23 @@
       "kanban-card-review",
       "kanban-epic-coordinate",
       "quality-change-verify",
-      "quality-change-review"
+      "quality-change-review",
+      "agent-hook-verify",
+      "kanban-schedule-run",
+      "agent-skill-sync",
+      "git-path-run",
+      "deploy-artifact-publish",
+      "infra-network-diagnose",
+      "agent-command-run",
+      "api-yandex-oauth-run",
+      "code-config-audit",
+      "agent-integration-audit",
+      "agent-model-find",
+      "api-stream-diagnose",
+      "code-async-review",
+      "code-durable-review",
+      "docs-diagram-build",
+      "docs-prose-fix"
     ]
   }
 }

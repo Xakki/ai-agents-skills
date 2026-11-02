@@ -1,7 +1,6 @@
 ---
 name: agent-model-find
 description: 'Resolve optional model-tier settings through the active agent runtime. Use when a task needs model selection or a delegation policy is configured. RU: выбор модели, уровни моделей.'
-disable-model-invocation: true
 ---
 
 # Model tiers

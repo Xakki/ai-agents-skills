@@ -2,7 +2,6 @@
 name: api-stream-diagnose
 description: 'Debug and verify streamed parsers, framing, terminal state and continuation requests. Use when a streamed response or parser fixture misbehaves. RU: стриминг, SSE, потоковый ответ.'
 license: MIT
-disable-model-invocation: true
 ---
 
 # Stream protocol contracts

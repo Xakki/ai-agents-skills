@@ -1,7 +1,6 @@
 ---
 name: agent-command-run
 description: 'Run a noisy command and report compact output without losing failure evidence or confusing process outcomes. Use when command output is too large to review interactively. RU: длинный вывод команды, сжать вывод.'
-disable-model-invocation: true
 ---
 
 # Compact command reporting
