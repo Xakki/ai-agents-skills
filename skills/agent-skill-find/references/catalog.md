@@ -80,6 +80,7 @@ by reading its file. Supporting files of an invoked skill remain usable as its d
 
 ## monitor: logs, metrics, tracing, dashboards, alerts
 
+- `monitor-logging-libraries-setup`*: Set up or review application and nginx logging with the owner's Xakki logging libraries (log-fluent collector, log-laravel, log-symfony, log-python, legacy... [логирование в проекте, библиотеки логирования, настроить логи php python nginx, правила логирования]
 - `monitor-telemetry-setup`: Design, configure or diagnose telemetry delivery, structured logging (Fluent Bit), storage and dashboards from observable runtime evidence [логи, мониторинг, дашборд, сбор логов]
 
 ## personal: notes, reminders, mail, calendar, career and household tasks

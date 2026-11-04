@@ -137,6 +137,7 @@ Logs, metrics, tracing, dashboards, alerts.
 
 | Skill | What it does |
 |---|---|
+| **monitor-logging-libraries-setup** | Set up or review app and nginx logging with the owner's logging libraries and enforce the LoggingRules. |
 | **monitor-telemetry-setup** | Design, configure or diagnose telemetry delivery, structured logging (Fluent Bit), storage and dashboards from observable runtime evidence. |
 
 ### personal

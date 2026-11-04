@@ -1,6 +1,6 @@
 {
   "name": "ai-agents-skills",
-  "version": "0.3.8",
+  "version": "0.3.9",
   "description": "Skills and optional hooks for Cursor Agent CLI/IDE: Kanban boards, Git safety, review and verification, security, deployment, monitoring, research, Telegram notifications and reviewed skill import. Skills are named <area>-<object>-<goal>; skill descriptions support discovery and full instructions load on invocation. The scheduled-run prototype is Claude-specific.",
   "author": {
     "name": "Xakki"

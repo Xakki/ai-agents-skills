@@ -72,7 +72,8 @@
       "code-async-review",
       "code-durable-review",
       "docs-diagram-build",
-      "docs-prose-fix"
+      "docs-prose-fix",
+      "monitor-logging-libraries-setup"
     ]
   }
 }

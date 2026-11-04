@@ -3,7 +3,7 @@ SHELL = /bin/bash
 INSTALL_DIR ?= $(HOME)/.claude/plugins/cache/ai-agents-skills/ai-agents-skills/$(shell awk '/^version:/{gsub(/"/,"",$$2);print $$2}' plugin.yaml)
 ACT        ?= skills/agent-hook-verify
 
-.PHONY: help test test-hooks test-lint sync install-path
+.PHONY: help test test-hooks test-lint registry-apply registry-check sync install-path
 .DEFAULT_GOAL := help
 
 ##@ Help
@@ -18,6 +18,14 @@ test-hooks:  ## Assert guard-bash blocks/allows the right commands
 
 test-lint:  ## Lint settings of a project: make test-lint DIR=/path
 	$(ACT)/lint-settings.sh $(or $(DIR),$(CURDIR))
+
+##@ Registry
+registry-apply:  ## Regenerate skill policy files and catalog from skills-registry.json
+	python3 -B scripts/skills_registry.py apply
+
+registry-check:  ## Check skill names, invocation policy and catalog; run the registry tests
+	python3 -B scripts/skills_registry.py check
+	python3 -m unittest tests.test_skill_registry
 
 ##@ Plugin
 install-path:  ## Print the dir the running plugin loads from
