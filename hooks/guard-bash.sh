@@ -3,7 +3,7 @@
 #
 # SCOPE — make is required only for talking to SERVICES, CONTAINERS and language
 # RUNTIMES: docker/compose, package managers, python/php/node/go toolchains, DB
-# clients, web servers. Plain shell is NOT in scope and is never redirected to a
+# clients. Plain shell is NOT in scope and is never redirected to a
 # make target: ls, find, grep, sed, awk, cat, jq, curl, tar, cp, mkdir, chmod,
 # diff, xargs, read-only git — all pass through untouched.
 #
@@ -21,6 +21,9 @@
 #
 # Tested by skills/agent-hook-verify/test-hooks.sh (cases/guard-bash.tsv).
 set -uo pipefail
+# Byte semantics: ${s:i:1} is O(i) in a UTF-8 locale, which made the char scans
+# quadratic (15 s on a 26 KB heredoc). Patterns here are ASCII-only.
+export LC_ALL=C
 
 input=$(cat)
 cmd=$(jq -r '.tool_input.command // empty' <<<"$input" 2>/dev/null) || exit 0
@@ -61,11 +64,11 @@ CMD='(^|[;&|()]|'$'\n'')[[:space:]]*((env|time|nohup|exec|sudo)[[:space:]]+)?([A
 # Local binary dirs: ./vendor/bin/phpunit, node_modules/.bin/jest, .venv/bin/pytest
 BIN='((\./)?[A-Za-z0-9_./-]*(vendor/bin|node_modules/\.bin|\.venv/bin|venv/bin)/)?'
 
-# --- Quote-aware routing scan (sections 3/4/5 ONLY — never sections 1/2) ----
+# --- Quote-aware routing scan (sections 3/4 ONLY — never sections 1/2) ----
 # `make -C docker run CMD="pytest tests/ && ruff check"` must be ALLOWED: the
 # `&&` and `pytest`/`ruff` text live inside a quoted VALUE handed to make, not
 # a command position in the agent's own shell. Routing rules (docker/toolchain/
-# webserver, sections 3-5) must not treat a separator or tool name inside
+# sections 3-4) must not treat a separator or tool name inside
 # quotes as real. Safety rules (sections 1-2) are the opposite on purpose —
 # they scan $cmd raw, below — because a destructive command hidden inside a
 # quoted make argument (`make run CMD="rm -rf ./x"`) is still a real rm once
@@ -74,34 +77,77 @@ BIN='((\./)?[A-Za-z0-9_./-]*(vendor/bin|node_modules/\.bin|\.venv/bin|venv/bin)/
 # neutralize_quotes replaces the CONTENTS of every '...'/"..." span with '#',
 # keeping the quote characters and the string length, so CMD's positional
 # anchors still line up outside quotes while nothing inside a quote can ever
-# look like a separator or a tool name to sections 3-5. Backslash-escaped
+# look like a separator or a tool name to sections 3-4. Backslash-escaped
 # characters inside double quotes are neutralised too without toggling the
 # quote state on them.
 neutralize_quotes() {
-	local s=$1 out='' c i=0 len=${#1} insq=0 indq=0
-	while (( i < len )); do
-		c=${s:i:1}
-		if (( insq )); then
-			[[ "$c" == "'" ]] && { insq=0; out+="$c"; } || out+='#'
-		elif (( indq )); then
-			if [[ "$c" == '\' && $((i + 1)) -lt $len ]]; then
-				out+='##'; (( i++ ))
-			elif [[ "$c" == '"' ]]; then
-				indq=0; out+="$c"
-			else
-				out+='#'
-			fi
-		elif [[ "$c" == "'" ]]; then
-			insq=1; out+="$c"
-		elif [[ "$c" == '"' ]]; then
-			indq=1; out+="$c"
+	# Chunked: jump to the next quote with a pattern strip instead of walking
+	# every character (a char loop made long commands take seconds).
+	local rest=$1 out='' pre q body inner c i len
+	while [[ -n "$rest" ]]; do
+		pre=${rest%%[\'\"]*}
+		out+=$pre; rest=${rest:${#pre}}
+		[[ -z "$rest" ]] && break
+		q=${rest:0:1}; body=${rest:1}
+		if [[ "$q" == "'" ]]; then
+			inner=${body%%\'*}
+			out+="'"${inner//?/#}
+			if [[ "$inner" == "$body" ]]; then rest=''; else out+="'"; rest=${body:${#inner}+1}; fi
 		else
-			out+="$c"
+			# double quotes: walk only the quoted span, honouring backslash escapes
+			out+='"'; i=0; len=${#body}
+			while (( i < len )); do
+				c=${body:i:1}
+				if [[ "$c" == '\' ]] && (( i + 1 < len )); then out+='##'; (( i += 2 )); continue; fi
+				[[ "$c" == '"' ]] && break
+				out+='#'; (( i++ ))
+			done
+			if (( i < len )); then out+='"'; rest=${body:i+1}; else rest=''; fi
 		fi
-		(( i++ ))
 	done
 	printf '%s' "$out"
 }
+# --- Heredoc bodies are data -------------------------------------------------
+# `cat > notes.md <<EOF` writes TEXT: a body line that starts with pytest, rm -rf
+# or docker must not read as a command, and an apostrophe in it must not flip
+# the quote state of the scan. Each body line is replaced by '#' of the same
+# length (offsets stay aligned with $cmd). A body fed to a shell or ssh
+# (`bash -s <<EOF`, `ssh h <<EOF`, `docker exec -i c sh <<EOF`) IS a script and
+# stays visible to every check.
+neutralize_heredocs() {
+	local s=$1 out='' line nl cmp tmp pre seg m
+	local re="<<(-?)[[:space:]]*['\"]?([A-Za-z_][A-Za-z0-9_]*)['\"]?"
+	local shell_re="(^|[[:space:]/'\"])(sh|bash|zsh|dash|ksh|ssh|eval|xargs)([[:space:]'\"]|$)"
+	local -a delims=() strips=() keeps=()
+	while :; do
+		if [[ "$s" == *$'\n'* ]]; then line=${s%%$'\n'*}; s=${s#*$'\n'}; nl=$'\n'
+		else line=$s; s=''; nl=''; fi
+		if (( ${#delims[@]} )); then
+			cmp=$line
+			if (( strips[0] )); then while [[ "$cmp" == $'\t'* ]]; do cmp=${cmp#$'\t'}; done; fi
+			if [[ "$cmp" == "${delims[0]}" ]]; then
+				out+=$line; delims=("${delims[@]:1}"); strips=("${strips[@]:1}"); keeps=("${keeps[@]:1}")
+			elif (( keeps[0] )); then out+=$line
+			else out+=${line//?/#}; fi
+		else
+			out+=$line
+			tmp=${line//<<</___}
+			while [[ "$tmp" =~ $re ]]; do
+				m=${BASH_REMATCH[0]}   # saved: the shell test below resets BASH_REMATCH
+				delims+=("${BASH_REMATCH[2]}")
+				[[ "${BASH_REMATCH[1]}" == - ]] && strips+=(1) || strips+=(0)
+				pre=${tmp%%"$m"*}
+				seg=${pre##*[;&|(]}
+				if [[ "$seg" =~ $shell_re ]]; then keeps+=(1); else keeps+=(0); fi
+				tmp=${tmp#*"$m"}
+			done
+		fi
+		out+=$nl
+		[[ -z "$nl" ]] && break
+	done
+	printf '%s' "$out"
+}
+cmd=$(neutralize_heredocs "$cmd")
 scan_cmd=$(neutralize_quotes "$cmd")
 
 # --- 1-2. Destructive filesystem / git — executor-aware safety scan ---------
@@ -132,8 +178,8 @@ check_destructive() {
 	if [[ "$c" =~ ${lead}rm[[:space:]]+(-[a-zA-Z]*[rR][a-zA-Z]*f|-[a-zA-Z]*f[a-zA-Z]*[rR]|-r[[:space:]]+-f|-f[[:space:]]+-r) ]] \
 		&& [[ ! "$c" =~ /(var/)?tmp/backup/ ]]; then
 		block "recursive force-delete" \
-"Never delete files — rename with a 'backup_' prefix into /var/tmp/backup/<project>/.
-A real deletion needs an explicit 'yes' from the user first."
+"Never delete files — mv them into the project's ./tmp/backup/ and, when the task
+is done, offer the user to delete them. A real deletion needs the user's explicit 'yes'."
 	fi
 
 	if [[ "$c" =~ git[[:space:]].*push.*(--force([^-]|$)|[[:space:]]-f${bound}) ]]; then
@@ -156,7 +202,7 @@ exists, even if the diff looks trivial. Ask before discarding."
 	if [[ "$c" =~ git[[:space:]]+worktree[[:space:]]+remove.*--force ]]; then
 		block "git worktree remove --force" \
 "This is an rm -rf of the worktree and destroys untracked files. Run
-'git status --porcelain' on it first and move anything untracked to /var/tmp/backup/."
+'git status --porcelain' on it first and move anything untracked to ./tmp/backup/."
 	fi
 }
 
@@ -214,26 +260,29 @@ check_payloads() {
 # offsets — neutralize_quotes preserves length, so a separator surviving in the
 # neutralised copy is a real, unquoted one at the same index in $cmd.
 seg_start=0
-for (( p = 0; p <= ${#scan_cmd}; p++ )); do
-	sep=${scan_cmd:p:1}
-	if (( p == ${#scan_cmd} )) || [[ "$sep" == [';&|'] || "$sep" == $'\n' ]]; then
-		seg_scan=${scan_cmd:seg_start:p-seg_start}
-		[[ "$seg_scan" =~ $EXEC_RE ]] && check_payloads "${cmd:seg_start:p-seg_start}"
-		seg_start=$((p + 1))
-	fi
+rest=$scan_cmd
+while :; do
+	pre=${rest%%[;\&|$'\n']*}
+	seg_scan=$pre
+	[[ "$seg_scan" =~ $EXEC_RE ]] && check_payloads "${cmd:seg_start:${#pre}}"
+	(( ${#pre} == ${#rest} )) && break
+	rest=${rest:${#pre}+1}
+	seg_start=$((seg_start + ${#pre} + 1))
 done
 
 # --- 3. Docker driven directly ----------------------------------------------
-# Blocked: lifecycle verbs. Allowed: config, ps, port, logs, top, images, inspect,
-# version, stats — read-only inspection needs no target.
+# docker compose / docker-compose is blocked in EVERY form, read-only included
+# (owner rule 2026-11-14): the project Makefile owns the compose invocation.
+# Plain docker: lifecycle verbs blocked, read-only ps/logs/inspect/stats allowed.
 # Scans $scan_cmd (quote-neutralised), NOT $cmd — see the note above CMD/BIN.
-if [[ "$scan_cmd" =~ ${CMD}docker[-[:space:]]+compose[[:space:]]+(up|down|build|create|start|stop|restart|kill|rm|run|exec|cp|pull|push|scale|watch|wait) ]] \
+if [[ "$scan_cmd" =~ ${CMD}docker[-[:space:]]+compose([[:space:]]|$) ]] \
 	|| [[ "$scan_cmd" =~ ${CMD}docker[[:space:]]+(run|exec|build|create|start|stop|restart|kill|rm|rmi|cp|commit|push|update|prune)([[:space:]]|$) ]] \
 	|| [[ "$scan_cmd" =~ ${CMD}docker[[:space:]]+(volume|network|system|image|container|builder)[[:space:]]+(rm|prune|create) ]]; then
 	block "direct docker / docker compose command" \
-"The stack is never driven by docker directly. $via_make
-Read-only 'docker ps|logs|inspect|stats' and 'docker compose config|ps|port|logs'
-stay allowed."
+"Never call docker compose yourself, not even config/ps/logs. Write a generic
+Makefile target that wraps it (e.g. 'compose: ## Run docker compose ARGS' ->
+\$(COMPOSE) \$(ARGS)) and call make. $via_make
+Read-only plain 'docker ps|logs|inspect|stats' stays allowed."
 fi
 
 # --- 4. Host toolchain instead of the container -----------------------------
@@ -258,20 +307,6 @@ if [[ "$scan_cmd" =~ ${CMD}${BIN}(pytest|tox|nox|ruff|mypy|black|isort|flake8|py
 	block "bare host toolchain call" \
 "This runs on the host, against the wrong environment — wrong interpreter
 version, missing extensions, no service network. $via_make"
-fi
-
-# --- 5. Web servers and process supervisors ---------------------------------
-# `nginx -v/-V` is a version print and stays allowed; everything else drives a
-# running service. Read-only `systemctl status|list-units` stays allowed too.
-# Scans $scan_cmd (quote-neutralised), NOT $cmd — see the note above CMD/BIN.
-if { [[ "$scan_cmd" =~ ${CMD}(nginx|apache2ctl|apachectl|httpd|php-fpm|supervisorctl|certbot)([[:space:]]|$) ]] \
-	&& [[ ! "$scan_cmd" =~ ${CMD}nginx[[:space:]]+-[vV]([[:space:]]|$) ]]; } \
-	|| [[ "$scan_cmd" =~ ${CMD}systemctl[[:space:]]+(start|stop|restart|reload|enable|disable|mask) ]]; then
-	block "web server / service control from the host" \
-"Services here are containers, not host daemons — a host nginx/php-fpm/systemctl
-call hits the wrong thing or nothing at all. $via_make
-Host-level service control that genuinely needs root goes to the user as a
-ready-to-paste command instead."
 fi
 
 exit 0

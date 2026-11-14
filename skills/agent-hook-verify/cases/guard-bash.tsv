@@ -64,12 +64,12 @@
 2	redis-cli ping
 
 # --- web servers / service control --------------------------------------------
-2	nginx -s reload
-2	nginx -t
-2	php-fpm -t
-2	supervisorctl restart worker
-2	systemctl restart nginx
-2	certbot renew
+0	nginx -s reload	nginx is not guarded (2026-11-14)
+0	nginx -t	nginx is not guarded (2026-11-14)
+0	php-fpm -t	service control is not guarded (2026-11-14)
+0	supervisorctl restart worker	service control is not guarded (2026-11-14)
+0	systemctl restart nginx	service control is not guarded (2026-11-14)
+0	certbot renew	service control is not guarded (2026-11-14)
 
 # --- destructive fs / git -----------------------------------------------------
 2	rm -rf ./build
@@ -90,10 +90,10 @@
 0	docker logs -f api
 0	docker inspect api
 0	docker stats --no-stream
-0	docker compose config
-0	docker compose ps
-0	docker compose port api 8000
-0	docker compose logs -f api
+2	docker compose config	docker compose blocked in every form (2026-11-14)
+2	docker compose ps	docker compose blocked in every form (2026-11-14)
+2	docker compose port api 8000	docker compose blocked in every form (2026-11-14)
+2	docker compose logs -f api	docker compose blocked in every form (2026-11-14)
 0	git status
 0	git log --oneline -5
 0	git diff HEAD~1
@@ -188,5 +188,14 @@
 0	which python3
 0	date +%F
 0	tee /tmp/out.log
-0	nginx -v	version print, not service control
+0	cat > notes.md <<EOF\nnginx reload is done via make\nEOF	heredoc text mentioning nginx
 0	systemctl status nginx	read-only status
+
+# --- heredoc bodies (2026-11-14) ----------------------------------------------
+0	cat > n.md <<'EOF'\npytest tests/\nrm -rf /var/lib/x\ndocker compose up\ndon't stop\nEOF	heredoc body is data
+0	cat > n.md <<-EOF\nsystemctl restart x\nEOF	<<- heredoc
+0	cat <<<"docker compose up"	here-string is not a heredoc
+2	bash -s <<EOF\ndocker compose up\nEOF	heredoc fed to a shell is a script
+2	ssh h 'bash -s' <<EOF\nrm -rf /var/lib/x\nEOF	heredoc fed to ssh is a script
+2	cat > f <<EOF\nx\nEOF\ndocker compose up	command after the heredoc ends
+2	cat > f <<EOF\nx\nEOF\nrm -rf /var/lib/x	destructive after the heredoc ends
