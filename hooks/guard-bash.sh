@@ -209,7 +209,7 @@ exists, even if the diff looks trivial. Ask before discarding."
 check_destructive "$scan_cmd" "$ORIG_LEAD" "$ORIG_BOUNDARY"
 
 # Executors: things that run a quoted argument as a real command.
-EXEC_RE="${CMD}"'(make([[:space:]]|$)|(sh|bash|zsh)[[:space:]]+-c([[:space:]]|$)|eval([[:space:]]|$)|xargs([[:space:]]|$)|docker[[:space:]]+exec([[:space:]]|$)|docker[[:space:]]+compose[[:space:]]+(run|exec)([[:space:]]|$))'
+EXEC_RE="${CMD}"'(make([[:space:]]|$)|(sh|bash|zsh)[[:space:]]+-c([[:space:]]|$)|eval([[:space:]]|$)|xargs([[:space:]]|$)|docker[[:space:]]+(exec|run)([[:space:]]|$)|docker[[:space:]]+compose[[:space:]]+(run|exec)([[:space:]]|$))'
 
 # check_payloads recurses ONE level: it pulls the quoted argument an executor
 # will run and re-checks it AS A COMMAND, with the ordinary anchors. That is
@@ -273,16 +273,16 @@ done
 # --- 3. Docker driven directly ----------------------------------------------
 # docker compose / docker-compose is blocked in EVERY form, read-only included
 # (owner rule 2026-11-14): the project Makefile owns the compose invocation.
-# Plain docker: lifecycle verbs blocked, read-only ps/logs/inspect/stats allowed.
+# Plain docker (any verb) is not blocked here (owner rule 2026-11-15: only
+# `docker compose *` is banned); deletion/rollback limits stay AGENTS.md rules.
+# An exec/run payload is still re-checked by check_payloads via EXEC_RE.
 # Scans $scan_cmd (quote-neutralised), NOT $cmd — see the note above CMD/BIN.
-if [[ "$scan_cmd" =~ ${CMD}docker[-[:space:]]+compose([[:space:]]|$) ]] \
-	|| [[ "$scan_cmd" =~ ${CMD}docker[[:space:]]+(run|exec|build|create|start|stop|restart|kill|rm|rmi|cp|commit|push|update|prune)([[:space:]]|$) ]] \
-	|| [[ "$scan_cmd" =~ ${CMD}docker[[:space:]]+(volume|network|system|image|container|builder)[[:space:]]+(rm|prune|create) ]]; then
-	block "direct docker / docker compose command" \
+if [[ "$scan_cmd" =~ ${CMD}docker[-[:space:]]+compose([[:space:]]|$) ]]; then
+	block "docker compose command" \
 "Never call docker compose yourself, not even config/ps/logs. Write a generic
 Makefile target that wraps it (e.g. 'compose: ## Run docker compose ARGS' ->
 \$(COMPOSE) \$(ARGS)) and call make. $via_make
-Read-only plain 'docker ps|logs|inspect|stats' stays allowed."
+Plain 'docker <verb>' (exec, run, ps, logs, restart, ...) is not blocked by this hook."
 fi
 
 # --- 4. Host toolchain instead of the container -----------------------------
