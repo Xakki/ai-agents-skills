@@ -1,9 +1,9 @@
 ---
-name: deploy-artifact-publish
-description: Set up project-specific or shared artifact publication and publish self-contained HTML with verified public readback. Use when asked to configure or publish an artifact or page.
+name: publish-artifact
+description: Set up project-specific or shared artifact publication and publish self-contained HTML with verified public readback, a script-maintained password-protected index and one-time password delivery. Use when asked to configure or publish an artifact or page.
 ---
 
-# deploy-artifact-publish
+# publish-artifact
 
 Set up and use a publisher appropriate to the project and its actual infrastructure. A
 publisher may be a project command, static server, object store, or other supported
@@ -30,13 +30,56 @@ backend; do not assume Make, nginx, a fixed route, or local file storage.
 
 ## Publish
 
-Read the entire input before publication. Publish only self-contained HTML (inline CSS/JS,
-no external hosts). Never publish impersonation, fabricated records/reviews, or deceptive
-credential/payment collection. Invoke the selected publisher according to its documented
-contract, using a unique project namespace and a nonconflicting slug. Read back the exact
-public HTTPS URL and compare the complete response with the expected published document,
-including any intentional transformation, before claiming success. Report the URL and any
-incomplete verification. Publication is an external write and needs user authorization.
+Read the entire input before publication. Identify salary expectations, career history and
+other personal or sensitive material in reports; publish only the content the owner explicitly
+authorized and warn that anyone with the link can read it. A response-local `noindex` directive
+is not access control. Include requested next actions in the artifact and distinguish planned
+steps from completed effects. Publish a single HTML document with inline
+CSS/JS and no assets that must be fetched from private or local paths. Links and
+`<a href>` to external sites are allowed and expected in reports; external scripts,
+styles, fonts and images are allowed too but make the page depend on those hosts, so
+prefer inline for anything essential. Resources must use `https://` (browsers block
+`http://` subresources on an HTTPS page). Check what the destination actually enforces
+(publisher validation, a Content-Security-Policy header, `X-Frame-Options`, a size limit)
+and read the page back to confirm it renders; do not assume the page is sandboxed.
+Never publish impersonation, fabricated records/reviews, or deceptive credential/payment
+collection. Invoke the selected publisher according to its documented contract, using a
+unique project namespace and a nonconflicting slug. Read back the exact public HTTPS URL
+and compare the complete response with the expected published document, including any
+intentional transformation, before claiming success. Report the URL and any incomplete
+verification. Publication is an external write and needs user authorization.
+
+## Artifact index
+
+A publisher that lists its artifacts keeps one index page under these rules:
+
+- Only the publisher script writes the index, as part of each publication. Do not edit it
+  by hand, regenerate it from a directory listing, or enable server autoindex. If a
+  publisher lacks this step, add it to the publisher instead of patching the page.
+- A new artifact is inserted at the top. Its row shows the creation date and time and the
+  artifact's `<title>` as the link to the artifact (the slug when there is no title).
+  Republishing an existing slug keeps the row's position and creation time and refreshes
+  only the title.
+- The index is rendered from a minimal self-contained template kept next to the publisher:
+  no external hosts, `noindex`, readable on a phone. Change the look in the template, not
+  in the generated page.
+- Only the index requires a password. Artifact pages stay public: their URLs are shared
+  with people who must not need credentials. Never put the protection on the whole route.
+- The publisher generates the password when the credential store is first created, keeps
+  only its hash outside the public directory and version control, and prints the plain
+  password once. Deliver it to the owner right then: in the agent's reply, or through the
+  owner's configured Telegram route when that was requested or nobody reads the reply.
+  Never write it into a page, log, commit, card or shared notification text. Later
+  publications print no password; do not regenerate an existing one unless asked.
+- After setting up or changing the route, verify with real requests: the index refuses
+  anonymous and wrong credentials, returns the stored page with the right ones, and an
+  artifact page still opens anonymously. After each publication confirm the new row is
+  first in the index.
+- When reports link to external sites, serve them with `Referrer-Policy: no-referrer` so the
+  report URL is not leaked in the `Referer` header.
+- When artifacts move to another publisher, copy the directories first, rebuild the index
+  from the original creation times, verify the new URLs, leave redirects from the old
+  routes, then retire the old publisher and its settings; keep the originals as a backup.
 
 ## Publication notifications
 

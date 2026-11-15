@@ -33,7 +33,7 @@ Digest of what reviews must check (the rules file is authoritative):
 | Collector (every Docker host) | <https://github.com/Xakki/log-fluent> | Composer `xakki/log-fluent`, or git submodule pinned to a tag for non-PHP stacks. The old `xakki/fluent-log` is dead |
 | Laravel | <https://github.com/Xakki/log-laravel> | `composer require xakki/laralog` |
 | Symfony | <https://github.com/Xakki/log-symfony> | `composer require xakki/log-symfony` (not a bundle: wire a Monolog processor, or the PSR-3 `EnrichingLogger` decorator) |
-| Python | <https://github.com/Xakki/log-python> | dist `xakki-pylog`, import `pylog`, call `pylog.setup()` once |
+| Python | <https://github.com/Xakki/log-python> | dist `xakki-pylog` (not on PyPI yet: install from git), import `pylog`, call `pylog.setup()` once. Install it inside the project's Python Docker image, never on the host; services always run in containers |
 | PHP without Symfony and Laravel (incl. 5.6) | `xakki/phperrorcatcher` | **Legacy.** Only for such projects; never add it to a Laravel or Symfony project |
 
 Read the chosen repository's README for the current wiring before editing; versions and options change.

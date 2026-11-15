@@ -37,8 +37,8 @@ by reading its file. Supporting files of an invoked skill remain usable as its d
 
 ## deploy: rollouts, releases, cutovers, publishing
 
-- `deploy-artifact-publish`*: Set up project-specific or shared artifact publication and publish self-contained HTML with verified public readback
 - `deploy-rollout-run`: Plan, perform or verify authorized rollouts, cutovers and releases with scoped evidence and rollback [деплой, выкатка, релиз]
+- `publish-artifact`*: Set up project-specific or shared artifact publication and publish self-contained HTML with verified public readback, a script-maintained password-protected index and...
 
 ## design: brand identity, graphics, visual design
 

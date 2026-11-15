@@ -23,8 +23,9 @@ and a slug, reports the exact HTTPS URL and errors, and handles collisions and c
 writes. Preserve existing artifacts; reject overwrite unless explicitly authorized. Ensure
 storage survives the project's ordinary deployments, and configure route, TLS, access and
 permissions for the chosen backend. Support complete HTML as-is; if fragments are accepted,
-document and verify their transformation. Avoid auto-generated directory listings unless
-explicitly requested. Do not assume a particular web server, filesystem, container, build
+document and verify their transformation. Do not expose auto-generated directory listings;
+a listing is the script-maintained, password-protected index described in SKILL.md, with
+its credential file stored outside the public directory and version control. Do not assume a particular web server, filesystem, container, build
 tool, or URL path. Configuration changes do not by themselves prove live publication.
 
 Check configuration and route ownership before activation. Verify the chosen hostname's
@@ -39,3 +40,9 @@ publisher contract accepts three separate arguments: absolute HTML input path, p
 namespace, and slug. The publisher reads its own global environment and prints the exact
 URL on stdout. For example: `"$ARTIFACT_GLOBAL_PUBLISHER" "$file" "$project" "$slug"`.
 This contract is optional for other backends: use their documented interface instead.
+
+The shared publisher may also keep the password-protected index. It then receives, from its own
+environment, the index tool path and the credential file path (kept outside the public
+directory), updates the index with `<project>/<slug>` after writing the page, and creates the
+credential only when the file is missing, printing the password once on stderr. Report that
+line to the owner immediately and never store the password elsewhere.

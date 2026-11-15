@@ -70,7 +70,7 @@ Rollouts, releases, cutovers, publishing.
 
 | Skill | What it does |
 |---|---|
-| **deploy-artifact-publish** | Publish a self-contained HTML artifact or page to a self-hosted static site via the project make target and return its public URL. Use when asked to publish a page. |
+| **publish-artifact** | Set up artifact publication and publish self-contained HTML with verified public readback, a script-maintained password-protected index and one-time password delivery. Use when asked to configure or publish an artifact or page. |
 | **deploy-rollout-run** | Plan, perform or verify authorized rollouts, cutovers and releases with scoped evidence and rollback. |
 
 ### design

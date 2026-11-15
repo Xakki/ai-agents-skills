@@ -68,7 +68,8 @@ def catalog_text(entries):
              'by reading its file. Supporting files of an invoked skill remain usable as its dependencies.', '']
     by_area = {}
     for name, description in entries:
-        by_area.setdefault(name.split('-')[0], []).append((name, description))
+        area = REGISTRY.get('name_exceptions', {}).get(name, name.split('-')[0])
+        by_area.setdefault(area, []).append((name, description))
     for area in sorted(by_area):
         lines += [f'## {area}: {REGISTRY["areas"][area]}', '']
         for name, description in by_area[area]:
@@ -91,7 +92,9 @@ def run(write):
             problems.append(str(error))
             continue
         match = NAME.match(name)
-        if not match or len(name) > MAX_NAME:
+        if name in REGISTRY.get('name_exceptions', {}):
+            pass
+        elif not match or len(name) > MAX_NAME:
             problems.append(f'{name}: name does not match <area>-<object>-<goal> or exceeds {MAX_NAME}')
         else:
             if match.group(1) not in REGISTRY['areas']:
